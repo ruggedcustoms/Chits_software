@@ -1,0 +1,303 @@
+<!doctype html><html><head><meta charset=utf8><script>/* Outside claude.ai there is no claude.use("downloads"), so saves become normal browser downloads. */
+if(!window.claude){window.claude={use:async function(n){if(n!=="downloads")return null;return{save:async function(o){var d=o.data,b=d instanceof Blob?d:new Blob([d]),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=o.filename||"download";document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000)}}}}}
+</script><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chit Member App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one phone-width column. Top bar, scrolling content, five-tab bottom bar. On a wide screen the column sits centred like a phone. */
+:root{--bg:#ffffff;--surface:#f4f8f8;--ink:#14232b;--mute:#587079;--line:#dbe6e6;--teal:#0b6e63;--teal-ink:#ffffff;--soft:#e2f0ee;--warn:#a8590a;--warn-bg:#fdf1e0;--bad:#b3261e;--bad-bg:#fcebe9;--good:#17753a;--good-bg:#e4f4ea;--shadow:0 1px 2px rgba(10,40,40,.08),0 6px 18px rgba(10,40,40,.06);--sans:'Plus Jakarta Sans','Noto Sans Kannada',system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d181b;--surface:#142428;--ink:#e5eef0;--mute:#96a9af;--line:#27393e;--teal:#3fb8aa;--teal-ink:#06201d;--soft:#16353a;--warn:#f0a43a;--warn-bg:#3a2b12;--bad:#f2837b;--bad-bg:#3d1d1b;--good:#5fd38a;--good-bg:#12301f;--shadow:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d181b;--surface:#142428;--ink:#e5eef0;--mute:#96a9af;--line:#27393e;--teal:#3fb8aa;--teal-ink:#06201d;--soft:#16353a;--warn:#f0a43a;--warn-bg:#3a2b12;--bad:#f2837b;--bad-bg:#3d1d1b;--good:#5fd38a;--good-bg:#12301f;--shadow:none;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.app{max-width:440px;height:100%;margin:0 auto;display:flex;flex-direction:column;background:var(--bg);position:relative}
+@media (min-width:600px){body{background:var(--surface)}.app{border-left:1px solid var(--line);border-right:1px solid var(--line)}}
+.top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.top h1{font-size:1.05rem;margin:0;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top .back{border:0;background:var(--soft);color:var(--teal);width:36px;height:36px;border-radius:50%;font-size:1.1rem}
+.demo{background:var(--warn-bg);color:var(--warn);font-size:.74rem;font-weight:600;padding:4px 16px;text-align:center;letter-spacing:.02em}
+main{flex:1;overflow-y:auto;padding:16px 16px 24px;-webkit-overflow-scrolling:touch}
+nav{display:flex;border-top:1px solid var(--line);background:var(--bg);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+nav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;font-size:.72rem;color:var(--mute);font-weight:500;border-radius:10px}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-current="page"]{color:var(--teal);font-weight:700}
+.hero{background:var(--teal);color:var(--teal-ink);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.hero small{opacity:.85;font-size:.8rem}
+.hero .big{font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.1}
+.hero .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.btn{border:0;border-radius:12px;padding:12px 18px;background:var(--teal);color:var(--teal-ink);font-weight:700}
+.btn.light{background:var(--teal-ink);color:var(--teal)}
+.btn.ghost{background:var(--soft);color:var(--teal)}
+.btn.block{width:100%}
+.btn[disabled]{opacity:.5}
+h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.07em;color:var(--mute);margin:22px 0 8px;font-weight:700}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+.card+.card{margin-top:10px}
+.chit{display:block;width:100%;text-align:left;cursor:pointer}
+.chit .t{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.chit b{font-size:1.05rem}
+.muted{color:var(--mute)}
+.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:700;white-space:nowrap}
+.pill.good{background:var(--good-bg);color:var(--good)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.nps{background:var(--soft);color:var(--teal)}
+.bar{height:7px;border-radius:99px;background:var(--soft);overflow:hidden;margin:10px 0 6px}
+.bar i{display:block;height:100%;background:var(--teal);border-radius:99px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.kv:first-child{border-top:0}
+.kv span:first-child{color:var(--mute)}
+.kv span:last-child{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:6px;margin:14px 0 10px;background:var(--surface);padding:4px;border-radius:12px}
+.tabs button{flex:1;border:0;background:none;padding:8px 4px;border-radius:9px;font-weight:600;color:var(--mute);font-size:.86rem}
+.tabs button[aria-selected="true"]{background:var(--bg);color:var(--teal);box-shadow:var(--shadow)}
+.inst{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:11px 0;border-top:1px solid var(--line)}
+.inst:first-child{border-top:0}
+.inst .n{font-weight:600}
+.inst .r{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.inst .s{font-size:.8rem;color:var(--mute)}
+.inst .p{font-size:.8rem;color:var(--bad);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+label{display:block;font-size:.82rem;color:var(--mute);font-weight:600;margin:12px 0 4px}
+input,select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;border:1.5px solid var(--line);background:var(--bg);border-radius:12px;padding:10px;font-weight:600}
+.seg button[aria-pressed="true"]{border-color:var(--teal);background:var(--soft);color:var(--teal)}
+.upi{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border-radius:12px;padding:12px;margin-top:8px}
+.upi b{overflow-wrap:anywhere}
+.login{padding:28px 20px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
+.logo{width:56px;height:56px;border-radius:16px;background:var(--teal);color:var(--teal-ink);display:grid;place-items:center;font-weight:700;font-size:1.4rem;margin-bottom:10px}
+.login h1{font-size:1.5rem;margin:0}
+.note{background:var(--soft);color:var(--teal);border-radius:12px;padding:10px 12px;font-size:.85rem;margin-top:12px}
+.ok{background:var(--good-bg);color:var(--good);border-radius:12px;padding:12px;font-weight:600;margin-top:12px}
+.msg{border-left:3px solid var(--teal);padding:2px 0 2px 10px}
+.msg+.msg{margin-top:14px}
+.empty{color:var(--mute);text-align:center;padding:24px 0}
+@media (prefers-reduced-motion:no-preference){main>*{animation:in .25s ease both}@keyframes in{from{opacity:.01;transform:translateY(4px)}to{opacity:1;transform:none}}}
+.stt{width:100%;border-collapse:collapse;font-size:.78rem;font-variant-numeric:tabular-nums}.stt th{text-align:left;color:var(--mute);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--line)}.stt td{padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+@media print{.demo,header.top,nav,.noprint{display:none!important}body,.app{background:#fff!important;color:#000!important}.card{box-shadow:none!important;border:1px solid #ccc!important}main{overflow:visible!important;height:auto!important}.app{height:auto!important;max-width:none!important}}
+</style>
+<div class="app" id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+/* ---------- Sample data (shape matches what the real office software will serve later) ---------- */
+const T0=new Date();T0.setHours(0,0,0,0);
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const addM=(d,n)=>{const x=new Date(d.getFullYear(),d.getMonth()+n,d.getDate());return x};
+const MON=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const monLab=d=>MON[d.getMonth()]+' '+d.getFullYear();
+const monthsLate=(due,now)=>{if(now<=due)return 0;return Math.max(0,(now.getFullYear()-due.getFullYear())*12+(now.getMonth()-due.getMonth())+(now.getDate()>due.getDate()?1:0))};
+const RATE={nps:1.2,ps:1.5};
+function makeChit(o){const rows=[],start=addM(new Date(T0.getFullYear(),T0.getMonth(),5),-(o.have-1));
+ for(let i=1;i<=o.have;i++){const due=addM(start,i-1),div=i===1?0:Math.round((o.inst*0.06+i*18)/5)*5,payable=o.inst-div,ps=o.won&&i>o.won,paid=i<=o.have-o.pending;
+  const late=paid?0:monthsLate(due,T0),pen=paid?0:Math.round(payable*(ps?RATE.ps:RATE.nps)/100*late);
+  rows.push({no:i,month:monLab(due),due:iso(due),inst:o.inst,div,payable,paid,paidOn:paid?iso(new Date(due.getFullYear(),due.getMonth(),due.getDate()+((i*7)%9))):'',late,pen,ps})}
+ const auc=[];for(let i=1;i<=o.have;i++){const bid=Math.round(o.amount*(0.22-i*0.0015)/1000)*1000;auc.push({no:i,date:iso(addM(start,i-1)),bid,div:rows[i-1].div,ticket:((i*7+o.ticket)%o.n)+1})}
+ return Object.assign({},o,{rows,auc,start:iso(start),next:iso(addM(new Date(T0.getFullYear(),T0.getMonth(),(o.nextDay)),(o.nextDay<T0.getDate()?1:0)))})}
+const DATA={company:'Your Chit Company',phone:'080 0000 0000',upi:'yourcompany@bank',
+ member:{name:'Rajashekar P.N',mno:'M00084',mobile:'98XXXXX883',address:'#9, Ground Floor, Srinivasa Complex, Ramanna Pet, Bengaluru 560027',since:'2023-04-12'},
+ chits:[makeChit({id:'a',group:'HP-25-26',ticket:7,amount:500000,inst:12500,n:40,have:19,pending:2,won:8,branch:'Cubbonpet',bylaw:'123/2024-25',nextDay:12,time:'4:00 PM',venue:'Head office'}),
+ makeChit({id:'b',group:'JP-13',ticket:1,amount:1000000,inst:25000,n:40,have:35,pending:3,won:0,branch:'Cubbonpet',bylaw:'88/2022-23',nextDay:20,time:'11:00 AM',venue:'Head office'})],
+ notices:[{d:iso(addM(T0,0)),t:'Payment reminder',x:'Your chit HP-25-26 has installments pending. Please pay at the earliest to avoid further penalty.'},{d:iso(new Date(T0.getFullYear(),T0.getMonth(),T0.getDate()-9)),t:'Auction notice',x:'The next auction of group HP-25-26 will be held at the head office. Please attend in person or send a representative.'},{d:iso(new Date(T0.getFullYear(),T0.getMonth(),T0.getDate()-31)),t:'Birthday wishes',x:'Wishing you a very happy birthday and a year of health and prosperity.'}]};
+
+/* ---------- Words, English and Kannada ---------- */
+const L={en:{home:'Home',chits:'My chits',receipts:'Receipts',auctions:'Auctions',more:'More',hi:'Hello',due:'Total to pay now',pay:'Pay now',next:'Next auction',pend:'pending',paid:'Paid',pending:'Pending',upcoming:'Coming up',inst:'Installments',details:'Details',results:'Results',dividend:'Dividend',amount:'Amount',penalty:'Penalty',total:'Total',back:'Back',signin:'Sign in',member:'Member no. or mobile',pin:'PIN',demo:'Try the demo',lang:'Language',logout:'Sign out',profile:'Profile',notices:'Messages from the office',contact:'Call the office',month:'Month',late:'months late',progress:'installments paid',ticket:'Ticket',chitval:'Chit value',instamt:'Installment',branch:'Branch',bylaw:'Bye-law no.',status:'Status',ps:'Prized subscriber',nps:'Non prized',sent:'Sent to the office. You will get a receipt after they confirm.',utr:'UPI reference (UTR) after paying',send:'Tell the office I have paid',copy:'Copy UPI ID',copied:'Copied',payfull:'Pay all dues',payone:'Other amount',paynote:'Pay from any UPI app to this ID, then enter the reference number below.',norcpt:'No receipts yet',adj:'Adjusted',date:'Date',time:'Time',venue:'Venue',bid:'Winning bid',tkt:'Won by ticket',arrears:'Arrears',nodue:'You have no dues. Thank you.',since:'Member since',addr:'Address',demoBar:'DEMO WITH SAMPLE DATA',weekly:'Installment',of:'of',pays:'Paid on',theme:'Look',light:'Light',dark:'Dark',auto:'Auto'},
+ kn:{home:'ಮುಖಪುಟ',chits:'ನನ್ನ ಚಿಟ್‌ಗಳು',receipts:'ರಸೀದಿಗಳು',auctions:'ಹರಾಜು',more:'ಇನ್ನಷ್ಟು',hi:'ನಮಸ್ಕಾರ',due:'ಈಗ ಪಾವತಿಸಬೇಕಾದ ಒಟ್ಟು',pay:'ಈಗ ಪಾವತಿಸಿ',next:'ಮುಂದಿನ ಹರಾಜು',pend:'ಬಾಕಿ',paid:'ಪಾವತಿಸಲಾಗಿದೆ',pending:'ಬಾಕಿ',upcoming:'ಮುಂದಿನದು',inst:'ಕಂತುಗಳು',details:'ವಿವರಗಳು',results:'ಫಲಿತಾಂಶ',dividend:'ಲಾಭಾಂಶ',amount:'ಮೊತ್ತ',penalty:'ದಂಡ',total:'ಒಟ್ಟು',back:'ಹಿಂದೆ',signin:'ಸೈನ್ ಇನ್',member:'ಸದಸ್ಯ ಸಂಖ್ಯೆ ಅಥವಾ ಮೊಬೈಲ್',pin:'ಪಿನ್',demo:'ಡೆಮೊ ನೋಡಿ',lang:'ಭಾಷೆ',logout:'ಸೈನ್ ಔಟ್',profile:'ಪ್ರೊಫೈಲ್',notices:'ಕಚೇರಿಯ ಸಂದೇಶಗಳು',contact:'ಕಚೇರಿಗೆ ಕರೆ ಮಾಡಿ',month:'ತಿಂಗಳು',late:'ತಿಂಗಳು ತಡ',progress:'ಕಂತುಗಳು ಪಾವತಿಯಾಗಿವೆ',ticket:'ಟಿಕೆಟ್',chitval:'ಚಿಟ್ ಮೌಲ್ಯ',instamt:'ಕಂತು',branch:'ಶಾಖೆ',bylaw:'ಬೈಲಾ ಸಂ.',status:'ಸ್ಥಿತಿ',ps:'ಬಹುಮಾನಿತ ಚಂದಾದಾರ',nps:'ಬಹುಮಾನ ಪಡೆಯದವರು',sent:'ಕಚೇರಿಗೆ ಕಳುಹಿಸಲಾಗಿದೆ. ಅವರು ದೃಢೀಕರಿಸಿದ ನಂತರ ರಸೀದಿ ಸಿಗುತ್ತದೆ.',utr:'ಪಾವತಿಸಿದ ನಂತರ UPI ಉಲ್ಲೇಖ ಸಂಖ್ಯೆ (UTR)',send:'ಪಾವತಿಸಿದ್ದೇನೆ ಎಂದು ಕಚೇರಿಗೆ ತಿಳಿಸಿ',copy:'UPI ID ನಕಲಿಸಿ',copied:'ನಕಲಿಸಲಾಗಿದೆ',payfull:'ಎಲ್ಲಾ ಬಾಕಿ ಪಾವತಿಸಿ',payone:'ಬೇರೆ ಮೊತ್ತ',paynote:'ಯಾವುದೇ UPI ಆ್ಯಪ್‌ನಿಂದ ಈ ID ಗೆ ಪಾವತಿಸಿ, ನಂತರ ಉಲ್ಲೇಖ ಸಂಖ್ಯೆಯನ್ನು ಕೆಳಗೆ ನಮೂದಿಸಿ.',norcpt:'ಇನ್ನೂ ರಸೀದಿಗಳಿಲ್ಲ',adj:'ಹೊಂದಾಣಿಕೆ',date:'ದಿನಾಂಕ',time:'ಸಮಯ',venue:'ಸ್ಥಳ',bid:'ಗೆದ್ದ ಬಿಡ್',tkt:'ಗೆದ್ದ ಟಿಕೆಟ್',arrears:'ಬಾಕಿ',nodue:'ನಿಮಗೆ ಯಾವುದೇ ಬಾಕಿ ಇಲ್ಲ. ಧನ್ಯವಾದಗಳು.',since:'ಸದಸ್ಯರಾದ ದಿನಾಂಕ',addr:'ವಿಳಾಸ',demoBar:'ಮಾದರಿ ಡೇಟಾದೊಂದಿಗೆ ಡೆಮೊ',weekly:'ಕಂತು',of:'ರಲ್ಲಿ',pays:'ಪಾವತಿಸಿದ ದಿನ',theme:'ನೋಟ',light:'ಬೆಳಕು',dark:'ಗಾಢ',auto:'ಸ್ವಯಂ'}};
+
+/* ---------- State ---------- */
+const st={user:false,tab:'home',chit:null,ctab:'inst',lang:'en',pay:{sel:[],utr:'',sent:false},rc:null,theme:'auto',copied:false};
+const t=k=>(L[st.lang]||L.en)[k]||L.en[k]||k;
+
+Object.assign(L.en,{selinst:'Select installments to pay',selected:'Installments selected',fAll:'All',fPaid:'Paid',fPend:'Pending',iDue:'Due date',iInst:'Installment',iDiv:'Dividend allowed',iPay:'Payable',iPaidOn:'Paid on',iLate:'Months late',iPen:'Penalty',iTot:'Total to pay',iSum:'Summary',iPaidN:'Paid',iPendN:'Pending',iDivT:'Dividend earned',iRate:'Penalty rate',sPaid:'Total paid'});
+Object.assign(L.kn,{selinst:'ಪಾವತಿಸಬೇಕಾದ ಕಂತುಗಳನ್ನು ಆರಿಸಿ',selected:'ಆರಿಸಿದ ಕಂತುಗಳು',fAll:'ಎಲ್ಲಾ',fPaid:'ಪಾವತಿಸಿದ',fPend:'ಬಾಕಿ',iDue:'ಕಟ್ಟಬೇಕಾದ ದಿನಾಂಕ',iInst:'ಕಂತು',iDiv:'ಲಾಭಾಂಶ',iPay:'ಪಾವತಿಸಬೇಕಾದ ಮೊತ್ತ',iPaidOn:'ಪಾವತಿಸಿದ ದಿನ',iLate:'ತಡವಾದ ತಿಂಗಳು',iPen:'ದಂಡ',iTot:'ಒಟ್ಟು ಪಾವತಿಸಬೇಕಾದದ್ದು',iSum:'ಸಾರಾಂಶ',iPaidN:'ಪಾವತಿಸಿದ',iPendN:'ಬಾಕಿ',iDivT:'ಒಟ್ಟು ಲಾಭಾಂಶ',iRate:'ದಂಡದ ದರ',sPaid:'ಒಟ್ಟು ಪಾವತಿ'});
+Object.assign(L.en,{liveBtn:'Join live auction',prizeBtn:'My prize money',prevNote:'Preview: online bidding works only if your chit registration and the Registrar allow it.',liveT:'Live auction',base:'Chit value',topBid:'Highest discount',yourBid:'Your discount',myBid:'Place my bid',minInc:'Minimum raise',left:'Time left',hist:'Bids so far',youLead:'You are leading',youTrail:'Another ticket is leading',res:'Auction closed',winner:'Won by ticket',win:'Congratulations, you won this auction!',lost:'You did not win this time.',prizeT:'Prize money',pDisc:'Winning discount',pPrize:'Prize amount',pComm:'Foreman commission',pGst:'GST on commission',pDues:'Pending dues',pNet:'Net amount you receive',pSteps:'Payment progress',pDocs:'Documents needed',up:'Upload',upd:'Uploaded',alerts:'Alerts',alSet:'Send me alerts for',aAuc:'Auction reminder (1 day before)',aRes:'Auction result',aDue:'Installment due reminder',aPay:'Payment receipts',noPrize:'No prize money for this chit yet',s1:'Auction won',s2:'Documents submitted',s3:'Documents verified',s4:'Cheque / transfer ready',s5:'Paid to you',dId:'Photo ID',dAdd:'Address proof',dBank:'Bank passbook / cancelled cheque',dGuar:'Guarantor form',sampleNote:'Sample figures. Real rates come from your chit terms.'});
+Object.assign(L.kn,{liveBtn:'ನೇರ ಹರಾಜಿಗೆ ಸೇರಿ',prizeBtn:'ನನ್ನ ಬಹುಮಾನದ ಹಣ',prevNote:'ಪೂರ್ವವೀಕ್ಷಣೆ: ನಿಮ್ಮ ಚೀಟಿ ನೋಂದಣಿ ಮತ್ತು ರಿಜಿಸ್ಟ್ರಾರ್ ಅನುಮತಿಸಿದರೆ ಮಾತ್ರ ಆನ್‌ಲೈನ್ ಬಿಡ್ಡಿಂಗ್ ಸಾಧ್ಯ.',liveT:'ನೇರ ಹರಾಜು',base:'ಚೀಟಿ ಮೊತ್ತ',topBid:'ಅತ್ಯಧಿಕ ಡಿಸ್ಕೌಂಟ್',yourBid:'ನಿಮ್ಮ ಡಿಸ್ಕೌಂಟ್',myBid:'ಬಿಡ್ ಮಾಡಿ',minInc:'ಕನಿಷ್ಠ ಹೆಚ್ಚಳ',left:'ಉಳಿದ ಸಮಯ',hist:'ಇಲ್ಲಿಯವರೆಗಿನ ಬಿಡ್‌ಗಳು',youLead:'ನೀವು ಮುಂದಿದ್ದೀರಿ',youTrail:'ಬೇರೆ ಟಿಕೆಟ್ ಮುಂದಿದೆ',res:'ಹರಾಜು ಮುಕ್ತಾಯ',winner:'ಗೆದ್ದ ಟಿಕೆಟ್',win:'ಅಭಿನಂದನೆಗಳು, ನೀವು ಈ ಹರಾಜು ಗೆದ್ದಿದ್ದೀರಿ!',lost:'ಈ ಬಾರಿ ನೀವು ಗೆದ್ದಿಲ್ಲ.',prizeT:'ಬಹುಮಾನದ ಹಣ',pDisc:'ಗೆದ್ದ ಡಿಸ್ಕೌಂಟ್',pPrize:'ಬಹುಮಾನದ ಮೊತ್ತ',pComm:'ಫೋರ್‌ಮನ್ ಕಮಿಷನ್',pGst:'ಕಮಿಷನ್ ಮೇಲಿನ GST',pDues:'ಬಾಕಿ ಕಂತುಗಳು',pNet:'ನಿಮಗೆ ಸಿಗುವ ಮೊತ್ತ',pSteps:'ಪಾವತಿ ಪ್ರಗತಿ',pDocs:'ಬೇಕಾದ ದಾಖಲೆಗಳು',up:'ಅಪ್‌ಲೋಡ್',upd:'ಅಪ್‌ಲೋಡ್ ಆಗಿದೆ',alerts:'ಸೂಚನೆಗಳು',alSet:'ಈ ಸೂಚನೆಗಳನ್ನು ಕಳುಹಿಸಿ',aAuc:'ಹರಾಜು ನೆನಪೋಲೆ (1 ದಿನ ಮುಂಚೆ)',aRes:'ಹರಾಜು ಫಲಿತಾಂಶ',aDue:'ಕಂತು ಬಾಕಿ ನೆನಪೋಲೆ',aPay:'ಪಾವತಿ ರಸೀದಿಗಳು',noPrize:'ಈ ಚೀಟಿಗೆ ಇನ್ನೂ ಬಹುಮಾನ ಇಲ್ಲ',s1:'ಹರಾಜು ಗೆದ್ದಿದ್ದೀರಿ',s2:'ದಾಖಲೆಗಳ ಸಲ್ಲಿಕೆ',s3:'ದಾಖಲೆಗಳ ಪರಿಶೀಲನೆ',s4:'ಚೆಕ್ / ವರ್ಗಾವಣೆ ಸಿದ್ಧ',s5:'ನಿಮಗೆ ಪಾವತಿಯಾಗಿದೆ',dId:'ಫೋಟೋ ಐಡಿ',dAdd:'ವಿಳಾಸ ದಾಖಲೆ',dBank:'ಬ್ಯಾಂಕ್ ಪಾಸ್‌ಬುಕ್ / ರದ್ದಾದ ಚೆಕ್',dGuar:'ಜಾಮೀನುದಾರರ ಫಾರಂ',sampleNote:'ಇವು ಮಾದರಿ ಅಂಕಿಗಳು. ನಿಜವಾದ ದರಗಳು ನಿಮ್ಮ ಚೀಟಿ ನಿಯಮಗಳಿಂದ ಬರುತ್ತವೆ.'});
+Object.assign(L.en,{stmt:'Account statement',stmtSub:'Download or print a copy of your chit account',dlPdf:'Download PDF',dlCsv:'Download Excel (CSV)',asOn:'Statement as on',allCh:'All chits',tPaid:'Total paid',tPend:'Total pending',tPen:'Penalty',score:'Credit score',cibil:'CIBIL score',cibSample:'Sample score for the demo. A real CIBIL score needs your consent and PAN, and comes only from the credit bureau.',poor:'Poor',fair:'Fair',good:'Good',great:'Excellent',myRec:'Your payment record with us',onTime:'Paid on time',lateN:'Paid late',openN:'Pending now',recNote:'This is your record with this company only. It is not a CIBIL score.',tips:'How to improve',tip1:'Pay installments by the due date',tip2:'Clear pending installments early to avoid penalty',tip3:'Keep your PAN and address updated',stmtOpen:'View statement',scoreOpen:'View score',status:'Status'});
+Object.assign(L.kn,{stmt:'ಖಾತೆ ವಿವರ',stmtSub:'ನಿಮ್ಮ ಚೀಟಿ ಖಾತೆಯ ಪ್ರತಿ ಡೌನ್‌ಲೋಡ್ ಅಥವಾ ಪ್ರಿಂಟ್ ಮಾಡಿ',dlPdf:'PDF ಡೌನ್‌ಲೋಡ್',dlCsv:'Excel (CSV) ಡೌನ್‌ಲೋಡ್',asOn:'ವಿವರ ದಿನಾಂಕ',allCh:'ಎಲ್ಲಾ ಚೀಟಿಗಳು',tPaid:'ಒಟ್ಟು ಪಾವತಿ',tPend:'ಒಟ್ಟು ಬಾಕಿ',tPen:'ದಂಡ',score:'ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್',cibil:'ಸಿಬಿಲ್ ಸ್ಕೋರ್',cibSample:'ಇದು ಡೆಮೊಗೆ ಮಾದರಿ ಸ್ಕೋರ್. ನಿಜವಾದ ಸಿಬಿಲ್ ಸ್ಕೋರ್‌ಗೆ ನಿಮ್ಮ ಒಪ್ಪಿಗೆ ಮತ್ತು ಪ್ಯಾನ್ ಬೇಕು; ಅದು ಕ್ರೆಡಿಟ್ ಬ್ಯೂರೋದಿಂದ ಮಾತ್ರ ಬರುತ್ತದೆ.',poor:'ಕಡಿಮೆ',fair:'ಸಾಧಾರಣ',good:'ಒಳ್ಳೆಯದು',great:'ಅತ್ಯುತ್ತಮ',myRec:'ನಮ್ಮೊಂದಿಗಿನ ನಿಮ್ಮ ಪಾವತಿ ದಾಖಲೆ',onTime:'ಸಮಯಕ್ಕೆ ಪಾವತಿ',lateN:'ತಡವಾಗಿ ಪಾವತಿ',openN:'ಈಗ ಬಾಕಿ',recNote:'ಇದು ಈ ಕಂಪನಿಯಲ್ಲಿನ ನಿಮ್ಮ ದಾಖಲೆ ಮಾತ್ರ. ಇದು ಸಿಬಿಲ್ ಸ್ಕೋರ್ ಅಲ್ಲ.',tips:'ಸುಧಾರಿಸುವುದು ಹೇಗೆ',tip1:'ಕಂತನ್ನು ಗಡುವಿನೊಳಗೆ ಪಾವತಿಸಿ',tip2:'ದಂಡ ತಪ್ಪಿಸಲು ಬಾಕಿ ಕಂತುಗಳನ್ನು ಬೇಗ ಕಟ್ಟಿ',tip3:'ಪ್ಯಾನ್ ಮತ್ತು ವಿಳಾಸ ಹೊಸದಾಗಿಡಿ',stmtOpen:'ವಿವರ ನೋಡಿ',scoreOpen:'ಸ್ಕೋರ್ ನೋಡಿ',status:'ಸ್ಥಿತಿ'});
+Object.assign(L.en,{dlRc:'Download receipt (PDF)',rcT:'RECEIPT'});
+Object.assign(L.kn,{dlRc:'ರಸೀದಿ ಡೌನ್‌ಲೋಡ್ (PDF)'});
+function instView(c){const f=st.ifl||'all',rows=c.rows.filter(r=>f==='all'||(f==='paid')===r.paid);
+ const paid=c.rows.filter(r=>r.paid),pend=c.rows.filter(r=>!r.paid);
+ const sum=`<div class="card"><div class="kv"><span>${t('iPaidN')}</span><span>${paid.length} · ${inr(paid.reduce((a,r)=>a+r.payable,0))}</span></div><div class="kv"><span>${t('iPendN')}</span><span style="color:var(--bad)">${pend.length} · ${inr(pend.reduce((a,r)=>a+r.payable+r.pen,0))}</span></div><div class="kv"><span>${t('iDivT')}</span><span>${inr(c.rows.reduce((a,r)=>a+r.div,0))}</span></div></div>`;
+ const fl=`<div class="tabs" role="tablist">${[['all',t('fAll')],['pend',t('fPend')],['paid',t('fPaid')]].map(([k,l])=>`<button role="tab" aria-selected="${f===(k==='pend'?'pend':k)}" onclick="st.ifl='${k}';draw()">${l}</button>`).join('')}</div>`;
+ const row=r=>{const open=st.iex===c.id+'-'+r.no,rate=r.ps?RATE.ps:RATE.nps;
+  return`<div class="inst" style="cursor:pointer" onclick="st.iex=${open?'null':`'${c.id}-${r.no}'`};draw()"><div><div class="n">${t('weekly')} ${r.no} · ${r.month}</div><div class="s">${t('dividend')} ${inr(r.div)} · ${inr(r.inst)}</div></div><div class="r">${inr(r.payable)}<div><span class="pill ${r.paid?'good':r.late?'bad':'warn'}">${r.paid?t('paid'):(r.late?r.late+' '+t('late'):t('pending'))}</span></div></div>
+  ${open?`<div style="grid-column:1/-1;margin-top:8px;background:var(--bg2,rgba(0,0,0,.04));border-radius:10px;padding:8px 12px"><div class="kv"><span>${t('iDue')}</span><span>${dmy(r.due)}</span></div><div class="kv"><span>${t('iInst')}</span><span>${inr(r.inst)}</span></div><div class="kv"><span>${t('iDiv')}</span><span>− ${inr(r.div)}</span></div><div class="kv"><span>${t('iPay')}</span><span>${inr(r.payable)}</span></div>${r.paid?`<div class="kv"><span>${t('iPaidOn')}</span><span>${dmy(r.paidOn)}</span></div>`:`<div class="kv"><span>${t('iLate')}</span><span>${r.late}</span></div><div class="kv"><span>${t('iPen')} (${rate}%)</span><span>${inr(r.pen)}</span></div><div class="kv"><b>${t('iTot')}</b><b style="color:var(--bad)">${inr(r.payable+r.pen)}</b></div>`}</div>`:''}</div>`};
+ return sum+fl+`<div class="card">${rows.slice().reverse().map(row).join('')||`<div class="empty">—</div>`}</div>`}
+const inr=v=>'₹'+Math.round(v).toLocaleString('en-IN');
+const dmy=s=>s?s.split('-').reverse().join('-'):'';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ico={home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',chits:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/>',receipts:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',auctions:'<path d="M14 4l6 6M4 20l7-7M11 7l6 6M9 9l6-6 6 6-6 6z"/>',more:'<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>'};
+const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ico[k]}</svg>`;
+
+/* ---------- Calculations ---------- */
+const chitDue=c=>{const p=c.rows.filter(r=>!r.paid);return{n:p.length,amt:p.reduce((q,r)=>q+r.payable,0),pen:p.reduce((q,r)=>q+r.pen,0)}};
+const allDue=()=>DATA.chits.reduce((q,c)=>{const d=chitDue(c);q.amt+=d.amt;q.pen+=d.pen;q.n+=d.n;return q},{amt:0,pen:0,n:0});
+const nextAuction=()=>DATA.chits.map(c=>({c,d:c.next})).sort((a,b)=>a.d.localeCompare(b.d))[0];
+function receiptsList(){const out=[];let no=2050;DATA.chits.forEach(c=>c.rows.filter(r=>r.paid).forEach(r=>out.push({k:c.id+r.no,c,r,date:r.paidOn,no:0})));
+ out.sort((a,b)=>a.date.localeCompare(b.date)||a.k.localeCompare(b.k));out.forEach(o=>o.no=++no);return out.reverse()}
+
+/* ---------- Views ---------- */
+function loginView(){return`<div class="login"><div class="logo">C</div><h1>${esc(DATA.company)}</h1><p class="muted" style="margin:0 0 14px">${t('hi')}!</p>
+ <label for="lg_u">${t('member')}</label><input id="lg_u" inputmode="numeric" autocomplete="username" value="M00084">
+ <label for="lg_p">${t('pin')}</label><input id="lg_p" type="password" inputmode="numeric" autocomplete="current-password" value="1234">
+ <button class="btn block" style="margin-top:18px" onclick="go('signin')">${t('signin')}</button>
+ <div class="note">Demo with sample data. In the real app, members sign in with the login the office issues.</div>
+ <div class="seg" style="margin-top:14px"><button aria-pressed="${st.lang==='en'}" onclick="setLang('en')">English</button><button aria-pressed="${st.lang==='kn'}" onclick="setLang('kn')">ಕನ್ನಡ</button></div></div>`}
+function homeView(){const d=allDue(),na=nextAuction(),tot=d.amt+d.pen;
+ return`<div class="hero"><small>${t('hi')}, ${esc(DATA.member.name)}</small>${tot>0?`<div><small>${t('due')}</small><div class="big">${inr(tot)}</div><small>${inr(d.amt)} ${t('amount').toLowerCase()} + ${inr(d.pen)} ${t('penalty').toLowerCase()}</small></div><div class="row"><span style="font-size:.85rem">${d.n} ${t('inst').toLowerCase()} ${t('pend')}</span><button class="btn light" onclick="openPay()">${t('pay')}</button></div>`:`<div class="big" style="font-size:1.2rem">${t('nodue')}</div>`}</div>
+ <h2>${t('next')}</h2><div class="card"><div class="kv"><span>${esc(na.c.group)}</span><span>${dmy(na.d)}</span></div><div class="kv"><span>${t('time')}</span><span>${esc(na.c.time)}</span></div><div class="kv"><span>${t('venue')}</span><span>${esc(na.c.venue)}</span></div></div>
+ <h2>${t('chits')}</h2>${DATA.chits.map(chitCard).join('')}`}
+function chitCard(c){const dd=chitDue(c),paidN=c.rows.filter(r=>r.paid).length;
+ return`<button class="card chit" onclick="openChit('${c.id}')"><div class="t"><div><b>${esc(c.group)}</b><div class="muted" style="font-size:.85rem">${t('ticket')} ${c.ticket} · ${inr(c.amount)}</div></div><span class="pill ${c.won?'warn':'nps'}">${c.won?'PS':'NPS'}</span></div><div class="bar"><i style="width:${Math.round(paidN*100/c.n)}%"></i></div><div class="muted" style="font-size:.8rem">${paidN} ${t('of')} ${c.n} ${t('progress')}</div>${dd.n?`<div style="margin-top:8px;color:var(--bad);font-weight:700">${inr(dd.amt+dd.pen)} ${t('pend')}</div>`:`<div style="margin-top:8px;color:var(--good);font-weight:700">${t('paid')}</div>`}</button>`}
+function chitsView(){return DATA.chits.map(chitCard).join('')}
+function chitView(){const c=DATA.chits.find(x=>x.id===st.chit);if(!c)return'';const dd=chitDue(c);
+ const tabs=[['inst',t('inst')],['auc',t('auctions')],['det',t('details')]];
+ let body='';
+   if(st.ctab==='inst')body=instView(c);
+ if(st.ctab==='auc')body=(c.won?`<button class="btn ghost block" style="margin-bottom:10px" onclick="openPrize('${c.id}')">${t('prizeBtn')}</button>`:'')+`<div class="card"><div class="kv"><span>${t('next')}</span><span>${dmy(c.next)}, ${esc(c.time)}</span></div><div class="kv"><span>${t('venue')}</span><span>${esc(c.venue)}</span></div></div><h2>${t('results')}</h2><div class="card">${c.auc.slice().reverse().map(a=>`<div class="inst"><div><div class="n">#${a.no} · ${dmy(a.date)}</div><div class="s">${t('tkt')} ${a.ticket} · ${t('bid')} ${inr(a.bid)}</div></div><div class="r">${inr(a.div)}<div class="s">${t('dividend')}</div></div></div>`).join('')}</div>`;
+ if(st.ctab==='det')body=`<div class="card"><div class="kv"><span>${t('ticket')}</span><span>${c.ticket}</span></div><div class="kv"><span>${t('chitval')}</span><span>${inr(c.amount)}</span></div><div class="kv"><span>${t('instamt')}</span><span>${inr(c.inst)}</span></div><div class="kv"><span>${t('status')}</span><span>${c.won?t('ps'):t('nps')}</span></div><div class="kv"><span>${t('penalty')}</span><span>${c.won?RATE.ps:RATE.nps}% / ${t('month').toLowerCase()}</span></div><div class="kv"><span>${t('branch')}</span><span>${esc(c.branch)}</span></div><div class="kv"><span>${t('bylaw')}</span><span>${esc(c.bylaw)}</span></div></div>`;
+ return`<div class="card"><div class="t" style="display:flex;justify-content:space-between"><div><b style="font-size:1.2rem">${esc(c.group)}</b><div class="muted">${t('ticket')} ${c.ticket} · ${inr(c.amount)}</div></div><span class="pill ${c.won?'warn':'nps'}">${c.won?'PS':'NPS'}</span></div>${dd.n?`<div class="kv" style="margin-top:8px"><span>${t('due')}</span><span style="color:var(--bad)">${inr(dd.amt+dd.pen)}</span></div><button class="btn block" style="margin-top:6px" onclick="openPay('${c.id}')">${t('pay')}</button>`:`<div class="ok">${t('nodue')}</div>`}</div>
+ <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${st.ctab===k}" onclick="st.ctab='${k}';draw()">${l}</button>`).join('')}</div>${body}`}
+function receiptsView(){const l=receiptsList();if(!l.length)return`<div class="empty">${t('norcpt')}</div>`;
+ return l.slice(0,30).map(o=>{const open=st.rc===o.k;return`<div class="card chit" role="button" tabindex="0" style="cursor:pointer" onclick="st.rc=${open?'null':`'${o.k}'`};draw()"><div class="t"><div><b>${inr(o.r.payable)}</b><div class="muted" style="font-size:.85rem">${esc(o.c.group)} · ${t('weekly')} ${o.r.no}</div></div><div style="text-align:right"><div class="num" style="font-weight:600">#${o.no}</div><div class="muted" style="font-size:.8rem">${dmy(o.date)}</div></div></div>${open?`<div style="margin-top:10px"><div class="kv"><span>${t('weekly')}</span><span>${o.r.no} · ${o.r.month}</span></div><div class="kv"><span>${t('amount')}</span><span>${inr(o.r.inst)}</span></div><div class="kv"><span>${t('dividend')}</span><span>${inr(o.r.div)}</span></div><div class="kv"><span>${t('adj')}</span><span>${inr(o.r.payable)}</span></div><div class="kv"><span>${t('total')}</span><span>${inr(o.r.payable)}</span></div><button class="btn ghost block" style="margin-top:10px" onclick="event.stopPropagation();rcPdf('${o.k}')">${t('dlRc')}</button></div>`:''}</div>`}).join('')}
+function auctionsView(){return DATA.chits.map(c=>`<div class="card"><div class="t" style="display:flex;justify-content:space-between"><b>${esc(c.group)}</b><span class="pill nps">${t('upcoming')}</span></div><div class="kv" style="margin-top:6px"><span>${t('date')}</span><span>${dmy(c.next)}</span></div><div class="kv"><span>${t('time')}</span><span>${esc(c.time)}</span></div><div class="kv"><span>${t('venue')}</span><span>${esc(c.venue)}</span></div><h2 style="margin:14px 0 4px">${t('results')}</h2>${c.auc.slice(-3).reverse().map(a=>`<div class="kv"><span>#${a.no} · ${dmy(a.date)}</span><span>${inr(a.div)} ${t('dividend').toLowerCase()}</span></div>`).join('')}<button class="btn ghost block" style="margin-top:10px" onclick="openChit('${c.id}','auc')">${t('results')}</button><button class="btn block" style="margin-top:8px" onclick="openLive('${c.id}')">${t('liveBtn')}</button>${c.won?`<button class="btn ghost block" style="margin-top:8px" onclick="openPrize('${c.id}')">${t('prizeBtn')}</button>`:''}</div>`).join('')}
+function moreView(){const m=DATA.member;return`<div class="card"><b style="font-size:1.15rem">${esc(m.name)}</b><div class="kv" style="margin-top:8px"><span>${t('member').split(' ')[0]}</span><span>${m.mno}</span></div><div class="kv"><span>Mobile</span><span>${m.mobile}</span></div><div class="kv"><span>${t('since')}</span><span>${dmy(m.since)}</span></div><div class="kv"><span>${t('addr')}</span><span style="max-width:60%">${esc(m.address)}</span></div></div>
+ <h2>${t('notices')}</h2><div class="card">${DATA.notices.map(n=>`<div class="msg"><b>${esc(n.t)}</b> <span class="muted" style="font-size:.8rem">${dmy(n.d)}</span><div>${esc(n.x)}</div></div>`).join('')}</div>
+ <h2>${t('lang')}</h2><div class="seg"><button aria-pressed="${st.lang==='en'}" onclick="setLang('en')">English</button><button aria-pressed="${st.lang==='kn'}" onclick="setLang('kn')">ಕನ್ನಡ</button></div>
+ ${accountCard()}
+ ${alertsCard()}
+ <h2>${t('theme')}</h2><div class="seg">${[['auto',t('auto')],['light',t('light')],['dark',t('dark')]].map(([k,l])=>`<button aria-pressed="${st.theme===k}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+ <h2>${t('contact')}</h2><div class="card"><div class="kv"><span>${esc(DATA.company)}</span><span class="num">${DATA.phone}</span></div></div>
+ <button class="btn ghost block" style="margin-top:18px" onclick="go('out')">${t('logout')}</button>`}
+function payList(){const cs=st.chit&&st.chit!=='all'?DATA.chits.filter(x=>x.id===st.chit):DATA.chits,o=[];cs.forEach(c=>c.rows.filter(r=>!r.paid).forEach(r=>o.push({k:c.id+'-'+r.no,c,r})));return o}
+function payAmt(){const sel=st.pay.sel||[];return payList().filter(o=>sel.includes(o.k)).reduce((a,o)=>a+o.r.payable+o.r.pen,0)}
+function payTog(k){const s=st.pay.sel,i=s.indexOf(k);if(i<0)s.push(k);else s.splice(i,1);draw()}
+function payAll(on){st.pay.sel=on?payList().map(o=>o.k):[];draw()}
+function payView(){const p=st.pay,L0=payList(),amt=payAmt(),n=(p.sel||[]).length;
+ if(p.sent)return`<div class="ok">${t('sent')}</div><button class="btn block" style="margin-top:14px" onclick="st.pay={sel:[],utr:'',sent:false};goTab('home')">${t('home')}</button>`;
+ const multi=!(st.chit&&st.chit!=='all'),allOn=n===L0.length&&n>0;
+ const rows=L0.map((o,i)=>{const on=p.sel.includes(o.k),r=o.r,hd=multi&&(i===0||L0[i-1].c.id!==o.c.id)?`<h2 style="margin:12px 0 2px">${esc(o.c.group)}</h2>`:'';
+  return hd+`<label class="inst" style="cursor:pointer;grid-template-columns:auto 1fr auto;align-items:center"><input type="checkbox" style="width:22px;height:22px;margin:0 6px 0 0" ${on?'checked':''} onchange="payTog('${o.k}')"><span><div class="n">${t('weekly')} ${r.no} · ${r.month}</div><div class="s">${t('dividend')} ${inr(r.div)}${r.pen?` · <span style="color:var(--bad)">${t('penalty')} ${inr(r.pen)}</span>`:''}</div></span><span class="r">${inr(r.payable+r.pen)}</span></label>`}).join('');
+ return`<h2 style="margin-top:0">${t('selinst')}</h2><div class="card">${L0.length?`<label class="inst" style="cursor:pointer;grid-template-columns:auto 1fr;align-items:center"><input type="checkbox" style="width:22px;height:22px;margin:0 6px 0 0" ${allOn?'checked':''} onchange="payAll(this.checked)"><b>${t('fAll')} (${L0.length})</b></label>`:`<div class="ok">${t('nodue')}</div>`}${rows}</div>
+ <div class="card" style="margin-top:12px"><div class="kv"><span>${t('selected')}</span><span>${n}</span></div><div class="muted" style="font-size:.85rem;margin-top:6px">${t('paynote')}</div><div class="upi"><b>${esc(DATA.upi)}</b><button class="btn ghost" style="padding:8px 12px" onclick="copyUpi()">${st.copied?t('copied'):t('copy')}</button></div><div style="margin-top:10px;font-size:1.3rem;font-weight:700" class="num" id="payamt">${inr(amt)}</div></div>
+ <label for="ut">${t('utr')}</label><input id="ut" inputmode="numeric" value="${esc(p.utr)}" oninput="st.pay.utr=this.value;upPay()">
+ <button class="btn block" id="paysend" style="margin-top:16px" onclick="st.pay.sent=true;draw()" ${amt>0&&p.utr.trim().length>=6?'':'disabled'}>${t('send')}</button>`}
+
+
+/* ---------- Auction extras: live bidding preview, prize money, alerts ---------- */
+const COMM=5,GSTR=18,MAXD=30;
+let liveTimer=null;
+function stopLive(){if(liveTimer){clearInterval(liveTimer);liveTimer=null}}
+function openLive(id){const c=DATA.chits.find(x=>x.id===id),base=c.amount,start=Math.round(base*0.2/1000)*1000;
+ st.chit=id;st.live={id,top:start,topBy:'T'+(((c.ticket+11)%c.n)+1),mine:start+1000,left:90,hist:[{by:'T'+(((c.ticket+11)%c.n)+1),amt:start}],done:false,lead:false};
+ st.tab='live';draw();stopLive();
+ liveTimer=setInterval(()=>{const v=st.live;if(!v||st.tab!=='live'){stopLive();return}
+  v.left--;if(v.left>0&&v.left%7===0&&!v.lead){v.top+=1000+(v.left%3)*1000;v.topBy='T'+(((c.ticket+v.left)%c.n)+1);v.hist.unshift({by:v.topBy,amt:v.top});if(v.mine<=v.top)v.mine=v.top+1000}
+  if(v.left<=0){v.done=true;stopLive();draw();return}liveTick()},1000)}
+function liveTick(){const v=st.live,e=x=>document.getElementById(x);if(!v)return;
+ if(e('lv_left'))e('lv_left').textContent=Math.floor(v.left/60)+':'+String(v.left%60).padStart(2,'0');
+ if(e('lv_top'))e('lv_top').textContent=inr(v.top)+' · '+(v.lead?'You':v.topBy);
+ if(e('lv_state')){e('lv_state').textContent=v.lead?t('youLead'):t('youTrail');e('lv_state').className='pill '+(v.lead?'good':'warn')}
+ if(e('lv_mine'))e('lv_mine').textContent=inr(v.mine);
+ if(e('lv_hist'))e('lv_hist').innerHTML=v.hist.slice(0,6).map(h=>`<div class="kv"><span>${esc(h.by)}</span><span>${inr(h.amt)}</span></div>`).join('')}
+function liveStep(d){const v=st.live,c=DATA.chits.find(x=>x.id===v.id),max=Math.round(c.amount*MAXD/100);v.mine=Math.min(max,Math.max(v.top+1000,v.mine+d));liveTick()}
+function liveBid(){const v=st.live;if(v.mine<=v.top)v.mine=v.top+1000;v.top=v.mine;v.topBy='You';v.lead=true;v.hist.unshift({by:'You',amt:v.mine});v.mine=v.top+1000;liveTick()}
+function liveView(){const v=st.live,c=DATA.chits.find(x=>x.id===v.id);
+ if(v.done){const win=v.lead;return`<div class="card"><b style="font-size:1.2rem">${t('res')}</b><div class="kv" style="margin-top:8px"><span>${t('winner')}</span><span>${win?c.ticket:esc(v.topBy.slice(1))}</span></div><div class="kv"><span>${t('topBid')}</span><span>${inr(v.top)}</span></div></div><div class="${win?'ok':'empty'}" style="margin-top:12px">${win?t('win'):t('lost')}</div><div class="muted" style="margin-top:12px;font-size:.85rem">${t('prevNote')}</div>`}
+ return`<div class="card"><div class="kv"><span>${esc(c.group)} · ${t('base')}</span><span>${inr(c.amount)}</span></div><div class="kv"><span>${t('left')}</span><span class="num" id="lv_left">1:30</span></div><div class="kv"><span>${t('topBid')}</span><span id="lv_top">${inr(v.top)} · ${v.topBy}</span></div><div style="margin-top:8px"><span id="lv_state" class="pill warn">${t('youTrail')}</span></div></div>
+ <div class="card" style="margin-top:12px"><div class="kv"><span>${t('yourBid')}</span><b class="num" id="lv_mine" style="font-size:1.4rem">${inr(v.mine)}</b></div><div class="seg" style="margin-top:10px"><button onclick="liveStep(-1000)">− 1,000</button><button onclick="liveStep(1000)">+ 1,000</button><button onclick="liveStep(5000)">+ 5,000</button></div><div class="muted" style="font-size:.8rem;margin-top:6px">${t('minInc')}: ${inr(1000)}</div><button class="btn block" style="margin-top:12px" onclick="liveBid()">${t('myBid')}</button></div>
+ <h2>${t('hist')}</h2><div class="card" id="lv_hist">${v.hist.slice(0,6).map(h=>`<div class="kv"><span>${esc(h.by)}</span><span>${inr(h.amt)}</span></div>`).join('')}</div><div class="muted" style="margin-top:12px;font-size:.85rem">${t('prevNote')}</div>`}
+function prizeOf(c){if(!c.won)return null;const a=c.auc[c.won-1],disc=a?a.bid:0,prize=c.amount-disc,comm=Math.round(c.amount*COMM/100),gst=Math.round(comm*GSTR/100),dues=c.rows.filter(r=>!r.paid).reduce((x,r)=>x+r.payable+r.pen,0);return{disc,prize,comm,gst,dues,net:prize-comm-gst-dues}}
+function openPrize(id){st.chit=id;st.tab='prize';draw()}
+function docUp(k){st.docs=st.docs||{};st.docs[k]=true;draw()}
+function prizeView(){const c=DATA.chits.find(x=>x.id===st.chit),p=prizeOf(c);if(!p)return`<div class="empty">${t('noPrize')}</div>`;
+ const steps=[t('s1'),t('s2'),t('s3'),t('s4'),t('s5')],docs=[['id',t('dId')],['ad',t('dAdd')],['bk',t('dBank')],['gu',t('dGuar')]],D=st.docs||{},allDocs=docs.every(d=>D[d[0]]),cur=allDocs?3:1;
+ return`<div class="card"><b>${esc(c.group)} · ${t('prizeT')}</b><div class="kv" style="margin-top:8px"><span>${t('base')}</span><span>${inr(c.amount)}</span></div><div class="kv"><span>${t('pDisc')}</span><span>− ${inr(p.disc)}</span></div><div class="kv"><span>${t('pPrize')}</span><span>${inr(p.prize)}</span></div><div class="kv"><span>${t('pComm')} (${COMM}%)</span><span>− ${inr(p.comm)}</span></div><div class="kv"><span>${t('pGst')} (${GSTR}%)</span><span>− ${inr(p.gst)}</span></div><div class="kv"><span>${t('pDues')}</span><span>− ${inr(p.dues)}</span></div><div class="kv"><b>${t('pNet')}</b><b style="color:var(--good)">${inr(p.net)}</b></div><div class="muted" style="font-size:.8rem;margin-top:6px">${t('sampleNote')}</div></div>
+ <h2>${t('pSteps')}</h2><div class="card">${steps.map((x,i)=>`<div class="kv"><span>${i<=cur-1||i===0?'✓':i===cur?'●':'○'} ${x}</span><span class="pill ${i<cur?'good':i===cur?'warn':''}">${i<cur?t('paid').replace(t('paid'),'✓'):i===cur?t('pending'):''}</span></div>`).join('')}</div>
+ <h2>${t('pDocs')}</h2><div class="card">${docs.map(([k,l])=>`<div class="kv"><span>${l}</span>${D[k]?`<span class="pill good">${t('upd')}</span>`:`<button class="btn ghost" style="padding:6px 12px" onclick="docUp('${k}')">${t('up')}</button>`}</div>`).join('')}</div>`}
+st.nt=st.nt||{auc:true,res:true,due:true,pay:true};
+function ntTog(k){st.nt[k]=!st.nt[k];draw()}
+function alertsCard(){const ks=[['auc','aAuc'],['res','aRes'],['due','aDue'],['pay','aPay']];
+ return`<h2>${t('alerts')}</h2><div class="card"><div class="muted" style="font-size:.85rem;margin-bottom:4px">${t('alSet')}</div>${ks.map(([k,l])=>`<label class="inst" style="cursor:pointer;grid-template-columns:1fr auto;align-items:center"><span>${t(l)}</span><input type="checkbox" style="width:22px;height:22px;margin:0" ${st.nt[k]?'checked':''} onchange="ntTog('${k}')"></label>`).join('')}</div>`}
+
+
+/* ---------- Statement + score ---------- */
+const dayDiff=(a,b)=>Math.round((new Date(a)-new Date(b))/864e5);
+function stmtData(){const o=[];DATA.chits.forEach(c=>c.rows.forEach(r=>o.push({c,r})));return o}
+st.sf=st.sf||{g:'all',mode:'full',from:'',to:''};
+function sfChits(){const f=st.sf;return DATA.chits.filter(c=>f.g==='all'||c.id===f.g).map(c=>Object.assign({},c,{rows:c.rows.filter(r=>f.mode==='full'||((!f.from||r.due>=f.from)&&(!f.to||r.due<=f.to)))}))}
+function sfData(){const o=[];sfChits().forEach(c=>c.rows.forEach(r=>o.push({c,r})));return o}
+function sfLabel(){const f=st.sf;return f.mode==='full'?'Full period':(f.from?dmy(f.from):'start')+' to '+(f.to?dmy(f.to):'today')}
+function sfSet(k,v){st.sf[k]=v;draw()}
+function sfCtl(){const f=st.sf;return`<div class="card noprint"><label for="sfg" style="margin-top:0">${t('selGrp')}</label><select id="sfg" onchange="sfSet('g',this.value)"><option value="all" ${f.g==='all'?'selected':''}>${t('allCh')}</option>${DATA.chits.map(c=>`<option value="${c.id}" ${f.g===c.id?'selected':''}>${esc(c.group)} · ${t('ticket')} ${c.ticket}</option>`).join('')}</select>
+ <div class="seg" style="margin-top:12px"><button aria-pressed="${f.mode==='full'}" onclick="sfSet('mode','full')">${t('fullP')}</button><button aria-pressed="${f.mode==='range'}" onclick="sfSet('mode','range')">${t('dateR')}</button></div>
+ ${f.mode==='range'?`<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px"><div style="min-width:0"><label for="sff">${t('fromD')}</label><input id="sff" type="date" value="${f.from}" onchange="sfSet('from',this.value)"></div><div style="min-width:0"><label for="sft">${t('toD')}</label><input id="sft" type="date" value="${f.to}" onchange="sfSet('to',this.value)"></div></div>`:''}</div>`}
+Object.assign(L.en,{selGrp:'Chit group',fullP:'Full period',dateR:'Date range',fromD:'From',toD:'To',noRows:'No installments in this selection'});
+Object.assign(L.kn,{selGrp:'ಚೀಟಿ ಗುಂಪು',fullP:'ಪೂರ್ಣ ಅವಧಿ',dateR:'ದಿನಾಂಕ ವ್ಯಾಪ್ತಿ',fromD:'ಇಂದ',toD:'ವರೆಗೆ',noRows:'ಈ ಆಯ್ಕೆಯಲ್ಲಿ ಕಂತುಗಳಿಲ್ಲ'});
+function stmtView(){const m=DATA.member,all=sfData(),paid=all.filter(o=>o.r.paid),pend=all.filter(o=>!o.r.paid);
+ const tp=paid.reduce((a,o)=>a+o.r.payable,0),tn=pend.reduce((a,o)=>a+o.r.payable,0),tf=pend.reduce((a,o)=>a+o.r.pen,0);
+ return`<div class="card"><b style="font-size:1.1rem">${esc(DATA.company)}</b><div class="kv" style="margin-top:8px"><span>${esc(m.name)}</span><span>${m.mno}</span></div><div class="kv"><span>${t('asOn')}</span><span>${dmy(iso(T0))}</span></div><div class="kv"><span>${t('dateR')}</span><span>${sfLabel()}</span></div></div>
+ <div class="card" style="margin-top:12px"><div class="kv"><span>${t('tPaid')}</span><span>${inr(tp)}</span></div><div class="kv"><span>${t('tPend')}</span><span style="color:var(--bad)">${inr(tn)}</span></div><div class="kv"><span>${t('tPen')}</span><span>${inr(tf)}</span></div></div>
+ ${sfCtl()}<div class="noprint"><button class="btn block" style="margin-top:12px" onclick="stmtPdf()">${t('dlPdf')}</button><button class="btn ghost block" style="margin-top:8px" onclick="stmtCsv()">${t('dlCsv')}</button></div>
+ ${sfChits().filter(c=>c.rows.length).map(c=>`<h2>${esc(c.group)} · ${t('ticket')} ${c.ticket}</h2><div class="card" style="padding:4px 8px;overflow-x:auto"><table class="stt"><thead><tr><th>#</th><th>${t('month')}</th><th>${t('instamt')}</th><th>${t('dividend')}</th><th>${t('amount')}</th><th>${t('penalty')}</th><th>${t('status')}</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td>${r.no}</td><td>${r.month}</td><td>${inr(r.inst)}</td><td>${inr(r.div)}</td><td>${inr(r.payable)}</td><td>${r.pen?inr(r.pen):'–'}</td><td>${r.paid?dmy(r.paidOn):`<b style="color:var(--bad)">${t('pending')}</b>`}</td></tr>`).join('')}</tbody></table></div>`).join('')||`<div class="empty">${t('noRows')}</div>`}`}
+async function saveFile(name,data){try{const d=await claude.use('downloads');if(!d){alert('Download is not available here');return}await d.save({filename:name,data})}catch(e){if(!e||e.code!=='declined')alert('Could not save the file')}}
+function stmtCsv(){const q=v=>'"'+String(v).replace(/"/g,'""')+'"',rows=[['Chit','Ticket','Installment no','Month','Due date','Installment','Dividend','Payable','Penalty','Paid on']];
+ sfData().forEach(({c,r})=>rows.push([c.group,c.ticket,r.no,r.month,r.due,r.inst,r.div,r.payable,r.pen,r.paid?r.paidOn:'Pending']));
+ saveFile('chit-account-statement.csv','\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n'))}
+
+async function rcPdf(k){if(!window.PDFLib){alert('PDF tool could not load. Check your internet.');return}
+ const o=receiptsList().find(x=>x.k===k);if(!o)return;const {PDFDocument,StandardFonts,rgb}=PDFLib,doc=await PDFDocument.create(),F=await doc.embedFont(StandardFonts.Helvetica),B=await doc.embedFont(StandardFonts.HelveticaBold),pg=doc.addPage([595,420]),M=36,R=559,m=DATA.member,c=o.c,r=o.r,rs=v=>'Rs. '+Math.round(v).toLocaleString('en-IN');let y=384;
+ const tx=(x,t,q={})=>pg.drawText(String(t),{x,y,size:q.s||9.5,font:q.b?B:F,color:rgb(.1,.1,.1)}),rt=(t,q={})=>{const f=q.b?B:F,s=q.s||9.5;pg.drawText(String(t),{x:R-f.widthOfTextAtSize(String(t),s),y,size:s,font:f,color:rgb(.1,.1,.1)})},ln=()=>pg.drawLine({start:{x:M,y},end:{x:R,y},thickness:.6,color:rgb(.7,.7,.7)});
+ tx(M,DATA.company,{s:15,b:1});rt('RECEIPT',{s:13,b:1});y-=16;tx(M,'Branch: '+c.branch);rt('Receipt No: '+o.no+'    Date: '+dmy(o.date));y-=8;ln();y-=16;
+ tx(M,'Received from',{b:1});tx(M+90,m.name+'  (Member '+m.mno+')');y-=14;tx(M,'Group / Ticket',{b:1});tx(M+90,c.group+'  /  '+c.ticket+'   ('+(c.won?'PS':'NPS')+')');y-=14;tx(M,'Chit value',{b:1});tx(M+90,rs(c.amount));y-=10;ln();y-=16;
+ const cols=[[M,'Inst. No'],[M+70,'Month'],[M+160,'Installment'],[M+250,'Dividend allowed'],[M+360,'Adjustment'],[M+450,'Amount paid']];
+ pg.drawRectangle({x:M-2,y:y-4,width:R-M+4,height:16,color:rgb(.88,.95,.93)});cols.forEach(([x,t])=>tx(x,t,{b:1,s:8.5}));y-=18;
+ [String(r.no),r.month,Math.round(r.inst).toLocaleString('en-IN'),Math.round(r.div).toLocaleString('en-IN'),'0',Math.round(r.payable).toLocaleString('en-IN')].forEach((v,i)=>tx(cols[i][0],v));y-=10;ln();y-=18;
+ tx(M,'Amount received',{b:1,s:11});rt(rs(r.payable),{b:1,s:12});y-=16;tx(M,'Paid on '+dmy(r.paidOn)+' towards installment '+r.no+' of '+c.n+'.');y-=60;
+ tx(M,'Computer generated receipt.',{s:8});rt('Cashier / Authorised signatory',{s:8});
+ await saveFile('receipt-'+o.no+'.pdf',await doc.save())}
+async function stmtPdf(){if(!window.PDFLib){alert('PDF tool could not load. Check your internet.');return}
+ const {PDFDocument,StandardFonts,rgb}=PDFLib,doc=await PDFDocument.create(),F=await doc.embedFont(StandardFonts.Helvetica),B=await doc.embedFont(StandardFonts.HelveticaBold),W=595,H=842,M=36,m=DATA.member,rs=v=>'Rs. '+Math.round(v).toLocaleString('en-IN');
+ let pg,y;const np=()=>{pg=doc.addPage([W,H]);y=H-M},tx=(x,t,o={})=>pg.drawText(String(t),{x,y,size:o.s||9,font:o.b?B:F,color:o.c||rgb(.1,.1,.1)}),rt=(xr,t,o={})=>{const f=o.b?B:F,s=o.s||9;tx(xr-f.widthOfTextAtSize(String(t),s),t,o)};
+ np();tx(M,DATA.company,{s:15,b:1});y-=18;tx(M,'Account statement',{s:11,b:1});y-=14;tx(M,m.name+'  |  Member '+m.mno+'  |  as on '+dmy(iso(T0)),{});y-=12;tx(M,'Period: '+sfLabel(),{});y-=10;
+ sfChits().filter(c=>c.rows.length).forEach(c=>{y-=14;if(y<120)np();tx(M,c.group+'  |  Ticket '+c.ticket+'  |  Chit value '+rs(c.amount)+'  |  '+(c.won?'PS':'NPS'),{s:10,b:1});y-=14;
+  const cols=[[M,'No'],[M+30,'Month'],[M+110,'Due date'],[M+215,'Installment'],[M+285,'Dividend'],[M+355,'Payable'],[M+425,'Penalty'],[M+480,'Paid on']];
+  const hd=()=>{pg.drawRectangle({x:M-2,y:y-4,width:W-2*M+4,height:16,color:rgb(.88,.95,.93)});cols.forEach(([x,t])=>tx(x,t,{b:1,s:8}));y-=16};hd();
+  c.rows.forEach(r=>{if(y<60){np();hd()}tx(cols[0][0],r.no);tx(cols[1][0],r.month);tx(cols[2][0],dmy(r.due));tx(cols[3][0],Math.round(r.inst).toLocaleString('en-IN'));tx(cols[4][0],Math.round(r.div).toLocaleString('en-IN'));tx(cols[5][0],Math.round(r.payable).toLocaleString('en-IN'));tx(cols[6][0],r.pen?Math.round(r.pen).toLocaleString('en-IN'):'-');if(r.paid)tx(cols[7][0],dmy(r.paidOn));else tx(cols[7][0],'PENDING',{b:1,c:rgb(.75,.15,.15)});y-=13});
+  const pd=c.rows.filter(r=>r.paid),pn=c.rows.filter(r=>!r.paid);y-=4;tx(M,'Paid '+pd.length+': '+rs(pd.reduce((a,r)=>a+r.payable,0))+'   Pending '+pn.length+': '+rs(pn.reduce((a,r)=>a+r.payable,0))+'   Penalty: '+rs(pn.reduce((a,r)=>a+r.pen,0)),{b:1});y-=8});
+ doc.getPages().forEach((p,i,all)=>p.drawText('Page '+(i+1)+' of '+all.length+'  |  Computer generated statement',{x:M,y:20,size:7,font:F,color:rgb(.5,.5,.5)}));
+ saveFile('chit-account-statement.pdf',await doc.save())}
+function scoreView(){const sc=768,pct=Math.round((sc-300)/600*100),lab=sc>=750?t('great'):sc>=700?t('good'):sc>=650?t('fair'):t('poor');
+ const all=stmtData(),paid=all.filter(o=>o.r.paid),late=paid.filter(o=>dayDiff(o.r.paidOn,o.r.due)>7).length,pend=all.filter(o=>!o.r.paid).length,ot=paid.length-late;
+ return`<div class="card"><div class="muted">${t('cibil')}</div><div style="font-size:2.6rem;font-weight:800;line-height:1.1" class="num">${sc}</div><div class="pill good" style="margin-top:4px">${lab}</div>
+ <div style="position:relative;height:10px;border-radius:6px;margin-top:16px;background:linear-gradient(90deg,#d64545,#e8a33a,#2f9e6b)"><i style="position:absolute;left:${pct}%;top:-4px;width:4px;height:18px;background:var(--fg,#111);border-radius:2px;transform:translateX(-2px)"></i></div><div class="kv" style="border:0;font-size:.8rem;color:var(--mute)"><span>300</span><span>900</span></div>
+ <div class="muted" style="font-size:.8rem;margin-top:6px">${t('cibSample')}</div></div>
+ <h2>${t('myRec')}</h2><div class="card"><div class="kv"><span>${t('onTime')}</span><span style="color:var(--good)">${ot}</span></div><div class="kv"><span>${t('lateN')}</span><span>${late}</span></div><div class="kv"><span>${t('openN')}</span><span style="color:var(--bad)">${pend}</span></div><div class="muted" style="font-size:.8rem;margin-top:6px">${t('recNote')}</div></div>
+ <h2>${t('tips')}</h2><div class="card"><div style="padding:8px 0;border-top:1px solid var(--line)">• ${t('tip1')}</div><div style="padding:8px 0;border-top:1px solid var(--line)">• ${t('tip2')}</div><div style="padding:8px 0;border-top:1px solid var(--line)">• ${t('tip3')}</div></div>`}
+function accountCard(){return`<h2>${t('stmt')}</h2><div class="card"><div class="muted" style="font-size:.85rem">${t('stmtSub')}</div><button class="btn block" style="margin-top:10px" onclick="st.tab='stmt';draw()">${t('stmtOpen')}</button></div><h2>${t('score')}</h2><div class="card"><div class="kv"><span>${t('cibil')}</span><b>768</b></div><button class="btn ghost block" style="margin-top:8px" onclick="st.tab='score';draw()">${t('scoreOpen')}</button></div>`}
+
+/* ---------- Shell ---------- */
+const TITLES={home:()=>DATA.company,chits:()=>t('chits'),receipts:()=>t('receipts'),auctions:()=>t('auctions'),more:()=>t('more')};
+function draw(){const a=document.getElementById('app'),keepScroll=a.querySelector('main')?a.querySelector('main').scrollTop:0;
+ if(!st.user){a.innerHTML=loginView();return}
+ const sub=['chit','pay','live','prize','stmt','score'].includes(st.tab),title=st.tab==='chit'?((DATA.chits.find(x=>x.id===st.chit)||{}).group||''):st.tab==='pay'?t('pay'):st.tab==='live'?t('liveT'):st.tab==='prize'?t('prizeT'):st.tab==='stmt'?t('stmt'):st.tab==='score'?t('score'):TITLES[st.tab]();
+ const view={home:homeView,chits:chitsView,chit:chitView,receipts:receiptsView,auctions:auctionsView,more:moreView,pay:payView,live:liveView,prize:prizeView,stmt:stmtView,score:scoreView}[st.tab]();
+ const cur=sub?(st.tab==='stmt'||st.tab==='score'?'more':st.tab==='live'||st.tab==='prize'?'auctions':st.chit&&st.tab==='chit'?'chits':'home'):st.tab;
+ a.innerHTML=`<div class="demo">${t('demoBar')}</div><header class="top">${sub?`<button class="back" aria-label="${t('back')}" onclick="goBack()">&#8592;</button>`:''}<h1>${esc(title)}</h1></header><main id="mn">${view}</main><nav aria-label="Main">${['home','chits','receipts','auctions','more'].map(k=>`<button onclick="goTab('${k}')" ${cur===k?'aria-current="page"':''}>${svg(k)}${t(k)}</button>`).join('')}</nav>`;
+ const m=document.getElementById('mn');if(m&&keepScroll&&!sub)m.scrollTop=keepScroll}
+function goTab(k){stopLive();st.tab=k;st.rc=null;draw();const m=document.getElementById('mn');if(m)m.scrollTop=0}
+function openChit(id,tab){st.chit=id;st.ctab=tab||'inst';st.tab='chit';draw()}
+function openPay(id){st.chit=id||'all';st.pay={sel:[],utr:'',sent:false};st.pay.sel=payList().map(o=>o.k);st.tab='pay';draw()}
+function goBack(){stopLive();if(st.tab==='live'||st.tab==='prize'){st.tab='auctions';draw();return}if(st.tab==='stmt'||st.tab==='score'){st.tab='more';draw();return}if(st.tab==='pay'&&st.chit!=='all'){st.tab='chit'}else st.tab='home';draw()}
+function go(w){if(w==='signin'){st.user=true;st.tab='home'}else{st.user=false}draw()}
+function setLang(l){st.lang=l;document.documentElement.lang=l;draw()}
+function setTheme(k){st.theme=k;const r=document.documentElement;if(k==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',k);draw()}
+function upPay(){const p=st.pay,amt=payAmt();const e=document.getElementById('payamt'),b=document.getElementById('paysend');if(e)e.textContent=inr(amt);if(b)b.disabled=!(amt>0&&p.utr.trim().length>=6)}
+function copyUpi(){const done=()=>{st.copied=true;draw();setTimeout(()=>{st.copied=false;draw()},1500)};try{navigator.clipboard.writeText(DATA.upi).then(done,done)}catch(e){done()}}
+draw();
+</script>
+
+</body></html>

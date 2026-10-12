@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard, dark console</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;background:#0E1A1C}
+a{color:#4FD1B5}a:hover{color:#8BE8D3}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:900px;background:#0E1A1C;color:#E6F0EE;font-family:'IBM Plex Sans',system-ui,sans-serif">
+
+<nav aria-label="Main menu" style="flex:0 0 76px;background:#0A1315;border-right:1px solid #1E3236;padding:18px 0;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:8px">
+<div style="width:40px;height:40px;border-radius:10px;background:#4FD1B5;color:#0A1315;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;margin-bottom:12px">C</div>
+<a href="#" aria-label="Dashboard" style="width:48px;height:48px;border-radius:12px;background:#17353A;color:#4FD1B5;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></a>
+<a href="#" aria-label="Masters" style="width:48px;height:48px;border-radius:12px;color:#9DB5B1;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.4c2 .7 3.5 2.5 3.5 5.6"/></svg></a>
+<a href="#" aria-label="Transactions" style="width:48px;height:48px;border-radius:12px;color:#9DB5B1;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10a2 2 0 012 2v14l-3-2-2 2-2-2-2 2-2-2-3 2V6a2 2 0 012-2z"/><path d="M9 9h6M9 13h6"/></svg></a>
+<a href="#" aria-label="Reports" style="width:48px;height:48px;border-radius:12px;color:#9DB5B1;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></a>
+<a href="#" aria-label="Utilities" style="width:48px;height:48px;border-radius:12px;color:#9DB5B1;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 015 5L10 21l-4-4 8.7-10.7z"/><path d="M13 8l3 3"/></svg></a>
+<a href="#" aria-label="Settings" style="width:48px;height:48px;border-radius:12px;color:#9DB5B1;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></a>
+</nav>
+
+<main style="flex:999 1 560px;min-width:0;padding:24px 30px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px">
+<header style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap"><h1 style="margin:0;font-size:24px;font-weight:600">Dashboard</h1><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#9DB5B1">My company · FY 2026-27</span></div>
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#9DB5B1">10-Oct-2026 16:54 IST</span><a href="#" style="display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:10px;background:#4FD1B5;color:#0A1315;font-weight:600;font-size:14px;text-decoration:none">+ New receipt</a></div>
+</header>
+
+<section aria-label="Key numbers" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+<div style="background:#13262A;border:1px solid #1E3236;border-radius:12px;padding:16px"><div style="font-size:13px;color:#9DB5B1">Chit groups</div><div style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;margin-top:6px">1</div></div>
+<div style="background:#13262A;border:1px solid #1E3236;border-radius:12px;padding:16px"><div style="font-size:13px;color:#9DB5B1">Subscriber tickets</div><div style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;margin-top:6px">7</div></div>
+<div style="background:#13262A;border:1px solid #1E3236;border-radius:12px;padding:16px"><div style="font-size:13px;color:#9DB5B1">Collected today</div><div style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;margin-top:6px">₹0</div></div>
+<div style="background:#13262A;border:1px solid #1E3236;border-radius:12px;padding:16px"><div style="font-size:13px;color:#9DB5B1">Collected this month</div><div style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;margin-top:6px">₹0</div></div>
+<div style="background:#2A2112;border:1px solid #5C4619;border-radius:12px;padding:16px"><div style="font-size:13px;color:#E8C27A">Outstanding · 7 tickets</div><div style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;margin-top:6px;color:#F6D898">₹79,500</div></div>
+</section>
+
+<section aria-label="Needs attention" style="background:#13262A;border:1px solid #1E3236;border-radius:12px;padding:18px 20px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><h2 style="margin:0;font-size:17px;font-weight:600">Needs attention <span style="font-family:'IBM Plex Mono',monospace;margin-left:6px;padding:2px 9px;border-radius:6px;background:#5C4619;color:#F6D898;font-size:13px">3</span></h2><a href="#" style="font-size:14px;font-weight:600">Owner's summary</a></div>
+<div style="display:flex;flex-direction:column;margin-top:8px">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #1E3236;flex-wrap:wrap"><span style="font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;background:#3A2C10;color:#F0C877">Prize money</span><span style="flex:1 1 280px;font-size:14px">SAMPLE-1 auction 1 · Lakshmi Devi</span><span style="font-family:'IBM Plex Mono',monospace;font-size:14px">₹84,100</span><a href="#" style="font-size:14px;font-weight:600">Open</a></div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #1E3236;flex-wrap:wrap"><span style="font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;background:#3A2C10;color:#F0C877">Prize money</span><span style="flex:1 1 280px;font-size:14px">SAMPLE-1 auction 2 · Priya Nair</span><span style="font-family:'IBM Plex Mono',monospace;font-size:14px">₹81,100</span><a href="#" style="font-size:14px;font-weight:600">Open</a></div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #1E3236;flex-wrap:wrap"><span style="font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;background:#142F4A;color:#8EC3F5">Cheque</span><span style="flex:1 1 280px;font-size:14px">1 received cheque due to be deposited</span><span style="font-family:'IBM Plex Mono',monospace;font-size:14px">₹8,500</span><a href="#" style="font-size:14px;font-weight:600">Open</a></div>
+</div>
+</section>
+
+<section style="display:flex;flex-wrap:wrap;gap:12px">
+<div style="flex:2 1 420px;min-width:0;background:#13262A;border:1px solid #1E3236;border-radius:12px;padding:18px 20px">
+<h2 style="margin:0 0 4px;font-size:16px;font-weight:600">Collection, last 6 months</h2><div style="font-size:13px;color:#9DB5B1">Sample shape, no receipts entered yet</div>
+<div style="display:flex;align-items:flex-end;gap:14px;height:170px;margin-top:16px;border-bottom:1px solid #2B474C">
+<div style="flex:1;height:60px;background:#25595A;border-radius:4px 4px 0 0"></div>
+<div style="flex:1;height:90px;background:#25595A;border-radius:4px 4px 0 0"></div>
+<div style="flex:1;height:75px;background:#25595A;border-radius:4px 4px 0 0"></div>
+<div style="flex:1;height:120px;background:#25595A;border-radius:4px 4px 0 0"></div>
+<div style="flex:1;height:105px;background:#25595A;border-radius:4px 4px 0 0"></div>
+<div style="flex:1;height:150px;background:#4FD1B5;border-radius:4px 4px 0 0"></div>
+</div>
+<div style="display:flex;gap:14px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9DB5B1"><span style="flex:1;text-align:center">May</span><span style="flex:1;text-align:center">Jun</span><span style="flex:1;text-align:center">Jul</span><span style="flex:1;text-align:center">Aug</span><span style="flex:1;text-align:center">Sep</span><span style="flex:1;text-align:center;color:#E6F0EE">Oct</span></div>
+</div>
+<div style="flex:1 1 300px;min-width:0;background:#13262A;border:1px solid #1E3236;border-radius:12px;padding:18px 20px">
+<h2 style="margin:0 0 14px;font-size:16px;font-weight:600">Tickets by status</h2>
+<div style="display:flex;flex-direction:column;gap:14px;font-size:14px">
+<div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Non-prized</span><span style="font-family:'IBM Plex Mono',monospace">5 · 71%</span></div><div style="height:10px;border-radius:5px;background:#0E1A1C"><div style="width:71%;height:100%;border-radius:5px;background:#4FD1B5"></div></div></div>
+<div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Prized</span><span style="font-family:'IBM Plex Mono',monospace">2 · 29%</span></div><div style="height:10px;border-radius:5px;background:#0E1A1C"><div style="width:29%;height:100%;border-radius:5px;background:#E8A547"></div></div></div>
+</div>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

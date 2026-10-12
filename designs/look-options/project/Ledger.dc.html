@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard, ledger book</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Source Sans 3',system-ui,sans-serif}
+a{color:#1F4D3A}a:hover{color:#10301F}
+</style>
+</helmet>
+<div style="min-height:900px;background:#FBF7EF;color:#2A2118;font-family:'Source Sans 3',system-ui,sans-serif;display:flex;flex-direction:column">
+
+<header style="background:#1F4D3A;color:#FBF7EF;padding:18px 40px 0;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+<div><div style="font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:700;letter-spacing:.01em">Chit Manager</div><div style="font-size:13px;opacity:.85;margin-top:2px">My company · Financial year 01-04-2026 to 31-03-2027</div></div>
+<div style="font-size:14px;opacity:.9;padding-bottom:4px">Saturday, 10 October 2026 · 4:54 PM</div>
+</div>
+<nav aria-label="Main menu" style="display:flex;flex-wrap:wrap;gap:4px">
+<a href="#" style="padding:11px 20px;min-height:20px;background:#FBF7EF;color:#1F4D3A;border-radius:8px 8px 0 0;font-weight:700;font-size:15px;text-decoration:none">Dashboard</a>
+<a href="#" style="padding:11px 20px;color:#F1EBDD;font-weight:600;font-size:15px;text-decoration:none">Masters</a>
+<a href="#" style="padding:11px 20px;color:#F1EBDD;font-weight:600;font-size:15px;text-decoration:none">Transactions</a>
+<a href="#" style="padding:11px 20px;color:#F1EBDD;font-weight:600;font-size:15px;text-decoration:none">Reports</a>
+<a href="#" style="padding:11px 20px;color:#F1EBDD;font-weight:600;font-size:15px;text-decoration:none">Utilities</a>
+<a href="#" style="padding:11px 20px;color:#F1EBDD;font-weight:600;font-size:15px;text-decoration:none">Settings</a>
+</nav>
+</header>
+
+<main style="padding:30px 40px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:26px;max-width:1280px;width:100%">
+<div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px;border-bottom:2px solid #2A2118;padding-bottom:10px">
+<h1 style="margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:32px;font-weight:700">Dashboard</h1>
+<div style="font-size:15px;color:#5C4F40;font-style:italic">Your chit business at a glance</div>
+</div>
+
+<section aria-label="Key numbers" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid #CFC3AE;background:#FFFDF8">
+<div style="padding:18px 20px;border-right:1px solid #E3D9C6"><div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6A5B49;font-weight:600">Chit groups</div><div style="font-family:'Source Serif 4',Georgia,serif;font-size:34px;font-weight:600;margin-top:6px">1</div></div>
+<div style="padding:18px 20px;border-right:1px solid #E3D9C6"><div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6A5B49;font-weight:600">Subscriber tickets</div><div style="font-family:'Source Serif 4',Georgia,serif;font-size:34px;font-weight:600;margin-top:6px">7</div></div>
+<div style="padding:18px 20px;border-right:1px solid #E3D9C6"><div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6A5B49;font-weight:600">Collected today</div><div style="font-family:'Source Serif 4',Georgia,serif;font-size:34px;font-weight:600;margin-top:6px">₹0</div></div>
+<div style="padding:18px 20px;border-right:1px solid #E3D9C6"><div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6A5B49;font-weight:600">Collected this month</div><div style="font-family:'Source Serif 4',Georgia,serif;font-size:34px;font-weight:600;margin-top:6px">₹0</div></div>
+<div style="padding:18px 20px;background:#F6E9D2"><div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#7A4A10;font-weight:700">Outstanding · 7 tickets</div><div style="font-family:'Source Serif 4',Georgia,serif;font-size:34px;font-weight:700;margin-top:6px;color:#7A4A10">₹79,500</div></div>
+</section>
+
+<section aria-label="Needs attention" style="border:1px solid #CFC3AE;background:#FFFDF8;border-left:6px solid #B4701E">
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:16px 22px 10px"><h2 style="margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600">Needs attention · 3</h2><a href="#" style="font-weight:700;font-size:15px">Owner's summary</a></div>
+<table style="width:100%;border-collapse:collapse;font-size:15px">
+<tbody>
+<tr style="border-top:1px solid #E3D9C6"><td style="padding:12px 22px;width:130px;font-weight:700;color:#7A4A10">Prize money</td><td style="padding:12px 8px">SAMPLE-1 · auction 1 · Lakshmi Devi</td><td style="padding:12px 8px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">₹84,100</td><td style="padding:12px 22px;text-align:right;width:70px"><a href="#" style="font-weight:700">Open</a></td></tr>
+<tr style="border-top:1px solid #E3D9C6"><td style="padding:12px 22px;font-weight:700;color:#7A4A10">Prize money</td><td style="padding:12px 8px">SAMPLE-1 · auction 2 · Priya Nair</td><td style="padding:12px 8px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">₹81,100</td><td style="padding:12px 22px;text-align:right"><a href="#" style="font-weight:700">Open</a></td></tr>
+<tr style="border-top:1px solid #E3D9C6"><td style="padding:12px 22px;font-weight:700;color:#1F4D3A">Cheque</td><td style="padding:12px 8px">1 received cheque due to be deposited</td><td style="padding:12px 8px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">₹8,500</td><td style="padding:12px 22px;text-align:right"><a href="#" style="font-weight:700">Open</a></td></tr>
+</tbody>
+</table>
+</section>
+
+<section style="display:flex;flex-wrap:wrap;gap:22px">
+<div style="flex:2 1 420px;min-width:0;border:1px solid #CFC3AE;background:#FFFDF8;padding:20px 24px">
+<h2 style="margin:0 0 4px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;font-weight:600">Collection, last six months</h2>
+<div style="font-size:14px;color:#6A5B49;font-style:italic">Sample shape. No receipts entered yet</div>
+<div style="display:flex;align-items:flex-end;gap:16px;height:170px;margin-top:18px;border-bottom:2px solid #2A2118;background-image:repeating-linear-gradient(to top,transparent 0,transparent 41px,#E3D9C6 41px,#E3D9C6 42px)">
+<div style="flex:1;height:60px;background:#C9D8CD;border:1px solid #1F4D3A"></div>
+<div style="flex:1;height:90px;background:#C9D8CD;border:1px solid #1F4D3A"></div>
+<div style="flex:1;height:75px;background:#C9D8CD;border:1px solid #1F4D3A"></div>
+<div style="flex:1;height:120px;background:#C9D8CD;border:1px solid #1F4D3A"></div>
+<div style="flex:1;height:105px;background:#C9D8CD;border:1px solid #1F4D3A"></div>
+<div style="flex:1;height:150px;background:#1F4D3A;border:1px solid #1F4D3A"></div>
+</div>
+<div style="display:flex;gap:16px;margin-top:8px;font-size:13px;color:#5C4F40"><span style="flex:1;text-align:center">May</span><span style="flex:1;text-align:center">Jun</span><span style="flex:1;text-align:center">Jul</span><span style="flex:1;text-align:center">Aug</span><span style="flex:1;text-align:center">Sep</span><span style="flex:1;text-align:center;font-weight:700;color:#2A2118">Oct</span></div>
+</div>
+<div style="flex:1 1 300px;min-width:0;border:1px solid #CFC3AE;background:#FFFDF8;padding:20px 24px">
+<h2 style="margin:0 0 14px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;font-weight:600">Tickets by status</h2>
+<table style="width:100%;border-collapse:collapse;font-size:15px">
+<thead><tr style="border-bottom:2px solid #2A2118;text-align:left"><th style="padding:6px 0;font-weight:700">Status</th><th style="padding:6px 0;text-align:right;font-weight:700">Tickets</th><th style="padding:6px 0;text-align:right;font-weight:700">Share</th></tr></thead>
+<tbody>
+<tr style="border-bottom:1px solid #E3D9C6"><td style="padding:10px 0">Non-prized</td><td style="text-align:right;font-variant-numeric:tabular-nums">5</td><td style="text-align:right;font-variant-numeric:tabular-nums">71%</td></tr>
+<tr style="border-bottom:1px solid #E3D9C6"><td style="padding:10px 0">Prized</td><td style="text-align:right;font-variant-numeric:tabular-nums">2</td><td style="text-align:right;font-variant-numeric:tabular-nums">29%</td></tr>
+<tr><td style="padding:10px 0;font-weight:700">Total</td><td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums">7</td><td style="text-align:right;font-weight:700">100%</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

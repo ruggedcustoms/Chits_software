@@ -1,0 +1,112 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chit Manager Wireframes</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one screen per section, a grey low-fidelity frame first, short notes underneath.
+   Color: neutral grey blocks on a cool ground, one teal accent only for primary actions and the selected state. */
+:root{--bg:#eef1f3;--panel:#ffffff;--ink:#17222b;--mute:#586875;--line:#cfd8de;--fill:#e4eaee;--fill2:#d3dce2;--accent:#0b6e63;--accent-ink:#ffffff;--soft:#dcefec;
+--display:"Fraunces",Georgia,serif;--body:"IBM Plex Sans",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d181b;--panel:#142428;--ink:#e5eef0;--mute:#96a9af;--line:#2c4046;--fill:#1d3238;--fill2:#2a444b;--accent:#3fb8aa;--accent-ink:#06201d;--soft:#16353a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d181b;--panel:#142428;--ink:#e5eef0;--mute:#96a9af;--line:#2c4046;--fill:#1d3238;--fill2:#2a444b;--accent:#3fb8aa;--accent-ink:#06201d;--soft:#16353a;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.page{max-width:1040px;margin:0 auto;padding:26px 16px 70px}
+h1{font:600 1.7rem/1.2 var(--display);margin:0 0 6px;text-wrap:balance}
+h2{font:600 1.2rem var(--display);margin:0 0 4px}
+.lead{color:var(--mute);margin:0 0 16px;max-width:68ch}
+.idx{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 26px}
+.idx a{color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--panel);padding:3px 10px;border-radius:99px;font-size:.85rem}
+.idx a:hover{border-color:var(--accent);color:var(--accent)}
+section{margin:0 0 38px;scroll-margin-top:12px}
+.what{color:var(--mute);margin:0 0 10px}
+.scroll{overflow-x:auto;max-width:100%;padding-bottom:4px}
+.notes{margin:10px 0 0;padding-left:18px;color:var(--ink)}
+.notes li{margin:2px 0}
+.tag{display:inline-block;font-size:.75rem;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--soft);color:var(--accent);margin-left:6px;vertical-align:middle}
+/* wireframe parts */
+.wf{display:flex;min-width:760px;border:2px solid var(--fill2);border-radius:8px;background:var(--panel);overflow:hidden;font-size:12.5px;line-height:1.3}
+.rail{width:128px;background:var(--fill);padding:12px 8px;display:flex;flex-direction:column;gap:4px;flex:none}
+.rail b{font:600 13px var(--display);padding:0 6px 8px;display:block}
+.rail span{padding:5px 8px;border-radius:5px;color:var(--mute)}
+.rail span.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.main{flex:1;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.ttl{font:600 15px var(--display)}
+.rw{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:2px;min-width:90px;flex:1}
+.fld span{color:var(--mute);font-size:11px}
+.fld i{display:block;height:24px;border:1px solid var(--fill2);border-radius:4px;background:var(--bg)}
+.fld i.ta{height:50px}.fld i.ph{height:56px;width:56px;border-style:dashed}
+.wb{display:inline-block;padding:5px 12px;border:1px solid var(--fill2);border-radius:5px;font-weight:600;background:var(--panel)}
+.wb.p{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.sc{border:1px solid var(--fill2);border-radius:6px;padding:8px 10px 10px;display:flex;flex-direction:column;gap:8px}
+.sc>b{color:var(--accent);font-size:12px}
+.tb{border:1px solid var(--fill2);border-radius:6px;overflow:hidden}
+.th,.tr{display:flex}.th span,.tr span{flex:1;padding:5px 7px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th{background:var(--fill);font-weight:600;color:var(--mute);font-size:11px}
+.tr{border-top:1px solid var(--fill2)}.tr.sel{background:var(--soft)}
+u{display:block;height:7px;background:var(--fill2);border-radius:3px;width:70%;margin-top:4px}
+.tl{flex:1;min-width:110px;border:1px solid var(--fill2);border-radius:6px;padding:8px}.tl u{height:14px;width:55%;margin:0 0 6px}.tl span{color:var(--mute);font-size:11px}
+.cb{display:inline-block;width:11px;height:11px;border:1.5px solid var(--mute);border-radius:2px;vertical-align:-2px;margin-right:6px}
+.cb.on{background:var(--accent);border-color:var(--accent)}
+.pill{display:inline-block;padding:0 7px;border-radius:99px;background:var(--fill2);font-size:10.5px;font-weight:600}
+.cols{display:flex;gap:10px;align-items:flex-start}.cols>*{flex:1;min-width:0}
+.slip{border:2px solid var(--ink);border-radius:3px;padding:12px;display:flex;flex-direction:column;gap:7px;max-width:420px;margin:0 auto;width:100%}
+.slip .h{display:flex;justify-content:space-between;border-bottom:2px solid var(--ink);padding-bottom:6px}
+.sig{display:flex;justify-content:space-between;margin-top:18px}.sig span{border-top:1px solid var(--ink);padding-top:2px;font-size:10.5px;min-width:100px;text-align:center}
+.phone{width:290px;border:3px solid var(--fill2);border-radius:22px;padding:14px 12px;background:var(--panel);display:flex;flex-direction:column;gap:8px;font-size:12.5px;flex:none}
+.ph2{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;padding:4px}
+.cen{max-width:300px;margin:18px auto}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:2px 0}.kv b{font-weight:600}
+</style>
+<div class="page">
+<h1>Chit Manager wireframes</h1>
+<p class="lead">Low-fidelity layouts for the production system. They show what sits where on each screen, not final colours or type. The first release covers screens 1 to 13; screen 14 is for release 2.</p>
+<div class="idx" id="idx"></div>
+<div id="screens"></div>
+</div>
+<script>
+const NAVS=['Dashboard','Chit groups','Members','Enrollment','Auctions','Receipts','Reports','Settings'];
+const F=(l,w,c)=>`<div class="fld" style="flex:${w||1}"><span>${l}</span><i class="${c||''}"></i></div>`;
+const R=(...x)=>`<div class="rw">${x.join('')}</div>`;
+const B=(t,p)=>`<span class="wb ${p?'p':''}">${t}</span>`;
+const SC=(t,...x)=>`<div class="sc"><b>${t}</b>${x.join('')}</div>`;
+const T=(head,rows,sel)=>`<div class="tb"><div class="th">${head.map(c=>`<span>${c}</span>`).join('')}</div>${rows.map((r,i)=>`<div class="tr ${sel===i?'sel':''}">${r.map(c=>`<span>${c===''?'<u></u>':c}</span>`).join('')}</div>`).join('')}</div>`;
+const TL=l=>`<div class="tl"><u></u><span>${l}</span></div>`;
+const CB=(t,on)=>`<span><i class="cb ${on?'on':''}"></i>${t}</span>`;
+const FR=(active,...x)=>`<div class="wf"><div class="rail"><b>Chit Manager</b>${NAVS.map(n=>`<span class="${n===active?'on':''}">${n}</span>`).join('')}</div><div class="main">${x.join('')}</div></div>`;
+const TT=t=>`<div class="ttl">${t}</div>`;
+const S=[
+{id:'login',n:'Sign in',what:'Every person signs in with their own user name and password.',html:`<div class="wf" style="justify-content:center;padding:26px"><div class="cen" style="width:100%">${TT('Sri Demo Chits')}<p style="color:var(--mute);margin:2px 0 12px">Sign in to continue</p>${F('User name')}<div style="height:8px"></div>${F('Password')}<div style="height:12px"></div>${B('Sign in',1)}<p style="color:var(--mute);margin-top:10px">Forgot your password? Ask the owner to reset it.</p></div></div>`,
+ notes:['Locks after 5 wrong passwords; the owner unlocks it.','Optional one-time code for the owner and accountant roles.']},
+{id:'dash',n:'Dashboard',what:'The first screen after sign-in: what needs attention today.',html:FR('Dashboard',TT('Dashboard'),R(TL('Chit groups'),TL('Subscriber tickets'),TL('Collected today'),TL('Collected this month'),TL('Outstanding')),`<div class="cols">${T(['Group','Auction','Scheduled','Enrolled'],[['5L Chit A','4 of 20','05 Nov, 10:00','20 / 20'],['2L Chit B','','',''],['10L Chit C','','','']])}${T(['No.','Date','Ticket','Subscriber','Amount'],[['','','','',''],['','','','',''],['','','','','']])}</div>`),
+ notes:['Upcoming auctions on the left, recent receipts on the right.','Collection agents see only their own tiles and tickets.']},
+{id:'groups',n:'Chit groups',what:'All groups with their progress. Select a row to open it.',html:FR('Chit groups',R(TT('Chit groups'),B('New chit group',1)),T(['Group','Chit amount','Installment','Tickets','Auctions','Commission','Next auction','Status'],[['5L Chit A','5,00,000','25,000','20 / 20','4 / 20','5%','05 Nov',' <span class="pill">Running</span>'],['2L Chit B','','','','','','',''],['10L Chit C','','','','','','','']],0)),
+ notes:['Status is Not started, Open for enrolment, Running or Completed.']},
+{id:'groupform',n:'Chit group form',what:'Create or edit a group. Fields follow the reference software, grouped into sections.',html:FR('Chit groups',TT('New chit group'),SC('General information',R(F('Branch'),F('Group name'),F('Chit amount'),F('Installments'),F('Auction type')),R(F('PSO number'),F('PSO date'),F('Bye-law no.'),F('Bye-law date'),F('Commencement'),F('Termination'))),SC('Company and rules',R(F('Company tickets'),F('Commission %'),F('Max bid %'),F('GST %'),F('Late fee PS %'),F('Late fee NPS %')),R(F('Dividend: same / next month'),F('PS pay: full / reduced'),CB('Round dividend down',1))),SC('Auction schedule',R(F('Method'),F('Lottery discount %'),F('Auction day'),F('Time from'),F('Time to'),F('Installment amount'))),SC('FDR / DD',R(F('Number'),F('Date'),F('Amount'),F('Rate %'),F('Maturity date'),F('Bank'))),R(B('Save group',1),B('Cancel'))),
+ notes:['Once an auction is recorded, chit amount, installments, commission and dividend rules are locked.','Company ticket numbers create company-held enrolments automatically.']},
+{id:'groupdetail',n:'Group detail',what:'One group: its rules at a glance and who holds each ticket.',html:FR('Chit groups',R(TT('5L Chit A'),B('Edit'),B('Delete')),SC('Group facts',R(F('Commission',1),F('Max bid',1),F('GST',1),F('Late fee PS / NPS',1),F('Dividend',1),F('Next auction',1))),`<div class="ttl" style="font-size:13px">Tickets</div>`,T(['Ticket','Subscriber','Mobile','Status','Prized'],[['1','Company','','<span class="pill">Company</span>',''],['2','Ravi Kumar','98765 43210','<span class="pill">PS</span>','Auction 1'],['3','Anita S.','','<span class="pill">NPS</span>',''],['4','','','','']]),R(B('Enroll a subscriber',1))),
+ notes:['Vacant tickets show "Not enrolled" with a quick enroll action.']},
+{id:'member',n:'Member registration',what:'Register a person once, with every detail the reference form asks for.',html:FR('Members',TT('Register new member'),SC('Person and contact information',`<div class="rw"><div class="fld" style="flex:none"><span>Photo</span><i class="ph"></i></div><div class="fld" style="flex:none"><span>Signature</span><i class="ph"></i></div>${F('Title',.4)}${F('Name',2)}${F('S/O, D/O, W/O',.6)}${F('Father / spouse',2)}</div>`,R(F('Gender'),F('Date of birth'),F('Occupation'),F('Income'),F('PAN'),F('Aadhaar last 4'),F('GST no.'),F('Bank / account / IFSC',2)),R(CB('Member',1),CB('Agent'),CB('Guarantor'),CB('Staff'),CB('Marketer'))),`<div class="cols">${SC('Residential address',F('Door, street'),F('City, district, state'),F('Pin, phone'),F('Mobile *'),F('Email'))}${SC('Office address',F('Door, street'),F('City, district, state'),F('Pin, phone'),F('Mobile'),F('Fax'))}${SC('Correspondence',F('Door, street'),F('City, district, state'),F('Pin, phone'),F('Mobile'),F('Email'))}</div>`,R(B('Copy residential to office'),B('Copy residential to correspondence')),SC('Employment details',R(F('Organization',2),F('Designation'),F('Employee ID'),F('Joined'),F('Basic salary'),F('Deductions'))),R(B('Save member',1),B('Cancel'))),
+ notes:['Name and residential mobile are required. A duplicate PAN is rejected with the existing name.','Aadhaar is kept as the last 4 digits only.']},
+{id:'enroll',n:'Enrollment',what:'Put a registered person into a ticket of a group. One person can hold many tickets.',html:FR('Enrollment',TT('Enroll a subscriber'),SC('Group, ticket and subscriber',R(F('Chit group *'),F('Ticket *',.5),F('Subscriber *',2))),SC('General information',R(F('Enrolment date'),F('Payment mode'),F('Business agent'),F('Collection agent'),F('Zone'),F('Director'),F('Area'))),SC('Documents and intimation',R(CB('Pass book issued',1),F('Date'),CB('Chit agreement received'),F('Date'),F('Intimation card via'),F('Guarantor 1'),F('Guarantor 2'))),SC('Nominee',R(F('Name',2),F('Age',.4),F('Relation'),F('Address',3),F('Phone'))),R(B('Save enrolment',1),B('Cancel'))),
+ notes:['Only vacant tickets of the chosen group are offered.','Editing the subscriber on an existing ticket records a transfer in the audit log.']},
+{id:'auction',n:'Auction entry',what:'Record the auction and see the effect on prize, dividend and installments before saving.',html:FR('Auctions',R(TT('Auctions'),F('Chit group',.6)),`<div class="cols"><div style="display:flex;flex-direction:column;gap:8px">${SC('Auction 5 of 20, scheduled 05 Nov, 10:00 to 11:00',R(F('Auction date'),F('Due date'),F('Next auction')),R(F('Decided by'),F('Winning ticket',2)),R(F('Bid / discount (₹)'),F('GST %'),F('Minutes filing date')),R(B('Draw lottery winner'),B('Save auction',1)))}</div>${SC('Calculation',...[['Installment','25,000'],['Chit value','5,00,000'],['Bid loss','1,00,000'],['Bid payable','4,00,000'],['GST on commission','4,500'],['Net prize to winner','3,95,500'],['Commission','25,000'],['Dividend per ticket','3,750'],['Net payable per ticket','21,250']].map(([a,b])=>`<div class="kv"><span>${a}</span><b>${b}</b></div>`))}</div>`,TT('Auction history'),T(['No.','Date','Ticket','Winner','Bid','Net to winner','Dividend','Prize paid',''],[['1','','2','Ravi Kumar','1,00,000','3,95,500','3,750','<span class="pill">Paid</span>',''],['2','','','','','','','<span class="pill">Unpaid</span>',B('Pay prize')]])),
+ notes:['The calculation panel updates as the bid is typed and warns if the bid is below commission or above the ceiling.','A ticket that has won cannot be chosen again; company tickets are never offered.','Pay prize opens an inline form: date, mode, amount, reference.']},
+{id:'receipt',n:'Receipt entry',what:'The busiest screen. Pick the ticket, tap the installments being paid, save, print or send an SMS.',html:FR('Receipts',TT('Receipts'),R(F('Date'),F('Mode'),F('Group'),F('Ticket and subscriber',2),F('TR no.'),F('Agent')),`<div class="sc"><div class="kv"><span><b>Ravi Kumar</b> <span class="pill">NPS</span> 98765 43210</span><span>Arrears <b>₹8,500</b> · Penalty due <b>₹35</b></span></div></div>`,R(B('Oldest unpaid'),B('Oldest two'),B('All overdue'),B('All unpaid'),B('Clear')),T(['','Installment','Due date','Amount','Paid','Balance','Status'],[['<i class="cb"></i>','1','05-07','8,500','8,500','-','<span class="pill">Paid</span>'],['<i class="cb"></i>','2','05-08','8,500','0','8,500','<span class="pill">Overdue</span>'],['<i class="cb on"></i>','3','05-09','8,500','0','8,500','<span class="pill">Overdue</span>'],['<i class="cb"></i>','4','05-10','8,500','0','8,500','<span class="pill">Due</span>']],2),R(F('Receipt amount'),F('Penalty'),F('Enrolment fee'),F('Bank charge'),F('Other'),F('Subscription')),R(F('Cheque / DD no.'),F('Bank'),F('Cheque date'),F('Reason',2)),R(B('Save',1),B('Save and print',1),B('Save and SMS',1),B('Fill outstanding amount'))),
+ notes:['Tapping a row selects it and fills the amount. With nothing selected, money goes to the oldest unpaid installment.','Cheque fields show only for cheque, DD and online modes.','Cancelled receipts stay in the list, marked cancelled.']},
+{id:'print',n:'Receipt print page',what:'A clean slip with only the receipt, ready for the printer.',html:`<div class="wf" style="padding:18px"><div class="slip"><div class="h"><div><b>Sri Demo Chits</b><br><span style="color:var(--mute)">Cubbonpet branch</span></div><div style="text-align:right"><b>RECEIPT</b><br>No. 128<br>Date 07-10-2026</div></div><div class="kv"><span>Received from</span><b>Ravi Kumar</b></div><div class="kv"><span>Group, ticket</span><b>5L Chit A, 3</b></div><div class="kv"><span>Installments paid</span><b>3</b></div><div class="kv"><span>Mode</span><b>Cash</b></div><div class="kv"><span>Subscription</span><b>₹8,500</b></div><div class="kv" style="border-top:1px solid var(--ink)"><span><b>Total received</b></span><b>₹8,500</b></div><b>Rupees Eight Thousand Five Hundred only</b><span style="color:var(--mute)">Balance after this receipt: ₹17,000 arrears</span><div class="sig"><span>Subscriber signature</span><span>Authorised signatory</span></div></div></div>`,
+ notes:['Print hides the menu and buttons. The production system also offers PDF download and a thermal-printer size.','Shows the amount in words and the balance after the receipt.']},
+{id:'sms',n:'SMS',what:'Send the receipt confirmation to the subscriber.',html:FR('Receipts',TT('SMS for receipt 128'),F('Mobile number',.6),`<div class="fld"><span>Message (editable, 1 SMS = 160 characters)</span><i class="ta"></i></div>`,R(B('Send SMS',1),B('Copy message'),B('Print instead'),B('Back to receipts'))),
+ notes:['In the production system the message goes out through the SMS provider and the receipt shows "SMS sent" with the time and delivery status.','Message templates are set once in Settings and must be registered with the provider.']},
+{id:'outstanding',n:'Outstanding report',what:'Who owes what, as on today. Every report follows this pattern: filters, table, totals, export.',html:FR('Reports',TT('Outstanding and defaulters'),R(F('Group'),F('PS / NPS'),F('Agent'),F('Sort by'),CB('Only members with dues',1)),R(B('Export Excel'),B('Export PDF'),B('Print')),T(['Group','Ticket','Subscriber','Mobile','Status','Due so far','Paid','Arrears','Penalty','Agent'],[['5L Chit A','3','Ravi Kumar','98765…','NPS','34,000','8,500','25,500','35','Suresh'],['5L Chit A','7','','','','','','','',''],['2L Chit B','2','','','','','','','','']]),`<div class="kv"><span><b>Total (3)</b></span><b>₹ x,xx,xxx</b></div>`),
+ notes:['Collection agents only see their own tickets in this report.','Rows open the member account copy.']},
+{id:'users',n:'Users and roles',what:'The owner manages who can sign in and what each role may do.',html:FR('Settings',TT('Users and roles'),R(B('Add user',1)),T(['User name','Name','Role','Status',''],[['owner1','Srinivas','Owner','Active',B('Reset password')],['acct1','','Accountant','Active',''],['agent1','','Collection agent','Active','']]),SC('Role permissions',T(['Role','Groups','Members','Auctions','Receipts','Reports','Users'],[['Manager','<i class="cb on"></i>','<i class="cb on"></i>','<i class="cb on"></i>','<i class="cb on"></i>','<i class="cb on"></i>','<i class="cb"></i>'],['Accountant','<i class="cb"></i>','<i class="cb"></i>','<i class="cb"></i>','<i class="cb on"></i>','<i class="cb on"></i>','<i class="cb"></i>'],['Collection agent','<i class="cb"></i>','<i class="cb"></i>','<i class="cb"></i>','<i class="cb on"></i>','<i class="cb"></i>','<i class="cb"></i>']])),R(B('Audit log'),B('Backups'),B('Company setup'))),
+ notes:['Audit log, backups and company setup sit under Settings.','Backups shows the last 30 daily copies with a restore action for the owner only.']},
+{id:'mobile',n:'Agent mobile collection',tag:'Release 2',what:'A phone layout for collection agents in the field: pick a subscriber, tap installments, collect.',html:`<div class="ph2"><div class="phone"><b class="ttl">Today's collection</b>${F('Search name or ticket')}${T(['Subscriber','Ticket','Due'],[['Ravi Kumar','3','25,500'],['Anita S.','9','8,500'],['','','']],0)}</div><div class="phone"><b class="ttl">Ravi Kumar, ticket 3</b><span style="color:var(--mute)">Arrears ₹25,500 · Penalty ₹35</span>${T(['','Inst.','Balance','Status'],[['<i class="cb on"></i>','2','8,500','Overdue'],['<i class="cb on"></i>','3','8,500','Overdue'],['<i class="cb"></i>','4','8,500','Due']])}${F('Amount')}${F('Mode')}${B('Save',1)}${B('Save and print')}${B('Save and SMS')}</div></div>`,
+ notes:['Works with a weak connection: receipts are saved on the phone and sent when the network returns.','Agents see only the tickets assigned to them.']}
+];
+document.getElementById('idx').innerHTML=S.map((s,i)=>`<a href="#${s.id}">${i+1}. ${s.n}</a>`).join('');
+document.getElementById('screens').innerHTML=S.map((s,i)=>`<section id="${s.id}"><h2>${i+1}. ${s.n}${s.tag?`<span class="tag">${s.tag}</span>`:''}</h2><p class="what">${s.what}</p><div class="scroll">${s.html}</div><ul class="notes">${s.notes.map(n=>`<li>${n}</li>`).join('')}</ul></section>`).join('');
+</script>
+
+</body></html>

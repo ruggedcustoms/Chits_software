@@ -1,0 +1,236 @@
+<!doctype html><html><head><meta charset=utf8><script>/* Outside claude.ai there is no claude.use("downloads"), so saves become normal browser downloads. */
+if(!window.claude){window.claude={use:async function(n){if(n!=="downloads")return null;return{save:async function(o){var d=o.data,b=d instanceof Blob?d:new Blob([d]),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=o.filename||"download";document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000)}}}}}
+</script><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chit Collection Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: one phone-width column. Top bar, scrolling screen, four-tab bar. Today list is the home: target strip first, then members sorted by what to collect first. */
+:root{--bg:#ffffff;--surface:#f3f7f7;--ink:#14232b;--mute:#587079;--line:#dbe6e6;--teal:#0b6e63;--teal-ink:#ffffff;--soft:#e2f0ee;--warn:#a8590a;--warn-bg:#fdf1e0;--bad:#b3261e;--bad-bg:#fcebe9;--good:#17753a;--good-bg:#e4f4ea;--shadow:0 1px 2px rgba(10,40,40,.06);--sans:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d181b;--surface:#142428;--ink:#e5eef0;--mute:#96a9af;--line:#27393e;--teal:#3fb8aa;--teal-ink:#06201d;--soft:#16353a;--warn:#f0a43a;--warn-bg:#3a2b12;--bad:#f2837b;--bad-bg:#3d1d1b;--good:#5fd38a;--good-bg:#12301f;--shadow:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d181b;--surface:#142428;--ink:#e5eef0;--mute:#96a9af;--line:#27393e;--teal:#3fb8aa;--teal-ink:#06201d;--soft:#16353a;--warn:#f0a43a;--warn-bg:#3a2b12;--bad:#f2837b;--bad-bg:#3d1d1b;--good:#5fd38a;--good-bg:#12301f;--shadow:none;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.app{max-width:440px;height:100%;margin:0 auto;display:flex;flex-direction:column;background:var(--bg)}
+@media (min-width:600px){body{background:var(--surface)}.app{border-left:1px solid var(--line);border-right:1px solid var(--line)}}
+.demo{background:var(--warn-bg);color:var(--warn);font-size:.74rem;font-weight:700;padding:4px 16px;text-align:center}
+.top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.top h1{font-size:1.05rem;margin:0;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.back{border:0;background:var(--soft);color:var(--teal);width:36px;height:36px;border-radius:50%;font-size:1.1rem;font-weight:700}
+.net{border:0;border-radius:99px;padding:5px 12px;font-size:.76rem;font-weight:700;background:var(--good-bg);color:var(--good)}
+.net.off{background:var(--bad-bg);color:var(--bad)}
+main{flex:1;overflow-y:auto;padding:16px 16px 24px;min-height:0}
+nav{display:flex;border-top:1px solid var(--line);background:var(--bg);padding:6px 4px 6px}
+nav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;font-size:.72rem;color:var(--mute);font-weight:600;border-radius:10px;position:relative}
+nav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-current="page"]{color:var(--teal);font-weight:800}
+nav .dot{position:absolute;top:2px;right:26%;background:var(--bad);color:#fff;border-radius:99px;font-size:.62rem;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px}
+.hero{background:var(--teal);color:var(--teal-ink);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.hero small{opacity:.85;font-size:.78rem}
+.hero .big{font-size:1.9rem;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.1}
+.hero .row{display:flex;gap:10px;justify-content:space-between;align-items:flex-end}
+.hero .bar{height:7px;border-radius:99px;background:rgba(255,255,255,.28);overflow:hidden}
+.hero .bar i{display:block;height:100%;background:var(--teal-ink);border-radius:99px}
+.btn{border:0;border-radius:12px;padding:12px 16px;background:var(--teal);color:var(--teal-ink);font-weight:700}
+.btn.ghost{background:var(--soft);color:var(--teal)}
+.btn.warn{background:var(--warn-bg);color:var(--warn)}
+.btn.sm{padding:8px 12px;font-size:.84rem;border-radius:10px}
+.btn.block{width:100%}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;color:var(--mute);margin:20px 0 8px;font-weight:800}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+.card+.card{margin-top:10px}
+.muted{color:var(--mute)}
+.num{font-variant-numeric:tabular-nums}
+.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.72rem;font-weight:700;white-space:nowrap}
+.pill.good{background:var(--good-bg);color:var(--good)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.soft{background:var(--soft);color:var(--teal)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px}
+.chips button{border:1px solid var(--line);background:var(--bg);border-radius:99px;padding:6px 12px;font-size:.82rem;font-weight:600;color:var(--mute);white-space:nowrap}
+.chips button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:var(--teal-ink)}
+.search{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:10px}
+.mem{display:block;width:100%;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:10px}
+.mem .t{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.mem b{font-size:1rem}
+.mem .amt{font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.mem .s{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:.8rem;color:var(--mute)}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.kv:first-child{border-top:0}
+.kv span:first-child{color:var(--mute)}
+.kv span:last-child{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+label{display:block;font-size:.8rem;color:var(--mute);font-weight:700;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.seg{display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:12px}
+.seg button{flex:1;border:0;background:none;padding:9px 4px;border-radius:9px;font-weight:700;color:var(--mute)}
+.seg button[aria-pressed="true"]{background:var(--bg);color:var(--teal);box-shadow:var(--shadow)}
+.ins{display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+.ins:first-child{border-top:0}
+.ins input[type=checkbox]{accent-color:var(--teal)}
+.ins input[type=checkbox]{width:22px;height:22px;flex:none}
+.ins .g{flex:1;min-width:0}
+.ins .r{font-weight:700;font-variant-numeric:tabular-nums}
+.slip{border:1.5px dashed var(--line);border-radius:14px;padding:16px;background:var(--surface)}
+.slip h3{margin:0 0 2px;font-size:1rem}
+.err{color:var(--bad);font-size:.84rem;font-weight:600;margin:8px 0 0}
+.ok{background:var(--good-bg);color:var(--good);border-radius:12px;padding:10px 12px;font-weight:700;margin-bottom:12px}
+.login{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:24px 22px}
+.logo{width:54px;height:54px;border-radius:16px;background:var(--teal);color:var(--teal-ink);display:grid;place-items:center;font-weight:800;font-size:1.5rem;margin-bottom:10px}
+/* thermal slip: 58 mm printer, 32 characters per line */
+.thermal{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.78rem;line-height:1.35;white-space:pre;background:#fff;color:#111;border:1px solid var(--line);border-radius:6px;padding:14px 12px;width:max-content;max-width:100%;overflow-x:auto;margin:0 auto;box-shadow:var(--shadow)}
+@media (prefers-reduced-motion:no-preference){main{scroll-behavior:smooth}}
+</style>
+<div class="app" id="app"></div>
+<script>
+/* ---------- sample data (stands in for the office database) ---------- */
+const DAY=864e5,T0=new Date();T0.setHours(0,0,0,0);
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const dmy=s=>s?s.slice(0,10).split('-').reverse().join('-'):'';
+const TODAY=iso(T0);
+const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const AGENT={name:'Ramesh K',code:'AG-07',area:'Cubbonpet and Chickpet',rate:1,target:60000,monthBase:284500,company:'Sri Shakambari Chits Pvt Ltd'};
+const RAW=[
+['Lakshmi Devi','9876500002','Cubbonpet','12, Avenue Road Cross','SSC-25L-01',3,10000,2,45,0],
+['Priya Nair','9876500004','Chickpet','5th Cross, Chickpet','SSC-25L-01',5,10000,3,70,1],
+['Mohammed Irfan','9845012345','Cubbonpet','Jumma Masjid Road','SSC-10L-04',11,5000,1,12,0],
+['Suresh Babu','9844023456','Balepet','44, Balepet Main Road','SSC-10L-04',2,5000,4,118,1],
+['Anitha Rao','9900034567','Chickpet','Dharmaraya Temple St','SSC-5L-02',8,2500,1,6,0],
+['Venkatesh S','9886045678','Cubbonpet','Kumbarpet Cross','SSC-5L-02',14,2500,0,0,0],
+['Fathima Begum','9731056789','Cubbonpet','Tipu Circle','SSC-25L-01',9,10000,1,28,0],
+['Ravi Kumar','9945067890','Balepet','Nagarathpet','SSC-10L-04',7,5000,2,41,0],
+['Geetha M','9972078901','Chickpet','Akkipet Main Road','SSC-5L-02',3,2500,2,33,1],
+['Narayana Murthy','9448089012','Cubbonpet','Banashankari Market','SSC-25L-01',16,10000,0,0,0],
+['Shanthamma','9035090123','Balepet','Kalasipalyam','SSC-5L-02',12,2500,3,64,0],
+['Imran Pasha','9741001234','Chickpet','OTC Road','SSC-10L-04',1,5000,1,19,0]];
+const MEMS=RAW.map((r,i)=>{const[n,m,a,ad,g,t,inst,k,old,ps]=r,dues=[];for(let j=0;j<k;j++){const d=new Date(T0.getTime()-(old-j*30)*DAY);dues.push({no:t+j+1,date:iso(d),amt:inst,paid:0})}
+ return{id:'m'+i,name:n,mob:m,area:a,addr:ad,group:g,t,inst,ps,dues,promise:null,visits:[],lastPaid:old?iso(new Date(T0.getTime()-(old+25)*DAY)):iso(new Date(T0.getTime()-18*DAY))}});
+/* seed: Priya promised for today, one earlier collection so the summary is not empty */
+MEMS[1].promise={date:TODAY,note:'Will give half in the evening'};
+MEMS[5].dues=[];
+let RC=[{no:'A07-0411',mid:'m9',name:'Narayana Murthy',group:'SSC-25L-01',t:16,amt:10000,pen:0,mode:'UPI',ref:'4231 8890 1177',date:TODAY,time:'10:12',insts:[17],sync:true}];
+let ST={printer:false,view:'login',tab:'today',filter:'all',q:'',mid:null,off:false,rcId:null,close:null,collect:null,counted:'',err:'',flash:''};
+const KEY='chit-agent-demo';
+function persist(){try{localStorage.setItem(KEY,JSON.stringify({RC,M:MEMS.map(m=>({id:m.id,dues:m.dues,promise:m.promise,visits:m.visits})),close:ST.close}))}catch(e){}}
+function restore(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(!d)return;RC=d.RC||RC;(d.M||[]).forEach(x=>{const m=MEMS.find(y=>y.id===x.id);if(m){m.dues=x.dues;m.promise=x.promise;m.visits=x.visits||[]}});ST.close=d.close||null}catch(e){}}
+restore();
+/* ---------- helpers ---------- */
+const mem=id=>MEMS.find(m=>m.id===id);
+const daysLate=m=>m.dues.length?Math.max(0,Math.round((T0-new Date(m.dues[0].date))/DAY)):0;
+const monthsLate=d=>Math.max(0,Math.ceil((T0-new Date(d))/(30*DAY)));
+const penOf=(m,d)=>Math.round(d.amt*(m.ps?.015:.012)*monthsLate(d.date));
+const owed=m=>m.dues.reduce((s,d)=>s+d.amt-d.paid,0);
+const penTotal=m=>m.dues.reduce((s,d)=>s+(d.amt-d.paid>0?penOf(m,d):0),0);
+const todayRc=()=>RC.filter(r=>r.date===TODAY);
+const sum=(a,f)=>a.reduce((s,x)=>s+f(x),0);
+const nowT=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+const pending=()=>RC.filter(r=>!r.sync).length;
+function rcNo(){const n=RC.reduce((x,r)=>Math.max(x,+r.no.split('-')[1]),410)+1;return 'A07-'+String(n).padStart(4,'0')}
+const ICON={today:'<path d="M4 6h16M4 12h16M4 18h10"/>',rcpt:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',close:'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M9 15h3"/>',me:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'};
+const addrOf=m=>m.addr+', '+m.area+', Bengaluru, Karnataka';
+const gmap=m=>'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination='+encodeURIComponent(addrOf(m));
+const gfind=m=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addrOf(m));
+const wa=(m,txt)=>'https://wa.me/91'+m.mob+'?text='+encodeURIComponent(txt);
+function copy(t,msg){const done=()=>{ST.flash=msg||'Copied';draw();setTimeout(()=>{ST.flash='';draw()},1800)};try{navigator.clipboard.writeText(t).then(done,done)}catch(e){done()}}
+/* ---------- screens ---------- */
+function topbar(title,back){return`<div class="top">${back?`<button class="back" onclick="${back}" aria-label="Back">←</button>`:''}<h1>${esc(title)}</h1><button class="net ${ST.off?'off':''}" onclick="toggleNet()">${ST.off?'Offline':'Online'}</button></div>`}
+function tabs(){const p=pending(),T=[['today','Today','today'],['rcpt','Receipts','rcpt'],['close','Day close','close'],['me','Me','me']];
+ return`<nav>${T.map(t=>`<button ${ST.tab===t[0]&&['list','tab'].includes(ST.view)?'aria-current="page"':''} onclick="goTab('${t[0]}')"><svg viewBox="0 0 24 24">${ICON[t[2]]}</svg>${t[1]}${t[0]==='rcpt'&&p?`<span class="dot">${p}</span>`:''}</button>`).join('')}</nav>`}
+function viewLogin(){return`<div class="demo">Demo with sample data. Nothing is sent to the office.</div><div class="login"><div class="logo">C</div><h1 style="margin:0;font-size:1.5rem">Chit Collection</h1><p class="muted" style="margin:0 0 14px">${esc(AGENT.company)}</p>
+ <label for="lc">Agent code</label><input id="lc" value="${AGENT.code}" autocomplete="off"><label for="lp">PIN</label><input id="lp" type="password" inputmode="numeric" maxlength="4" value="1234" autocomplete="off">
+ <p class="err" id="le" ${ST.err?'':'hidden'}>${esc(ST.err)}</p><button class="btn block" style="margin-top:14px" onclick="login()">Sign in</button><p class="muted" style="font-size:.8rem">Demo PIN is 1234. In the real app the office gives each agent a PIN and can block a lost phone.</p></div>`}
+function listData(){const q=ST.q.toLowerCase();let L=MEMS.filter(m=>(!q||(m.name+' '+m.area+' '+m.group+' '+m.mob).toLowerCase().includes(q)));
+ const paidToday=m=>todayRc().some(r=>r.mid===m.id);
+ if(ST.filter==='overdue')L=L.filter(m=>owed(m)>0&&daysLate(m)>=30);else if(ST.filter==='promise')L=L.filter(m=>m.promise&&m.promise.date<=TODAY&&owed(m)>0);else if(ST.filter==='done')L=L.filter(paidToday);else if(ST.filter==='due')L=L.filter(m=>owed(m)>0);
+ return L.sort((a,b)=>{const pa=a.promise&&a.promise.date<=TODAY?1:0,pb=b.promise&&b.promise.date<=TODAY?1:0;return (pb-pa)||(daysLate(b)-daysLate(a))})}
+function routeUrl(){const L=MEMS.filter(m=>owed(m)>0).sort((a,b)=>(a.area+a.addr).localeCompare(b.area+b.addr)).slice(0,9),last=L.pop();if(!last)return'https://www.google.com/maps';return'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination='+encodeURIComponent(addrOf(last))+(L.length?'&waypoints='+encodeURIComponent(L.map(addrOf).join('|')):'')}
+function viewToday(){const rc=todayRc(),col=sum(rc,r=>r.amt+r.pen),pct=Math.min(100,Math.round(col/AGENT.target*100)),dueN=MEMS.filter(m=>owed(m)>0).length,L=listData();
+ const F=[['all','All'],['due','With dues'],['overdue','30+ days late'],['promise','Promised'],['done','Paid today']];
+ return`${ST.flash?`<div class="ok">${esc(ST.flash)}</div>`:''}<div class="hero"><div class="row"><div><small>Collected today</small><div class="big">${inr(col)}</div></div><div style="text-align:right"><small>Target</small><div style="font-weight:800">${inr(AGENT.target)}</div></div></div><div class="bar"><i style="width:${pct}%"></i></div><small>${pct}% of target. ${dueN} member${dueN===1?'':'s'} still have dues on your route.</small></div>
+ <h2>Your route</h2><a class="btn ghost block" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px" href="${routeUrl()}" target="_blank" rel="noopener">Plan today's route in Google Maps</a><input class="search" id="sq" placeholder="Search name, area, group or mobile" value="${esc(ST.q)}" oninput="ST.q=this.value;redrawList()"><div class="chips">${F.map(f=>`<button aria-pressed="${ST.filter===f[0]}" onclick="ST.filter='${f[0]}';draw()">${f[1]}</button>`).join('')}</div><div id="lst">${listHtml(L)}</div>`}
+function listHtml(L){if(!L.length)return'<div class="card muted">No members match. Clear the search or change the filter.</div>';
+ return L.map(m=>{const o=owed(m),d=daysLate(m),paid=todayRc().some(r=>r.mid===m.id);
+ return`<button class="mem" onclick="openMem('${m.id}')"><div class="t"><div style="min-width:0"><b>${esc(m.name)}</b><div class="muted" style="font-size:.82rem">${esc(m.area)} · ${esc(m.group)} / ticket ${m.t}</div></div><div class="amt">${o>0?inr(o):'Clear'}</div></div>
+ <div class="s">${paid?'<span class="pill good">Paid today</span>':''}${o>0&&d>=60?`<span class="pill bad">${d} days late</span>`:o>0&&d>=30?`<span class="pill warn">${d} days late</span>`:o>0?`<span class="pill soft">${d} days late</span>`:''}${m.promise&&o>0?`<span class="pill ${m.promise.date<=TODAY?'warn':'soft'}">Promised ${dmy(m.promise.date)}</span>`:''}${m.ps?'<span class="pill soft">Prized</span>':''}</div></button>`}).join('')}
+function redrawList(){const el=document.getElementById('lst');if(el)el.innerHTML=listHtml(listData())}
+function viewMember(){const m=mem(ST.mid),o=owed(m),pen=penTotal(m),d=daysLate(m);
+ return`${ST.flash?`<div class="ok">${esc(ST.flash)}</div>`:''}<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><b style="font-size:1.15rem">${esc(m.name)}</b><div class="muted">${esc(m.addr)}, ${esc(m.area)}</div></div>${m.ps?'<span class="pill soft">Prized</span>':'<span class="pill soft">Not prized</span>'}</div>
+ <div class="kv" style="margin-top:10px"><span>Group and ticket</span><span>${esc(m.group)} / ${m.t}</span></div><div class="kv"><span>Installment</span><span>${inr(m.inst)}</span></div><div class="kv"><span>Address</span><span style="max-width:60%">${esc(addrOf(m))}</span></div><div class="kv"><span>Last payment</span><span>${dmy(m.lastPaid)}</span></div><div class="kv"><span>Mobile</span><span>${m.mob} <button class="btn ghost sm" style="margin-left:6px" onclick="copy('${m.mob}','Number copied')">Copy</button></span></div>
+ <div style="display:flex;gap:8px;margin-top:10px"><a class="btn sm" style="text-decoration:none;flex:1;text-align:center" href="tel:+91${m.mob}">Call ${m.mob}</a><a class="btn ghost sm" style="text-decoration:none;flex:1;text-align:center" href="${wa(m,'Dear '+m.name+', your chit installment of '+inr(o)+' for '+m.group+' ticket '+m.t+' is due. Please pay at the earliest. '+AGENT.company)}" target="_blank" rel="noopener">WhatsApp</a></div>
+ <div style="display:flex;gap:8px;margin-top:8px"><a class="btn ghost sm" style="text-decoration:none;flex:1;text-align:center" href="${gmap(m)}" target="_blank" rel="noopener">Directions in Google Maps</a><a class="btn ghost sm" style="text-decoration:none;flex:1;text-align:center" href="${gfind(m)}" target="_blank" rel="noopener">Show on map</a></div></div>
+ <h2>Dues</h2><div class="card">${m.dues.filter(x=>x.amt-x.paid>0).length?m.dues.filter(x=>x.amt-x.paid>0).map(x=>`<div class="kv"><span>Installment ${x.no}<br><small>Due ${dmy(x.date)}${monthsLate(x.date)?', '+monthsLate(x.date)+' month'+(monthsLate(x.date)>1?'s':'')+' late':''}</small></span><span>${inr(x.amt-x.paid)}</span></div>`).join('')+`<div class="kv"><span>Late fee so far</span><span>${inr(pen)}</span></div><div class="kv"><span><b>Total to collect</b></span><span><b>${inr(o+pen)}</b></span></div>`:'<p class="muted" style="margin:0">No dues. This member is up to date.</p>'}</div>
+ <button class="btn block" style="margin-top:12px" onclick="startCollect('${m.id}')" ${o>0?'':'disabled'}>Collect payment</button>
+ <h2>Visit note</h2><div class="card">${m.promise?`<p style="margin:0 0 8px"><span class="pill warn">Promised ${dmy(m.promise.date)}</span> ${esc(m.promise.note||'')}</p>`:''}
+ <label for="pd" style="margin-top:0">Promise to pay on</label><input id="pd" type="date" min="${TODAY}" value="${m.promise?m.promise.date:''}"><label for="pn">Note</label><textarea id="pn" rows="2" placeholder="Not at home, asked to come on Saturday...">${esc(m.promise?m.promise.note:'')}</textarea>
+ <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" style="flex:1" onclick="savePromise('${m.id}')">Save note</button><button class="btn ghost" onclick="noVisit('${m.id}')">Not at home</button></div>
+ ${m.visits.length?'<div style="margin-top:10px">'+m.visits.slice(-3).reverse().map(v=>`<div class="muted" style="font-size:.8rem">${dmy(v.d)} ${v.t}: ${esc(v.x)}</div>`).join('')+'</div>':''}</div>`}
+function viewCollect(){const c=ST.collect,m=mem(c.mid),open=m.dues.filter(x=>x.amt-x.paid>0),sel=open.filter(x=>c.sel[x.no]),due=sum(sel,x=>x.amt-x.paid),pen=c.pen?sum(sel,x=>penOf(m,x)):0,tot=due+pen;
+ return`<div class="card"><b>${esc(m.name)}</b><div class="muted">${esc(m.group)} / ticket ${m.t}</div></div><h2>Installments</h2><div class="card">${open.map(x=>`<label class="ins" style="margin:0;color:var(--ink);font-size:inherit"><input type="checkbox" ${c.sel[x.no]?'checked':''} onchange="togIns(${x.no})"><span class="g"><b>Installment ${x.no}</b><br><small class="muted">Due ${dmy(x.date)}, late fee ${inr(penOf(m,x))}</small></span><span class="r">${inr(x.amt-x.paid)}</span></label>`).join('')}</div>
+ <label style="display:flex;gap:10px;align-items:center;color:var(--ink);font-size:.92rem"><input type="checkbox" style="width:20px;height:20px" ${c.pen?'checked':''} onchange="ST.collect.pen=this.checked;draw()"> Collect the late fee (${inr(sum(sel,x=>penOf(m,x)))})</label>
+ <h2>Payment</h2><div class="card"><div class="kv"><span>Installments</span><span>${inr(due)}</span></div><div class="kv"><span>Late fee</span><span>${inr(pen)}</span></div><div class="kv"><span><b>Total</b></span><span><b>${inr(tot)}</b></span></div>
+ <label for="am">Amount received</label><input id="am" type="number" inputmode="numeric" min="0" value="${c.amt!=null?c.amt:tot}" oninput="ST.collect.amt=this.value===''?'':+this.value">
+ <label>Mode</label><div class="seg">${['Cash','UPI','Cheque'].map(x=>`<button aria-pressed="${c.mode===x}" onclick="ST.collect.mode='${x}';draw()">${x}</button>`).join('')}</div>
+ ${c.mode==='UPI'?`<label for="rf">UPI reference number</label><input id="rf" value="${esc(c.ref||'')}" oninput="ST.collect.ref=this.value" placeholder="12 digit reference">`:''}
+ ${c.mode==='Cheque'?`<label for="cn">Cheque number</label><input id="cn" inputmode="numeric" value="${esc(c.chq||'')}" oninput="ST.collect.chq=this.value"><label for="cb">Bank</label><input id="cb" value="${esc(c.bank||'')}" oninput="ST.collect.bank=this.value">`:''}
+ <p class="err" ${ST.err?'':'hidden'}>${esc(ST.err)}</p></div><button class="btn block" style="margin-top:12px" onclick="confirmCollect()">Confirm and issue receipt</button><p class="muted" style="font-size:.8rem">A part payment is applied to the oldest installment first. Cheques are shown to the office as "to be deposited".</p>`}
+function viewReceipt(){const r=RC.find(x=>x.no===ST.rcId),m=mem(r.mid),txt=r.name+', received '+inr(r.amt+r.pen)+' on '+dmy(r.date)+' ('+r.mode+') for '+r.group+' ticket '+r.t+', installment '+r.insts.join(', ')+'. Receipt '+r.no+'. '+AGENT.company;ST.rtxt=txt;
+ return`<div class="ok">Receipt issued${r.sync?'':' and saved on this phone. It will go to the office when you are online'}.</div><div class="slip"><h3>${esc(AGENT.company)}</h3><div class="muted" style="font-size:.8rem;margin-bottom:10px">Receipt ${r.no} · ${dmy(r.date)} ${r.time}</div>
+ <div class="kv"><span>Received from</span><span>${esc(r.name)}</span></div><div class="kv"><span>Group and ticket</span><span>${esc(r.group)} / ${r.t}</span></div><div class="kv"><span>Installments</span><span>${r.insts.join(', ')}</span></div><div class="kv"><span>Subscription</span><span>${inr(r.amt)}</span></div>${r.pen?`<div class="kv"><span>Late fee</span><span>${inr(r.pen)}</span></div>`:''}<div class="kv"><span><b>Total</b></span><span><b>${inr(r.amt+r.pen)}</b></span></div><div class="kv"><span>Mode</span><span>${r.mode}${r.ref?' · '+esc(r.ref):''}${r.chq?' · cheque '+esc(r.chq):''}</span></div><div class="kv"><span>Collected by</span><span>${AGENT.name} (${AGENT.code})</span></div></div>
+ <a class="btn block" style="display:block;text-align:center;text-decoration:none;margin-top:12px" href="${wa(m,txt)}" target="_blank" rel="noopener">Send receipt on WhatsApp</a><button class="btn ghost block" style="margin-top:8px" onclick="copy(ST.rtxt,'Receipt text copied')">Copy receipt text</button><button class="btn block" style="margin-top:8px" onclick="ST.flash='';ST.view='print';draw()">Print receipt</button><button class="btn ghost block" style="margin-top:8px" onclick="goTab('today')">Done</button>${ST.flash?`<p class="muted">${esc(ST.flash)}</p>`:''}`}
+function viewReceipts(){const L=RC.slice().reverse();return`<h2 style="margin-top:0">Receipts you issued</h2>${pending()?`<div class="card" style="background:var(--warn-bg);border-color:transparent"><b style="color:var(--warn)">${pending()} receipt${pending()>1?'s':''} not sent to the office yet</b><div style="margin-top:8px"><button class="btn warn sm" onclick="sync()" ${ST.off?'disabled':''}>${ST.off?'Go online to sync':'Sync now'}</button></div></div>`:''}${ST.flash?`<div class="ok" style="margin-top:10px">${esc(ST.flash)}</div>`:''}
+ <div style="margin-top:10px">${L.map(r=>`<button class="mem" onclick="ST.rcId='${r.no}';ST.view='receipt';draw()"><div class="t"><div><b>${esc(r.name)}</b><div class="muted" style="font-size:.82rem">${r.no} · ${dmy(r.date)} ${r.time} · ${r.mode}</div></div><div class="amt">${inr(r.amt+r.pen)}</div></div><div class="s">${r.sync?'<span class="pill good">With office</span>':'<span class="pill warn">Waiting to sync</span>'}${r.mode==='Cheque'?'<span class="pill soft">To be deposited</span>':''}</div></button>`).join('')}</div><p class="muted" style="font-size:.8rem">A wrong receipt cannot be deleted here. Ask the office to cancel it, so the numbers stay in order.</p>`}
+function viewClose(){const rc=todayRc(),cash=sum(rc.filter(r=>r.mode==='Cash'),r=>r.amt+r.pen),upi=sum(rc.filter(r=>r.mode==='UPI'),r=>r.amt+r.pen),chq=rc.filter(r=>r.mode==='Cheque'),cq=sum(chq,r=>r.amt+r.pen),c=ST.close;
+ const cnt=ST.counted===''?null:+ST.counted,diff=cnt==null?null:cnt-cash;
+ return`<h2 style="margin-top:0">Today, ${dmy(TODAY)}</h2><div class="card"><div class="kv"><span>Cash to hand over</span><span>${inr(cash)}</span></div><div class="kv"><span>UPI received (office account)</span><span>${inr(upi)}</span></div><div class="kv"><span>Cheques (${chq.length})</span><span>${inr(cq)}</span></div><div class="kv"><span><b>Total collected</b></span><span><b>${inr(cash+upi+cq)}</b></span></div></div>
+ ${c?`<div class="ok" style="margin-top:12px">Day closed at ${c.t}. Cash counted ${inr(c.cash)}${c.diff?`, difference ${inr(c.diff)}`:', no difference'}.</div>`:`<h2>Count your cash</h2><div class="card"><label for="cc" style="margin-top:0">Cash in hand (₹)</label><input id="cc" type="number" inputmode="numeric" value="${ST.counted}" oninput="ST.counted=this.value===''?'':+this.value;updDiff()"><p id="df" class="${diff?'err':'muted'}" style="margin:8px 0 0">${diff==null?'Enter what you counted.':diff===0?'Matches the receipts.':(diff>0?'More':'Less')+' than the receipts by '+inr(Math.abs(diff))+'.'}</p></div><button class="btn block" style="margin-top:12px" onclick="closeDay(${cash})" ${pending()?'disabled':''}>Submit day closing</button>${pending()?'<p class="err">Sync your receipts first.</p>':''}`}
+ ${chq.length?`<h2>Cheques to hand over</h2><div class="card">${chq.map(r=>`<div class="kv"><span>${esc(r.name)}<br><small>No. ${esc(r.chq||'-')}</small></span><span>${inr(r.amt+r.pen)}</span></div>`).join('')}</div>`:''}`}
+function updDiff(){const el=document.getElementById('df');if(!el)return;const cash=sum(todayRc().filter(r=>r.mode==='Cash'),r=>r.amt+r.pen),d=ST.counted===''?null:ST.counted-cash;el.className=d?'err':'muted';el.style.margin='8px 0 0';el.textContent=d==null?'Enter what you counted.':d===0?'Matches the receipts.':(d>0?'More':'Less')+' than the receipts by '+inr(Math.abs(d))+'.'}
+function viewMe(){const col=AGENT.monthBase+sum(todayRc(),r=>r.amt+r.pen);
+ return`<div class="card"><b style="font-size:1.1rem">${esc(AGENT.name)}</b><div class="muted">${AGENT.code} · ${esc(AGENT.area)}</div></div><h2>This month</h2><div class="card"><div class="kv"><span>Collected</span><span>${inr(col)}</span></div><div class="kv"><span>Commission rate</span><span>${AGENT.rate}%</span></div><div class="kv"><span><b>Commission earned</b></span><span><b>${inr(col*AGENT.rate/100)}</b></span></div></div><p class="muted" style="font-size:.8rem">Commission is paid by the office after TDS. The figure here is before deductions.</p>
+ <h2>Printer</h2><div class="card"><div class="kv"><span>Bluetooth printer</span><span>${ST.printer?'Paired (demo)':'Not paired'}</span></div><button class="btn ghost block" style="margin-top:8px" onclick="ST.printer=!ST.printer;draw()">${ST.printer?'Unpair printer':'Pair printer'}</button></div><h2>Connection</h2><div class="card"><div class="kv"><span>Mode</span><span>${ST.off?'Offline':'Online'}</span></div><button class="btn ghost block" style="margin-top:8px" onclick="toggleNet()">${ST.off?'Go online':'Try offline mode'}</button><p class="muted" style="font-size:.8rem;margin:8px 0 0">With no network the app still issues receipts. They wait on the phone and go to the office once you are online.</p></div><button class="btn ghost block" style="margin-top:16px" onclick="ST.view='login';draw()">Sign out</button>`}
+const W=32,ctr=t=>' '.repeat(Math.max(0,Math.floor((W-t.length)/2)))+t,lr=(a,b)=>a+' '.repeat(Math.max(1,W-a.length-b.length))+b,money=n=>'Rs '+Math.round(n).toLocaleString('en-IN');
+function thermal(r,dup){const co=AGENT.company.match(/.{1,30}(\s|$)/g).map(x=>ctr(x.trim()));const L=[...co,ctr('Cubbonpet, Bengaluru'),'-'.repeat(W),ctr(dup?'RECEIPT (DUPLICATE)':'RECEIPT'),lr('No: '+r.no,dmy(r.date)),lr('Time: '+r.time,'Agent '+AGENT.code),'-'.repeat(W),'Received from:',r.name.slice(0,W),'Group: '+r.group,'Ticket: '+r.t,'Installment: '+r.insts.join(', '),'-'.repeat(W),lr('Subscription',money(r.amt))];
+ if(r.pen)L.push(lr('Late fee',money(r.pen)));L.push('-'.repeat(W),lr('TOTAL',money(r.amt+r.pen)),'-'.repeat(W),'Mode: '+r.mode+(r.ref?' '+r.ref:'')+(r.chq?' chq '+r.chq:''));
+ if(r.mode==='Cheque')L.push('Subject to realisation');L.push('',ctr('Thank you'),ctr('Keep this receipt safe'),'','');return L.join('\n')}
+function viewPrint(){const r=RC.find(x=>x.no===ST.rcId),dup=(r.pc||0)>0;
+ return`${ST.flash?`<div class="ok">${esc(ST.flash)}</div>`:''}<div class="card" style="margin-bottom:12px"><div class="kv"><span>Printer</span><span>${ST.printer?'Paired (demo)':'Not paired'}</span></div><button class="btn ghost sm" style="margin-top:6px" onclick="ST.printer=!ST.printer;draw()">${ST.printer?'Unpair printer':'Pair Bluetooth printer'}</button></div>
+ <p class="muted" style="font-size:.82rem;margin:0 0 8px">Preview of the 58 mm slip${dup?'. This is a reprint, so it is marked DUPLICATE.':'.'}</p><div class="thermal">${esc(thermal(r,dup))}</div>
+ <button class="btn block" style="margin-top:14px" onclick="doPrint('${r.no}')" ${ST.printer?'':'disabled'}>Print receipt</button>${ST.printer?'':'<p class="muted" style="font-size:.8rem">Pair the printer first.</p>'}<p class="muted" style="font-size:.8rem">Demo only. In the real app this sends the slip to the agent's Bluetooth thermal printer. This page cannot print.</p>`}
+function doPrint(no){const r=RC.find(x=>x.no===no);r.pc=(r.pc||0)+1;persist();ST.flash='Demo: slip sent to the printer ('+(r.pc===1?'original':'duplicate copy '+(r.pc-1))+').';draw()}
+/* ---------- actions ---------- */
+function draw(){const a=document.getElementById('app');let h='';
+ if(ST.view==='login')h=viewLogin();
+ else if(ST.view==='member')h=topbar('Member','goTab(ST.tab)')+`<main>${viewMember()}</main>`;
+ else if(ST.view==='collect')h=topbar('Collect payment',"ST.err='';ST.view='member';draw()")+`<main>${viewCollect()}</main>`;
+ else if(ST.view==='receipt')h=topbar('Receipt','goTab(\'rcpt\')')+`<main>${viewReceipt()}</main>`;
+ else if(ST.view==='print')h=topbar('Print receipt',"ST.flash='';ST.view='receipt';draw()")+`<main>${viewPrint()}</main>`;
+ else{const T={today:['Today, '+dmy(TODAY),viewToday],rcpt:['Receipts',viewReceipts],close:['Day close',viewClose],me:['Me',viewMe]}[ST.tab];h=topbar(T[0])+`<main id="mn">${T[1]()}</main>`+tabs();ST.view='tab'}
+ const sc=a.querySelector('main'),y=sc?sc.scrollTop:0;a.innerHTML=(ST.view==='login'?'':'<div class="demo">Demo with sample data. Nothing is sent to the office.</div>')+h;const n=a.querySelector('main');if(n&&sc&&ST.view===a.dataset.v)n.scrollTop=y;a.dataset.v=ST.view;
+ const s=document.getElementById('sq');if(s&&document.activeElement===document.body&&ST.q){}}
+function login(){const c=document.getElementById('lc').value.trim().toUpperCase(),p=document.getElementById('lp').value;if(c!==AGENT.code||p!=='1234'){ST.err='Agent code or PIN is wrong. Demo: AG-07 and 1234.';draw();return}ST.err='';ST.view='tab';ST.tab='today';draw()}
+function goTab(t){ST.tab=t;ST.view='tab';ST.flash='';ST.err='';draw()}
+function openMem(id){ST.mid=id;ST.view='member';ST.flash='';draw()}
+function toggleNet(){ST.off=!ST.off;draw()}
+function savePromise(id){const m=mem(id),d=document.getElementById('pd').value,n=document.getElementById('pn').value.trim();if(!d&&!n){ST.flash='Add a date or a note first.';draw();return}if(d)m.promise={date:d,note:n};m.visits.push({d:TODAY,t:nowT(),x:(d?'Promised '+dmy(d)+'. ':'')+n});persist();ST.flash='Note saved.';draw()}
+function noVisit(id){const m=mem(id);m.visits.push({d:TODAY,t:nowT(),x:'Not at home'});persist();ST.flash='Visit noted: not at home.';draw()}
+function startCollect(id){const m=mem(id),sel={};m.dues.filter(x=>x.amt-x.paid>0).forEach(x=>sel[x.no]=true);ST.collect={mid:id,sel,pen:true,mode:'Cash',amt:null,ref:'',chq:'',bank:''};ST.err='';ST.view='collect';draw()}
+function togIns(no){const c=ST.collect;c.sel[no]=!c.sel[no];c.amt=null;draw()}
+function confirmCollect(){const c=ST.collect,m=mem(c.mid),open=m.dues.filter(x=>x.amt-x.paid>0),sel=open.filter(x=>c.sel[x.no]);
+ const due=sum(sel,x=>x.amt-x.paid),pen=c.pen?sum(sel,x=>penOf(m,x)):0,tot=due+pen,amt=c.amt==null?tot:+c.amt;
+ if(!sel.length){ST.err='Select at least one installment.';draw();return}
+ if(!(amt>0)){ST.err='Enter the amount received.';draw();return}
+ if(amt>tot){ST.err='The amount is more than the dues selected ('+inr(tot)+'). Add the next installments or reduce it.';draw();return}
+ if(c.mode==='UPI'&&!c.ref.trim()){ST.err='Enter the UPI reference number.';draw();return}
+ if(c.mode==='Cheque'&&(!c.chq.trim()||!c.bank.trim())){ST.err='Enter the cheque number and bank.';draw();return}
+ /* penalty is taken first only when the full amount is received; part payments go to installments */
+ let left=amt,pp=amt>=tot?pen:0;left-=pp;const used=[];sel.forEach(x=>{const p=Math.min(left,x.amt-x.paid);if(p>0){x.paid+=p;left-=p;used.push(x.no)}});
+ const r={no:rcNo(),mid:m.id,name:m.name,group:m.group,t:m.t,amt:amt-pp,pen:pp,mode:c.mode,ref:c.mode==='UPI'?c.ref.trim():'',chq:c.mode==='Cheque'?c.chq.trim():'',date:TODAY,time:nowT(),insts:used,sync:!ST.off};
+ RC.push(r);m.dues=m.dues.filter(x=>x.amt-x.paid>0.5);if(!m.dues.length)m.promise=null;persist();ST.err='';ST.rcId=r.no;ST.view='receipt';draw()}
+function sync(){if(ST.off)return;RC.forEach(r=>r.sync=true);persist();ST.flash='All receipts are with the office.';draw()}
+function closeDay(cash){if(ST.counted===''){return}ST.close={t:nowT(),cash:+ST.counted,diff:+ST.counted-cash};persist();draw()}
+draw();
+</script>
+
+</body></html>
