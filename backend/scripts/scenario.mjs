@@ -4,8 +4,8 @@
 //
 //   API_URL=http://localhost:8787 SETUP_KEY=... node scripts/scenario.mjs
 //
-// Uses made-up people only. Prints the test logins at the end and saves them to
-// test-logins.local.txt (not committed).
+// Uses made-up people only. Saves the test logins to test-logins.local.txt, or to
+// test-logins.dev.local.txt when run against localhost (neither is committed).
 
 import { writeFileSync } from 'node:fs';
 
@@ -249,9 +249,10 @@ eq('signed-out session no longer works', (await call('GET', '/api/groups', null,
 
 // ------------------------------------------------------------------ summary
 const lines = [`API: ${BASE}`, `Company code: ${co.company_id}`, ...Object.entries(logins).map(([u, p]) => `${u.padEnd(10)} ${p}`)];
-writeFileSync(new URL('../test-logins.local.txt', import.meta.url), lines.join('\n') + '\n');
+const loginsFile = /localhost|127\.0\.0\.1/.test(BASE) ? 'test-logins.dev.local.txt' : 'test-logins.local.txt';
+writeFileSync(new URL('../' + loginsFile, import.meta.url), lines.join('\n') + '\n');
 console.log(`\n${checks - failures.length} of ${checks} checks passed.`);
-console.log(`Test logins saved to backend/test-logins.local.txt (company code ${co.company_id}).`);
+console.log(`Test logins saved to backend/${loginsFile} (company code ${co.company_id}).`);
 if (failures.length) {
   console.log('\nFailed:\n' + failures.map((f) => '  ' + f).join('\n'));
   process.exit(1);

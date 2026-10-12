@@ -8,6 +8,7 @@ import { authRoutes } from './routes/auth.js';
 import { masterRoutes } from './routes/masters.js';
 import { moneyRoutes } from './routes/money.js';
 import { reportRoutes } from './routes/reports.js';
+import { syncRoutes } from './routes/sync.js';
 
 async function health({ env }) {
   const row = await env.DB.prepare('SELECT count(*) AS companies FROM companies').first();
@@ -21,7 +22,7 @@ const compile = ([method, path, handler, opts = {}]) => {
   return { method, re, names, handler, public: !!opts.public };
 };
 
-const routes = [['GET', '/api/health', health, { public: true }], ...authRoutes, ...masterRoutes, ...moneyRoutes, ...reportRoutes].map(compile);
+const routes = [['GET', '/api/health', health, { public: true }], ...authRoutes, ...masterRoutes, ...moneyRoutes, ...reportRoutes, ...syncRoutes].map(compile);
 
 function dbError(err) {
   const m = String(err && err.message);

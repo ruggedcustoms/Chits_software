@@ -10,13 +10,22 @@ Chit fund management software in three parts:
 
 The React + Vite shell (`src/`) provides the home page and routing. Each part is still a self-contained page and can be moved into React components one screen at a time.
 
-The prototype stores its data in the browser (localStorage), so data does not move between browsers or devices. The hosted version plan is in `docs/`.
+The office software has two modes, chosen on its sign-in page:
+
+- **Online (default):** staff sign in with their own login and work on the company's shared data, kept on the server (`backend/`). The same data shows on every computer. `public/apps/online.js` connects the office screens to the API.
+- **This browser only:** the earlier prototype, which keeps data in the browser and is not shared.
+
+Some office features are not online yet (future receipts, post-dated cheques, transfers, member removal, bid advances, vouchers, import and a few more). In online mode they show a message instead of saving. The member and agent apps still show sample data. The hosted version plan is in `docs/`.
 
 ## Run locally
 
 ```sh
 npm install
-npm run dev
+npm run dev                      # website on http://localhost:5173
+
+cd backend && npm install
+npm run db:migrate:local
+npm run dev                      # API on http://localhost:8787; the website sends /api there
 ```
 
 ## Build

@@ -1,7 +1,7 @@
 // Auctions, receipts and prize payments. Each one saves its record, its accounting voucher
 // and its audit row in one batch, so the books always match the records.
 
-import { bad, conflict, date, forbidden, int, json, newId, notFound, oneOf, paise, readBody, str, todayIst } from '../lib/http.js';
+import { bad, clientId, conflict, date, extra, forbidden, int, json, newId, notFound, oneOf, paise, readBody, str, todayIst } from '../lib/http.js';
 import { ownTicketsOnly, requirePerm } from '../lib/auth.js';
 import { AC, auditStatement, cancelVoucherStatement, voucherStatements } from '../lib/books.js';
 import { auctionFigures, decideBid, rs } from '../lib/calc.js';
@@ -14,7 +14,7 @@ const ALLOWED = {
   lottery: ['lottery', 'company'],
   company: ['company'],
 };
-const PAY_MODES = ['Cash', 'Cheque', 'D.D.', 'RTGS/NEFT', 'UPI', 'Card'];
+const PAY_MODES = ['Cash', 'Cheque', 'D.D.', 'RTGS/NEFT', 'NEFT', 'RTGS', 'UPI', 'Card'];
 const cashOrBank = (mode) => (mode === 'Cash' ? AC.cash : AC.bank);
 
 // ---- auctions ----
@@ -28,7 +28,9 @@ async function auctionInput(db, ctx, b) {
   if (!ALLOWED[g.auction_method].includes(decidedBy)) throw bad(`${g.name} does not allow an auction decided by ${decidedBy}.`);
   const decided = decideBid(g, auctionNo, decidedBy, b.bid);
   if (decided.error) throw bad(decided.error);
-  return { s, g, auctionNo, decidedBy, figures: auctionFigures(g, decided.bid), noAuction: !!decided.noAuction };
+  // GST % can be changed for one auction, as on the office screen.
+  const gstBp = int(b, 'gst_bp', { max: 10000, label: 'GST %' }) ?? g.gst_bp;
+  return { s, g, auctionNo, decidedBy, figures: auctionFigures(g, decided.bid, gstBp), noAuction: !!decided.noAuction };
 }
 
 async function previewAuction({ request, env, ctx }) {
@@ -50,21 +52,22 @@ async function createAuction({ request, env, ctx }) {
   const ticket = int(b, 'winner_ticket_no', { required: true, min: 1, max: g.installments, label: 'winning ticket' });
   const e = s.enrollments.find((x) => x.ticket_no === ticket);
   if (!e) throw bad(`Ticket ${ticket} is vacant.`);
-  if (e.is_company) throw bad('A company ticket cannot win.');
+  // A company ticket can take the chit only in the first months with no auction.
+  if (e.is_company && auctionNo > (g.no_auction_installments || 0)) throw bad('A company ticket cannot win.');
   const prev = s.auctions.find((a) => a.winner_enrollment_id === e.id);
   if (prev) throw conflict(`Ticket ${ticket} already won auction ${prev.auction_no}.`);
 
-  const id = newId();
+  const id = clientId(b);
   const narration = `Auction ${auctionNo} of ${g.name}: ticket ${ticket}, bid ${rs(figures.bid)}`;
   await db.batch([
     db.prepare(
       `INSERT INTO auctions (id, company_id, group_id, auction_no, auction_date, due_date, next_auction_date, winner_enrollment_id, winner_ticket_no,
-         decided_by, bid, commission, gst_bp, gst, bid_payable, net_prize, dividend_pool, dividend_per_ticket, net_payable_per_ticket, minutes_filed_on, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         decided_by, company_won, bid, commission, gst_bp, gst, bid_payable, net_prize, dividend_pool, dividend_per_ticket, net_payable_per_ticket, minutes_filed_on, extra_json, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id, ctx.companyId, g.id, auctionNo, auctionDate, date(b, 'due_date') || auctionDate, date(b, 'next_auction_date'), e.id, ticket,
-      decidedBy, figures.bid, figures.commission, figures.gst_bp, figures.gst, figures.bid_payable, figures.net_prize, figures.dividend_pool,
-      figures.dividend_per_ticket, figures.net_payable_per_ticket, date(b, 'minutes_filed_on'), ctx.user.id
+      decidedBy, e.is_company, figures.bid, figures.commission, figures.gst_bp, figures.gst, figures.bid_payable, figures.net_prize, figures.dividend_pool,
+      figures.dividend_per_ticket, figures.net_payable_per_ticket, date(b, 'minutes_filed_on'), extra(b), ctx.user.id
     ),
     // The prize, commission and GST come out of the subscriptions held for the group.
     ...voucherStatements(db, ctx, {
@@ -133,17 +136,17 @@ async function createReceipt({ request, env, ctx }) {
     return [k, take];
   });
 
-  const id = newId();
+  const id = clientId(b);
   const narration = `Ticket ${e.ticket_no} of ${g.name}, ${mode}`;
   await db.batch([
     db.prepare(
       `INSERT INTO receipts (id, company_id, receipt_no, receipt_date, kind, mode, group_id, enrollment_id, person_id, collection_agent_id, tr_book_no, tr_date,
-         amount, penalty, enrolment_fee, bank_charge, other_charge, cheque_no, cheque_bank, cheque_date, cheque_place, cheque_status, reason, old_no, created_by)
-       VALUES (?, ?, (SELECT COALESCE(MAX(receipt_no), 0) + 1 FROM receipts WHERE company_id = ?), ?, 'normal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         amount, penalty, enrolment_fee, bank_charge, other_charge, cheque_no, cheque_bank, cheque_date, cheque_place, cheque_status, reason, old_no, extra_json, created_by)
+       VALUES (?, ?, (SELECT COALESCE(MAX(receipt_no), 0) + 1 FROM receipts WHERE company_id = ?), ?, 'normal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id, ctx.companyId, ctx.companyId, receiptDate, mode, g.id, e.id, e.person_id, agentId, str(b, 'tr_book_no'), date(b, 'tr_date'),
       f.amount, f.penalty, f.enrolment_fee, f.bank_charge, f.other_charge,
-      chequeNo, str(b, 'cheque_bank'), date(b, 'cheque_date'), str(b, 'cheque_place'), cheque ? 'Pending' : null, str(b, 'reason', { max: 400 }), str(b, 'old_no'), ctx.user.id
+      chequeNo, str(b, 'cheque_bank'), date(b, 'cheque_date'), str(b, 'cheque_place'), cheque ? 'Pending' : null, str(b, 'reason', { max: 400 }), str(b, 'old_no'), extra(b), ctx.user.id
     ),
     ...split.map(([k, amt]) => db.prepare('INSERT INTO receipt_installments (receipt_id, installment_no, amount) VALUES (?, ?, ?)').bind(id, k, amt)),
     ...voucherStatements(db, ctx, {
@@ -218,7 +221,7 @@ async function createPrizePayment({ request, env, ctx }) {
   if (adjusted > L.arrears) throw bad(`The winner owes only ${rs(L.arrears)}, so no more than that can be kept back.`);
   const reference = str(b, 'reference', { required: mode !== 'Cash', max: 30, label: 'cheque or UTR number' });
 
-  const id = newId();
+  const id = clientId(b);
   const adjReceiptId = adjusted > 0 ? newId() : null;
   const narration = `Prize of auction ${a.auction_no}, ${s.g.name} ticket ${a.winner_ticket_no}`;
   const stmts = [];
@@ -232,10 +235,10 @@ async function createPrizePayment({ request, env, ctx }) {
   stmts.push(
     db.prepare(
       `INSERT INTO prize_payments (id, company_id, auction_id, payment_date, mode, amount, adjusted_to_dues, reference, cheque_date, paid_to, narration,
-         voucher_no, adjustment_receipt_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(voucher_no), 0) + 1 FROM prize_payments WHERE company_id = ? AND voucher_series = 'BPY'), ?, ?)`
+         voucher_no, adjustment_receipt_id, extra_json, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(voucher_no), 0) + 1 FROM prize_payments WHERE company_id = ? AND voucher_series = 'BPY'), ?, ?, ?)`
     ).bind(id, ctx.companyId, a.id, payDate, mode, amount, adjusted, reference, date(b, 'cheque_date'), str(b, 'paid_to') || e.person_name, str(b, 'narration', { max: 400 }) || narration,
-      ctx.companyId, adjReceiptId, ctx.user.id),
+      ctx.companyId, adjReceiptId, extra(b), ctx.user.id),
     ...voucherStatements(db, ctx, {
       series: 'BPY', date: payDate, sourceTable: 'prize_payments', sourceId: id, narration,
       lines: [
@@ -272,12 +275,26 @@ async function cancelPrizePayment({ request, env, ctx, params }) {
   return json({ ok: true });
 }
 
+// Details that do not change any amount (print count, SMS sent, invoice number) can be updated.
+const extraOnly = (table, area, what) => async ({ request, env, ctx, params }) => {
+  requirePerm(ctx, area, 'edit');
+  const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE company_id = ? AND id = ?`).bind(ctx.companyId, params.id).first();
+  if (!row) throw notFound(what);
+  const b = await readBody(request);
+  if (Object.keys(b).some((k) => k !== 'extra')) throw bad(`Only the extra details of a ${what.toLowerCase()} can be changed. Cancel it and enter it again to change amounts.`);
+  await env.DB.prepare(`UPDATE ${table} SET extra_json = ? WHERE id = ?`).bind(extra(b), row.id).run();
+  return json({ ok: true });
+};
+
 export const moneyRoutes = [
   ['POST', '/api/auctions/preview', previewAuction],
   ['POST', '/api/auctions', createAuction],
   ['POST', '/api/receipts', createReceipt],
   ['GET', '/api/receipts/:id', getReceipt],
   ['POST', '/api/receipts/:id/cancel', cancelReceipt],
+  ['PATCH', '/api/receipts/:id', extraOnly('receipts', 'receipts', 'Receipt')],
+  ['PATCH', '/api/auctions/:id', extraOnly('auctions', 'auctions', 'Auction')],
+  ['PATCH', '/api/prize-payments/:id', extraOnly('prize_payments', 'payable', 'Prize payment')],
   ['POST', '/api/prize-payments', createPrizePayment],
   ['POST', '/api/prize-payments/:id/cancel', cancelPrizePayment],
 ];

@@ -92,3 +92,21 @@ export function oneOf(body, key, options, { required = false, fallback = null, l
 }
 
 export const bool = (body, key, fallback = false) => (body[key] == null ? fallback : body[key] ? 1 : 0);
+
+// An id chosen by the client, so a screen can keep pointing at the record it just saved.
+export function clientId(body) {
+  const v = body.id;
+  if (v == null || v === '') return newId();
+  if (typeof v !== 'string' || !/^[A-Za-z0-9_-]{6,64}$/.test(v)) throw bad('id must be 6 to 64 letters, digits, _ or -.');
+  return v;
+}
+
+// Extra details kept as JSON (see migrations/0003_extra_fields.sql).
+export function extra(body, max = 200000) {
+  const v = body.extra;
+  if (v == null) return '{}';
+  if (typeof v !== 'object' || Array.isArray(v)) throw bad('extra must be an object.');
+  const s = JSON.stringify(v);
+  if (s.length > max) throw bad('The extra details are too large.');
+  return s;
+}

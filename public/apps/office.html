@@ -4232,5 +4232,6 @@ document.addEventListener('paste',e=>{const el=e.target;if(!el||el.tagName!=='IN
  el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))},true);
 REG=regLoad();KEY=curCo().key;S=load();initS(curCo());secInit();if(!curCo().name){curCo().name=S.company||'My company';}regSave();render();
 </script>
+<script src="online.js"></script>
 
 </body></html>

@@ -44,7 +44,9 @@ export function auctionFigures(g, bid, gstBp = g.gst_bp) {
 export function decideBid(g, auctionNo, decidedBy, bidInput) {
   const commission = commissionOf(g);
   if (auctionNo <= (g.no_auction_installments || 0)) return { bid: commission, noAuction: true };
-  if (decidedBy === 'lottery' || decidedBy === 'company') return { bid: lotteryBidOf(g) };
+  if (decidedBy === 'company') return { bid: lotteryBidOf(g) };
+  // A lottery uses the lottery discount unless a bid is given (the office screen lets staff enter it).
+  if (decidedBy === 'lottery' && (bidInput == null || bidInput === '')) return { bid: lotteryBidOf(g) };
   if (!Number.isSafeInteger(bidInput)) return { error: 'Enter the winning bid in paise.' };
   if (bidInput < commission) return { error: `Bid must be at least the commission (${rs(commission)}).` };
   if (bidInput > maxBidOf(g)) return { error: `Bid cannot be more than the ceiling of ${g.max_bid_bp / 100}% (${rs(maxBidOf(g))}).` };

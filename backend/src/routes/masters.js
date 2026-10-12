@@ -1,12 +1,12 @@
 // Members (persons), chit groups and enrollment.
 
-import { bad, bool, conflict, date, forbidden, int, json, newId, notFound, oneOf, paise, readBody, str, todayIst } from '../lib/http.js';
+import { bad, bool, clientId, conflict, date, extra, forbidden, int, json, notFound, oneOf, paise, readBody, str, todayIst } from '../lib/http.js';
 import { can, ownTicketsOnly, requirePerm } from '../lib/auth.js';
 import { auditStatement } from '../lib/books.js';
 import { commissionOf, installmentOf } from '../lib/calc.js';
 import { ledgerFor, loadGroup, loadGroupState } from '../lib/state.js';
 
-const PERSON_ROLES = ['Member', 'Collection agent', 'Business agent', 'Guarantor'];
+const PERSON_ROLES = ['Member', 'Collection agent', 'Business agent', 'Agent', 'Guarantor', 'Staff', 'Marketer'];
 const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
@@ -41,6 +41,7 @@ function personFields(b) {
     roles_json: JSON.stringify(roles),
     entry_date: date(b, 'entry_date') || todayIst(),
     branch_id: str(b, 'branch_id'),
+    extra_json: extra(b),
   };
 }
 
@@ -50,8 +51,12 @@ function addressStatements(db, personId, addresses) {
   if (typeof addresses !== 'object' || Array.isArray(addresses)) throw bad('addresses must be an object keyed by residential, office or correspondence.');
   return Object.entries(addresses).map(([kind, a]) => {
     if (!ADDRESS_KINDS.includes(kind)) throw bad(`Address kind must be one of: ${ADDRESS_KINDS.join(', ')}.`);
-    const mobile = str(a, 'mobile', { max: 15 });
-    if (mobile && !/^[6-9]\d{9}$/.test(mobile)) throw bad('Mobile must be a 10-digit Indian number.');
+    let mobile = str(a, 'mobile', { max: 20 });
+    if (mobile) {
+      const digits = mobile.replace(/[\s()-]/g, '').replace(/^(\+?91|0)(?=\d{10}$)/, '');
+      if (!/^\d{10}$/.test(digits)) throw bad(`Mobile "${mobile}" must be a 10-digit number.`);
+      mobile = digits;
+    }
     return db.prepare(
       `INSERT INTO person_addresses (person_id, kind, door, street, area, city, district, state, pin, mobile, mobile2, email)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -98,7 +103,7 @@ async function createPerson({ request, env, ctx }) {
   const b = await readBody(request);
   const f = personFields(b);
   const db = env.DB;
-  const id = newId();
+  const id = clientId(b);
   const cols = Object.keys(f);
   await db.batch([
     db.prepare(
@@ -118,7 +123,7 @@ async function updatePerson({ request, env, ctx, params }) {
   const old = await db.prepare('SELECT * FROM persons WHERE company_id = ? AND id = ?').bind(ctx.companyId, params.id).first();
   if (!old) throw notFound('Person');
   const b = await readBody(request);
-  const f = personFields({ ...old, roles: JSON.parse(old.roles_json), ...b });
+  const f = personFields({ ...old, roles: JSON.parse(old.roles_json), extra: JSON.parse(old.extra_json || '{}'), ...b });
   await db.batch([
     db.prepare(`UPDATE persons SET ${Object.keys(f).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).bind(...Object.values(f), old.id),
     ...addressStatements(db, old.id, b.addresses),
@@ -164,6 +169,7 @@ function groupFields(b) {
     auction_time_from: str(b, 'auction_time_from', { max: 5 }),
     auction_time_to: str(b, 'auction_time_to', { max: 5 }),
     status: oneOf(b, 'status', ['Forming', 'Running', 'Closed'], { fallback: 'Running' }),
+    extra_json: extra(b),
   };
   if (f.max_bid_bp < f.commission_bp) throw bad('The bid ceiling cannot be lower than the commission.');
   if (f.no_auction_installments >= f.installments) throw bad('No-auction installments must be fewer than the installments.');
@@ -202,9 +208,10 @@ async function getGroup({ env, ctx, params }) {
 
 async function createGroup({ request, env, ctx }) {
   requirePerm(ctx, 'groups', 'edit');
-  const f = groupFields(await readBody(request));
+  const b = await readBody(request);
+  const f = groupFields(b);
   const db = env.DB;
-  const id = newId();
+  const id = clientId(b);
   const cols = Object.keys(f);
   await db.batch([
     db.prepare(`INSERT INTO chit_groups (id, company_id, ${cols.join(', ')}) VALUES (?, ?, ${cols.map(() => '?').join(', ')})`).bind(id, ctx.companyId, ...Object.values(f)),
@@ -218,7 +225,7 @@ async function updateGroup({ request, env, ctx, params }) {
   const db = env.DB;
   const old = await loadGroup(db, ctx.companyId, params.id);
   const b = await readBody(request);
-  const f = groupFields({ ...old, ...b });
+  const f = groupFields({ ...old, extra: JSON.parse(old.extra_json || '{}'), ...b });
   const held = await db.prepare("SELECT count(*) AS n FROM auctions WHERE group_id = ? AND status = 'Active'").bind(old.id).first();
   if (held.n > 0) {
     const changed = FINANCIAL.filter((k) => f[k] !== old[k]);
@@ -233,6 +240,23 @@ async function updateGroup({ request, env, ctx, params }) {
 
 // ---- enrollment ----
 
+async function enrollFields(db, ctx, b, isCompany) {
+  const personId = isCompany ? null : str(b, 'person_id', { required: true, label: 'member' });
+  const ids = { person_id: personId, business_agent_id: str(b, 'business_agent_id'), collection_agent_id: str(b, 'collection_agent_id'), guarantor1_id: str(b, 'guarantor1_id'), guarantor2_id: str(b, 'guarantor2_id') };
+  for (const [k, v] of Object.entries(ids)) {
+    if (v && !(await db.prepare('SELECT 1 FROM persons WHERE company_id = ? AND id = ? AND active = 1').bind(ctx.companyId, v).first())) throw bad(`${k} is not a registered person.`);
+  }
+  return {
+    ...ids,
+    is_company: isCompany,
+    enrolment_date: date(b, 'enrolment_date') || todayIst(),
+    nominee_name: str(b, 'nominee_name'), nominee_relation: str(b, 'nominee_relation'), nominee_address: str(b, 'nominee_address', { max: 400 }),
+    zone: str(b, 'zone'), area: str(b, 'area'), director: str(b, 'director'), payment_mode: str(b, 'payment_mode'), pass_book_no: str(b, 'pass_book_no'),
+    agreement_done: bool(b, 'agreement_done'), intimation_card_done: bool(b, 'intimation_card_done'), introducer_incentive: paise(b, 'introducer_incentive'),
+    extra_json: extra(b),
+  };
+}
+
 async function enroll({ request, env, ctx }) {
   requirePerm(ctx, 'enroll', 'edit');
   const b = await readBody(request);
@@ -240,31 +264,88 @@ async function enroll({ request, env, ctx }) {
   const g = await loadGroup(db, ctx.companyId, str(b, 'group_id', { required: true, label: 'group' }));
   const ticket = int(b, 'ticket_no', { required: true, min: 1, max: g.installments, label: 'ticket number' });
   const isCompany = bool(b, 'is_company');
-  const personId = isCompany ? null : str(b, 'person_id', { required: true, label: 'member' });
-
-  const ids = { person_id: personId, business_agent_id: str(b, 'business_agent_id'), collection_agent_id: str(b, 'collection_agent_id'), guarantor1_id: str(b, 'guarantor1_id'), guarantor2_id: str(b, 'guarantor2_id') };
-  for (const [k, v] of Object.entries(ids)) {
-    if (v && !(await db.prepare('SELECT 1 FROM persons WHERE company_id = ? AND id = ? AND active = 1').bind(ctx.companyId, v).first())) throw bad(`${k} is not a registered person.`);
-  }
+  const f = await enrollFields(db, ctx, b, isCompany);
   const taken = await db.prepare("SELECT 1 FROM enrollments WHERE group_id = ? AND ticket_no = ? AND status = 'Active'").bind(g.id, ticket).first();
   if (taken) throw conflict(`Ticket ${ticket} of ${g.name} is already taken.`);
 
-  const id = newId();
-  const f = {
-    ...ids,
-    is_company: isCompany,
-    enrolment_date: date(b, 'enrolment_date') || todayIst(),
-    nominee_name: str(b, 'nominee_name'), nominee_relation: str(b, 'nominee_relation'), nominee_address: str(b, 'nominee_address', { max: 400 }),
-    zone: str(b, 'zone'), area: str(b, 'area'), director: str(b, 'director'), payment_mode: str(b, 'payment_mode'), pass_book_no: str(b, 'pass_book_no'),
-    agreement_done: bool(b, 'agreement_done'), intimation_card_done: bool(b, 'intimation_card_done'), introducer_incentive: paise(b, 'introducer_incentive'),
-  };
+  const id = clientId(b);
   const cols = Object.keys(f);
   await db.batch([
     db.prepare(`INSERT INTO enrollments (id, company_id, group_id, ticket_no, ${cols.join(', ')}) VALUES (?, ?, ?, ?, ${cols.map(() => '?').join(', ')})`)
       .bind(id, ctx.companyId, g.id, ticket, ...Object.values(f)),
-    auditStatement(db, ctx, 'create', 'enrollments', id, `Ticket ${ticket} of ${g.name} given to ${isCompany ? 'the company' : personId}`, null, f),
+    auditStatement(db, ctx, 'create', 'enrollments', id, `Ticket ${ticket} of ${g.name} given to ${isCompany ? 'the company' : f.person_id}`, null, f),
   ]);
   return json({ id, group_id: g.id, ticket_no: ticket }, 201);
+}
+
+// Agents, guarantors, nominee and documents can change. The holder changes only through a ticket transfer.
+async function updateEnrollment({ request, env, ctx, params }) {
+  requirePerm(ctx, 'enroll', 'edit');
+  const db = env.DB;
+  const old = await db.prepare("SELECT * FROM enrollments WHERE company_id = ? AND id = ? AND status = 'Active'").bind(ctx.companyId, params.id).first();
+  if (!old) throw notFound('Ticket');
+  const b = await readBody(request);
+  const merged = { ...old, extra: JSON.parse(old.extra_json || '{}'), ...b };
+  const f = await enrollFields(db, ctx, merged, old.is_company);
+  if (f.person_id !== old.person_id) throw conflict('To give this ticket to another member, use a ticket transfer.');
+  delete f.person_id;
+  delete f.is_company;
+  await db.batch([
+    db.prepare(`UPDATE enrollments SET ${Object.keys(f).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).bind(...Object.values(f), old.id),
+    auditStatement(db, ctx, 'update', 'enrollments', old.id, `Ticket ${old.ticket_no} details changed`, old, f),
+  ]);
+  return json({ ok: true });
+}
+
+// ---- deleting (only records nothing else depends on) ----
+
+async function deletePerson({ env, ctx, params }) {
+  requirePerm(ctx, 'del', 'edit');
+  const db = env.DB;
+  const p = await db.prepare('SELECT * FROM persons WHERE company_id = ? AND id = ?').bind(ctx.companyId, params.id).first();
+  if (!p) throw notFound('Person');
+  const used = await db.prepare(
+    `SELECT (SELECT count(*) FROM enrollments WHERE ? IN (person_id, business_agent_id, collection_agent_id, guarantor1_id, guarantor2_id))
+          + (SELECT count(*) FROM receipts WHERE person_id = ? OR collection_agent_id = ?)
+          + (SELECT count(*) FROM users WHERE person_id = ?) AS n`
+  ).bind(p.id, p.id, p.id, p.id).first();
+  if (used.n) throw conflict(`${p.name} holds tickets, is an agent or guarantor, or has receipts, so cannot be deleted.`);
+  await db.batch([
+    db.prepare('DELETE FROM person_addresses WHERE person_id = ?').bind(p.id),
+    db.prepare('DELETE FROM member_logins WHERE person_id = ?').bind(p.id),
+    db.prepare('DELETE FROM persons WHERE id = ?').bind(p.id),
+    auditStatement(db, ctx, 'delete', 'persons', p.id, `Person ${p.name} deleted`, p),
+  ]);
+  return json({ ok: true });
+}
+
+async function deleteGroup({ env, ctx, params }) {
+  requirePerm(ctx, 'del', 'edit');
+  const db = env.DB;
+  const g = await loadGroup(db, ctx.companyId, params.id);
+  const used = await db.prepare('SELECT (SELECT count(*) FROM auctions WHERE group_id = ?) + (SELECT count(*) FROM receipts WHERE group_id = ?) AS n').bind(g.id, g.id).first();
+  if (used.n) throw conflict(`${g.name} has auctions or receipts, so it cannot be deleted. Close it instead.`);
+  await db.batch([
+    db.prepare('DELETE FROM enrollments WHERE group_id = ?').bind(g.id),
+    db.prepare('DELETE FROM group_deposits WHERE group_id = ?').bind(g.id),
+    db.prepare('DELETE FROM chit_groups WHERE id = ?').bind(g.id),
+    auditStatement(db, ctx, 'delete', 'chit_groups', g.id, `Group ${g.name} deleted`, g),
+  ]);
+  return json({ ok: true });
+}
+
+async function deleteEnrollment({ env, ctx, params }) {
+  requirePerm(ctx, 'del', 'edit');
+  const db = env.DB;
+  const e = await db.prepare('SELECT * FROM enrollments WHERE company_id = ? AND id = ?').bind(ctx.companyId, params.id).first();
+  if (!e) throw notFound('Ticket');
+  const used = await db.prepare('SELECT (SELECT count(*) FROM receipts WHERE enrollment_id = ?) + (SELECT count(*) FROM auctions WHERE winner_enrollment_id = ?) AS n').bind(e.id, e.id).first();
+  if (used.n) throw conflict(`Ticket ${e.ticket_no} has receipts or has won, so its enrolment cannot be deleted.`);
+  await db.batch([
+    db.prepare('DELETE FROM enrollments WHERE id = ?').bind(e.id),
+    auditStatement(db, ctx, 'delete', 'enrollments', e.id, `Enrolment of ticket ${e.ticket_no} deleted`, e),
+  ]);
+  return json({ ok: true });
 }
 
 // One ticket's account copy: dues by installment, receipts and penalty.
@@ -290,10 +371,14 @@ export const masterRoutes = [
   ['POST', '/api/persons', createPerson],
   ['GET', '/api/persons/:id', getPerson],
   ['PATCH', '/api/persons/:id', updatePerson],
+  ['DELETE', '/api/persons/:id', deletePerson],
   ['GET', '/api/groups', listGroups],
   ['POST', '/api/groups', createGroup],
   ['GET', '/api/groups/:id', getGroup],
   ['PATCH', '/api/groups/:id', updateGroup],
+  ['DELETE', '/api/groups/:id', deleteGroup],
   ['POST', '/api/enrollments', enroll],
+  ['PATCH', '/api/enrollments/:id', updateEnrollment],
+  ['DELETE', '/api/enrollments/:id', deleteEnrollment],
   ['GET', '/api/enrollments/:id/account', accountCopy],
 ];

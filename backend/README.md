@@ -1,6 +1,6 @@
 # Chit Master Pro API
 
-The backend: a Cloudflare Worker with a Cloudflare D1 database. The website on Vercel sends every `/api/...` request here (see `vercel.json`), so the site and the API share one address: https://chits-software.vercel.app/api/health.
+The backend: a Cloudflare Worker with a Cloudflare D1 database. The website on Vercel sends every `/api/...` request here (see `vercel.json`), so the site and the API share one address: https://chits-software.vercel.app/api/health. The office screens use it in online mode through `public/apps/online.js`.
 
 D1 is for development and testing. Before real member data goes in, decide whether the data must stay in India (D1 cannot guarantee an Indian region). If it must, the same tables move to PostgreSQL in Mumbai through Cloudflare Hyperdrive.
 
@@ -31,6 +31,9 @@ Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and perc
 | `POST /api/prize-payments`, `POST /api/prize-payments/:id/cancel` | Pay a prize, optionally keeping back the winner's dues |
 | `GET /api/reports/outstanding`, `collections`, `auction-chart`, `prize-payments`, `trial-balance`, `day-book` | Reports |
 | `GET /api/audit` | Audit trail |
+| `GET /api/sync`, `PATCH /api/settings` | Everything the office screens need in one request; the company's shared settings |
+| `PATCH /api/receipts/:id`, `/api/auctions/:id`, `/api/prize-payments/:id` | Change only the extra details (print count, SMS sent), never an amount |
+| `DELETE /api/persons/:id`, `/api/groups/:id`, `/api/enrollments/:id`, `PATCH /api/enrollments/:id` | Delete only what nothing depends on; change a ticket's agents and nominee |
 
 ## Testing
 
