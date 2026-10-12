@@ -7,9 +7,9 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply chit-master-dev --local",
-    "db:seed:local": "wrangler d1 execute chit-master-dev --local --file seed/dev.sql",
     "db:migrate:remote": "wrangler d1 migrations apply chit-master-dev --remote",
-    "db:seed:remote": "wrangler d1 execute chit-master-dev --remote --file seed/dev.sql"
+    "test": "node --test test/*.test.mjs",
+    "scenario": "node scripts/scenario.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.149.0"

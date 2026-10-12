@@ -1,44 +1,56 @@
 // Chit Master Pro API (Cloudflare Worker + D1).
-// Starting point only: a health check and read-only lists to prove the database works.
-// Logins, roles and writes come next; nothing here is protected yet, so use test data only.
+// Every route except health, setup and login needs "Authorization: Bearer <token>" from /api/auth/login.
+// Money is in paise and percentages in basis points, both as whole numbers.
 
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
+import { HttpError, json } from './lib/http.js';
+import { authenticate } from './lib/auth.js';
+import { authRoutes } from './routes/auth.js';
+import { masterRoutes } from './routes/masters.js';
+import { moneyRoutes } from './routes/money.js';
+import { reportRoutes } from './routes/reports.js';
 
-const routes = {
-  'GET /api/health': async (env) => {
-    const { results } = await env.DB.prepare('SELECT count(*) AS companies FROM companies').all();
-    return json({ ok: true, database: 'connected', companies: results[0].companies });
-  },
+async function health({ env }) {
+  const row = await env.DB.prepare('SELECT count(*) AS companies FROM companies').first();
+  return json({ ok: true, database: 'connected', companies: row.companies });
+}
 
-  // Groups with the installment worked out (amounts in paise).
-  'GET /api/groups': async (env) => {
-    const { results } = await env.DB.prepare(
-      `SELECT g.id, g.name, g.chit_amount, g.installments,
-              COALESCE(g.installment_amount, g.chit_amount / g.installments) AS installment,
-              g.commission_bp, g.status,
-              (SELECT count(*) FROM enrollments e WHERE e.group_id = g.id AND e.status = 'Active') AS tickets_filled,
-              (SELECT count(*) FROM auctions a WHERE a.group_id = g.id AND a.status = 'Active') AS auctions_held
-         FROM chit_groups g
-        ORDER BY g.name`
-    ).all();
-    return json(results);
-  },
+// '/api/groups/:id' becomes a pattern that captures id.
+const compile = ([method, path, handler, opts = {}]) => {
+  const names = [];
+  const re = new RegExp('^' + path.replace(/:(\w+)/g, (_, n) => (names.push(n), '([^/]+)')) + '$');
+  return { method, re, names, handler, public: !!opts.public };
 };
+
+const routes = [['GET', '/api/health', health, { public: true }], ...authRoutes, ...masterRoutes, ...moneyRoutes, ...reportRoutes].map(compile);
+
+function dbError(err) {
+  const m = String(err && err.message);
+  if (m.includes('UNIQUE constraint failed')) return new HttpError(409, 'This would create a duplicate. ' + m.split('UNIQUE constraint failed:')[1]?.split(':')[0]?.trim());
+  if (m.includes('FOREIGN KEY constraint failed')) return new HttpError(400, 'A linked record does not exist.');
+  if (m.includes('CHECK constraint failed')) return new HttpError(400, 'A value is not allowed: ' + m.split('CHECK constraint failed:')[1]?.split(':')[0]?.trim());
+  return null;
+}
 
 export default {
   async fetch(request, env) {
-    const { pathname } = new URL(request.url);
-    const handler = routes[`${request.method} ${pathname}`];
-    if (!handler) return json({ error: 'Not found' }, 404);
-    try {
-      return await handler(env);
-    } catch (err) {
-      console.error(err);
-      return json({ error: 'Server error' }, 500);
+    const url = new URL(request.url);
+    let pathMatched = false;
+    for (const r of routes) {
+      const m = url.pathname.match(r.re);
+      if (!m) continue;
+      pathMatched = true;
+      if (r.method !== request.method) continue;
+      const params = Object.fromEntries(r.names.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
+      try {
+        const ctx = r.public ? null : await authenticate(env.DB, request);
+        return await r.handler({ request, env, ctx, params, query: url.searchParams });
+      } catch (err) {
+        const known = err instanceof HttpError ? err : dbError(err);
+        if (known) return json({ error: known.message, details: known.details }, known.status);
+        console.error(err);
+        return json({ error: 'Something went wrong on the server. Nothing was saved.' }, 500);
+      }
     }
+    return pathMatched ? json({ error: 'Method not allowed' }, 405) : json({ error: 'Not found' }, 404);
   },
 };

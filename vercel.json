@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/((?!apps/|assets/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://chit-master-api.chit-master-api.workers.dev/api/:path*" },
+    { "source": "/((?!apps/|assets/|api/).*)", "destination": "/index.html" }
+  ]
 }
