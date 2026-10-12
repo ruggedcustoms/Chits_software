@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chit-master-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "chit-master-dev",
+      "database_id": "de0e7031-8773-4fff-8fdf-d51fa2ff2881",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
