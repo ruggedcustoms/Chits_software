@@ -4,6 +4,10 @@
   "main": "src/index.js",
   "compatibility_date": "2026-10-01",
   "observability": { "enabled": true },
+  // Run the API next to the database (its main copy is near Tokyo; measured 13 Oct 2026). Each request makes
+  // several database trips: about 18 ms each from here, against 150 ms from Mumbai. Users still connect to
+  // their nearest Cloudflare location. If the database moves (for example to India), change or remove this.
+  "placement": { "region": "aws:ap-northeast-1" },
   "d1_databases": [
     {
       "binding": "DB",

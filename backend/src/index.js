@@ -10,9 +10,12 @@ import { moneyRoutes } from './routes/money.js';
 import { reportRoutes } from './routes/reports.js';
 import { syncRoutes } from './routes/sync.js';
 
-async function health({ env }) {
-  const row = await env.DB.prepare('SELECT count(*) AS companies FROM companies').first();
-  return json({ ok: true, database: 'connected', companies: row.companies });
+async function health({ env, request }) {
+  const start = Date.now();
+  const r = await env.DB.prepare('SELECT count(*) AS companies FROM companies').all();
+  const wait = Date.now() - start;
+  // Where the code ran, where the database answered, and how long the round trip took.
+  return json({ ok: true, database: 'connected', companies: r.results[0].companies, ran_at: request.cf?.colo, db_region: r.meta?.served_by_region, db_ms: wait, db_query_ms: r.meta?.timings?.sql_duration_ms });
 }
 
 // '/api/groups/:id' becomes a pattern that captures id.
