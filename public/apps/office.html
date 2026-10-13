@@ -1839,61 +1839,120 @@ function pageReceipts(){
  const rq=String(F.rcpQ||'').trim().toLowerCase(),list0=S.receipts.filter(r=>(!F.rcpFilter||r.gid===F.rcpFilter)&&(!F.rcpFrom||r.date>=F.rcpFrom)&&(!F.rcpTo||r.date<=F.rcpTo)&&(!rq||rcHay(r).includes(rq))).slice().reverse(),shw=!!(rq||F.rcpFrom||F.rcpTo||F.rcpFilter),list=shw?list0.slice(0,300):[];
  return`<h1>Receipts</h1><p class="sub">Record installment payments, penalties and fees.</p>${findPanel('receipt')}
  ${slip?`<div class="card"><h2>Receipt ${slip.no}${slip.cancel?' (cancelled)':''}</h2><pre style="margin:0 0 10px;white-space:pre-wrap;font:inherit">${esc(slipText(slip))}</pre>${rcApplied(slip)}<div class="row" style="margin:0"><button class="btn sm" onclick="copyText(slipText(S.receipts.find(r=>r.id==='${slip.id}')),'Receipt copied.')">Copy receipt text</button><button class="btn sm" onclick="goReceipt('print','${slip.id}')">Print</button><button class="btn sm" onclick="goReceipt('sms','${slip.id}')">SMS</button><button class="btn sm" onclick="goReceipt('print','${slip.id}')">WhatsApp / Email</button><button class="btn g sm" onclick="F.rview=null;render()">Close</button></div></div>`:''}
- <div class="card"><div id="err" class="err" hidden></div><div class="fg">
- <label class="f">Receipt date *<input type="date" id="r_date" value="${today()}"></label>
- <label class="f">Mode *<select id="r_mode" onchange="rMode()">${rModeOpts('')}</select></label>
- <label class="f">Chit group *<select id="r_gid" onchange="F.rcpGroup=this.value;F.rcpTicket='';render()">${gopts(g?g.id:'',0,1)}</select></label>
- ${msBox('r_ticket')}<label class="f w2">Ticket and subscriber *<select id="r_ticket" onchange="F.rcpTicket=this.value;rInfo()"><option value="">${g?'Select ticket':'Select the group first'}</option>${tix.map(e=>`<option value="${e.ticket}" data-k="${esc(pmob(P(e.pid)))}" ${e.ticket==sel?'selected':''}>Ticket ${e.ticket}: ${esc(pnn(e.pid))}</option>`).join('')}</select></label>
- <label class="f">TR book / number<input id="r_tr"></label><label class="f">TR date<input type="date" id="r_trd"></label>
- <label class="f">Collection agent<select id="r_agent">${pickopts(ag,((g&&enrollOf(g.id,sel)||{}).cagent)||'',1)}</select></label></div>
- <div id="rinfo" class="calc" style="margin-bottom:12px"></div><div id="rinst" style="margin-bottom:12px"></div>
- <div class="fg"><label class="f">Receipt amount (₹) *<input type="number" id="r_amt" oninput="rSub()"></label><label class="f">Penalty (₹)<input type="number" id="r_pen" oninput="rSub()"></label>
- <label class="f">Enrolment fee (₹)<input type="number" id="r_enr" oninput="rSub()"></label><label class="f">Bank charge (₹)<input type="number" id="r_bnk" oninput="rSub()"></label><label class="f">Other charges (₹)<input type="number" id="r_oth" oninput="rSub()"></label><label class="f">Incentive charge (₹)<input type="number" id="r_inc" oninput="rSub()"></label>
- <label class="f">Subscription (₹)<input id="r_sub" readonly></label><label class="f w2">Reasons<input id="r_why"></label></div>
- <div class="fg" id="r_chq" hidden><label class="f">Cheque / DD / reference no.<input id="r_cno"></label><label class="f">Bank<input id="r_cbank"></label><label class="f">Cheque date<input type="date" id="r_cdate"></label><label class="f">Place<input id="r_cplace"></label><label class="f">Deposit date<input type="date" id="r_cdep"></label><label class="f">Cheque amount (₹)<input type="number" id="r_camt" oninput="rBal()"></label><label class="f">Balance of cheque (₹)<input id="r_cbal" readonly></label><label class="f" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="r_cnl" style="width:auto"> Non local cheque</label><label class="f" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="r_csame" style="width:auto" onchange="rSame()"> Same cheque as an earlier receipt</label></div>
- <label class="f" style="flex-direction:row;align-items:center;gap:6px;margin:0 0 8px"><input type="checkbox" id="r_sms" style="width:auto"> Send SMS after saving</label><div id="rself" style="margin-bottom:8px"></div>
- <div class="row"><button class="btn" onclick="saveReceipt()">Save</button><button class="btn" onclick="saveReceipt('new')">Save and new</button><button class="btn" onclick="saveReceipt('print')">Save and print</button><button class="btn" onclick="saveReceipt('sms')">Save and SMS</button><button class="btn g" onclick="rFill()">Fill outstanding amount</button><button class="btn g" onclick="rSelf()">Get self chit</button><button class="btn g" onclick="$('rc_q').scrollIntoView({behavior:'smooth'})">Go to list</button><button class="btn g" onclick="F.rcpTicket='';render()">Cancel</button></div></div>
+ <style>.rcx{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px;margin-bottom:14px}
+ .rcx .pn{border:1px solid var(--line);border-radius:10px;background:var(--card,#fff);overflow:hidden}
+ .rcx .ph{background:#fff6dc;color:var(--bad);font-weight:700;padding:6px 12px;font-size:.9rem;border-bottom:1px solid var(--line);border-top:1px solid var(--line);margin-top:-1px}
+ .rcx .pb{padding:10px 12px}.rcx .g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px}
+ .rcx .kv{display:grid;grid-template-columns:118px minmax(0,1fr);gap:6px 8px;align-items:center}
+ .rcx .kv>span{text-align:right;font-weight:600;font-size:.85rem}.rcx .kv>span.rq:before{content:"*";color:var(--bad)}
+ .rcx input,.rcx select{padding:5px 8px;border-radius:6px;border-width:1px}.rcx .num{text-align:right}
+ .rcx .duo{display:flex;gap:6px;align-items:center}.rcx .duo b{font-size:.85rem}
+ .rcx .si{width:100%;border-collapse:collapse;font-size:.86rem;table-layout:fixed}.rcx .si td{overflow-wrap:anywhere;white-space:normal}.rcx .si td,.rcx .si th{border:1px solid var(--line);padding:4px 6px}
+ .rcx .si th{background:var(--soft);text-align:center}.rcx .si td.k{font-weight:600;white-space:nowrap}.rcx .si td.c{text-align:center}
+ .rcx .lk{color:var(--accent);font-weight:700;cursor:pointer;background:none;border:0;padding:0;font:inherit}
+ .rcx label.chk{display:flex;align-items:center;gap:6px;font-size:.88rem;font-weight:600}.rcx .off{opacity:.5}
+ @media(max-width:900px){.rcx,.rcx .g2{grid-template-columns:minmax(0,1fr)}}</style>
+ <div id="err" class="err" hidden></div>
+ <div class="rcx">
+ <div class="pn"><div class="ph" style="border-top:0">MEMBER RECEIPT</div><div class="pb">
+  <div class="g2"><div class="kv">
+   <span class="rq">Collection At</span><select id="r_coll">${M('branch').map(b=>`<option ${b===(F.rcpColl||(g&&g.branch)||'')?'selected':''}>${esc(b)}</option>`).join('')}</select>
+   <span class="rq">Branch</span><select id="r_branch">${M('branch').map(b=>`<option ${b===((g&&g.branch)||'')?'selected':''}>${esc(b)}</option>`).join('')}</select>
+   <span class="rq">Mode</span><select id="r_mode" onchange="rMode()">${rModeOpts('')}</select>
+   <span>TR. No.</span><div class="duo"><input id="r_tr" placeholder="Book"><input id="r_trn" placeholder="Number"></div>
+  </div><div class="kv">
+   <span>Date Of Receipt</span><input type="date" id="r_date" value="${today()}">
+   <span class="rq">Group &amp; Tkt No.</span><div class="duo"><select id="r_gid" style="flex:1 1 auto;min-width:110px" onchange="F.rcpGroup=this.value;F.rcpTicket='';render()">${gopts(g?g.id:'',0,1)}</select><select id="r_ticket" style="max-width:84px" onchange="F.rcpTicket=this.value;rInfo()"><option value="">Tkt</option>${tix.map(e=>`<option value="${e.ticket}" data-k="${esc(pmob(P(e.pid))+' '+pname(e.pid))}" ${e.ticket==sel?'selected':''}>${e.ticket}</option>`).join('')}</select></div>
+   <span class="rq">Receipt No</span><div class="duo"><input id="r_ser" value="${esc(F.rcpSer||'')}" placeholder="Series" onchange="F.rcpSer=this.value"><input class="num" value="${(S.seq.r||0)+1}" readonly title="The receipt number is given when you save"></div>
+   <span>TR Date</span><input type="date" id="r_trd">
+  </div></div>
+  <div class="kv" style="margin-top:6px;grid-template-columns:118px minmax(0,1fr) 44px">
+   <span class="rq">Subscriber</span><input id="r_subscr" readonly placeholder="Choose the group and ticket, or find below"><b id="r_st"></b>
+   <span>Find</span><input class="ms" placeholder="Ticket no., name or mobile in this group" oninput="selFilter(this,'r_ticket')"><span></span>
+  </div>
+  <div class="kv" style="margin-top:6px">
+   <span>Collection Agent</span><select id="r_agent">${pickopts(ag,((g&&enrollOf(g.id,sel)||{}).cagent)||'',1)}</select>
+   <span class="rq">Debit To</span><select id="r_debit"><option value="">CASH</option>${S.bankAccts.map(b=>`<option value="${b.id}">${esc(bLabel(b))}</option>`).join('')}</select>
+  </div></div>
+  <div class="ph">RECEIPT AMOUNT, INSTALLMENTS &amp; CHARGES</div><div class="pb">
+  <div class="g2"><div class="kv">
+   <span class="rq">Receipt Amount</span><input type="number" id="r_amt" class="num" placeholder="0" oninput="rSub();rAuto()">
+   <span>Incentive</span><input type="number" id="r_incv" class="num" placeholder="0.0">
+   <span>Total Charges</span><input id="r_chg" class="num" readonly value="0">
+   <span>Future</span><input id="r_fut" class="num" readonly>
+   <span>Subscription</span><input id="r_sub" class="num" readonly value="0">
+   <span class="rq">Installments</span><div class="duo"><input type="number" id="r_if" class="num" min="0" value="0" oninput="rRange()"><b>TO</b><input type="number" id="r_it" class="num" min="0" value="0" oninput="rRange()"></div>
+   <span>Months</span><b id="r_mon" style="font-size:.85rem"></b>
+  </div><div class="kv">
+   <span>Bank Charge</span><input type="number" id="r_bnk" class="num" placeholder="0.0" oninput="rSub();rAuto()">
+   <span>Penalty</span><input type="number" id="r_pen" class="num" placeholder="0.0" oninput="rSub();rAuto()">
+   <span>Inc Charge</span><input type="number" id="r_inc" class="num" placeholder="0.0" oninput="rSub();rAuto()">
+   <span>ServiceTax / Others</span><input type="number" id="r_oth" class="num" placeholder="0" oninput="rSub();rAuto()">
+   <span>Enrollment Fee</span><input type="number" id="r_enr" class="num" placeholder="0" oninput="rSub();rAuto()">
+  </div></div>
+  <div class="kv" style="margin-top:6px"><span>Reasons</span><input id="r_why"></div>
+  <div class="row" style="margin-top:12px;align-items:center;gap:8px"><label class="chk"><input type="checkbox" id="r_sms" style="width:auto"> Sms</label><button class="btn" onclick="saveReceipt('new')">Save &amp; New</button><button class="btn" onclick="saveReceipt('print')">Save &amp; Print</button><button class="btn g" onclick="rSelf()">Get Self Chit</button><button class="btn g" onclick="$('rc_q').scrollIntoView({behavior:'smooth'})">Go To List</button><button class="btn g" onclick="F.rcpTicket='';render()">Cancel</button></div>
+  <div id="rself" style="margin-top:8px"></div></div></div>
+ <div class="pn"><div class="ph" style="border-top:0;text-align:center">SUBSCRIBER INFORMATION</div><div class="pb" id="rinfo"></div>
+  <div class="ph" style="text-align:center">CHEQUE/ DD/RTGS/NEFT DETAILS</div><div class="pb" id="r_chq">
+  <div class="g2"><div class="kv" style="grid-template-columns:96px minmax(0,1fr)">
+   <span>Number</span><input id="r_cno"><span>Bank</span><input id="r_cbank"><span>Place</span><input id="r_cplace"><span>Amount</span><input type="number" id="r_camt" class="num" oninput="rBal()"><span>Deposite Date</span><input type="date" id="r_cdep">
+  </div><div class="kv" style="grid-template-columns:70px minmax(0,1fr)">
+   <span>Date</span><input type="date" id="r_cdate"><span>Type</span><label class="chk"><input type="checkbox" id="r_cnl" style="width:auto"> Non Local</label><span></span><label class="chk"><input type="checkbox" id="r_csame" style="width:auto" onchange="rSame()"> Same Cheque</label><span>Balance</span><input id="r_cbal" class="num" readonly>
+  </div></div>
+  <div class="row" style="justify-content:space-between;margin-top:10px"><button class="lk" onclick="go('pdc')">Get Post Dated Cheques</button><button class="lk" onclick="go('chqm')">Get UnCleared Cheques</button></div>
+ </div></div></div>
  ${F.rEdit?editRcCard():''}<div class="card"><h2>${shw?'Receipts found ('+list0.length+(list0.length>list.length?', showing '+list.length:'')+')':'Find a receipt'}</h2><div class="row" style="align-items:flex-end"><label class="f">Group<select onchange="F.rcpFilter=this.value;render()">${gopts(F.rcpFilter||'',1)}</select></label><label class="f" style="min-width:260px">Search<input id="rc_q" value="${esc(F.rcpQ||'')}" placeholder="Receipt no., name, member no., mobile, ticket, cheque no., amount" onchange="F.rcpQ=this.value;render()"></label><label class="f">From<input type="date" value="${F.rcpFrom||''}" onchange="F.rcpFrom=this.value;render()"></label><label class="f">To<input type="date" value="${F.rcpTo||''}" onchange="F.rcpTo=this.value;render()"></label>${rq||F.rcpFrom||F.rcpTo||F.rcpFilter?`<button class="btn g" onclick="F.rcpQ='';F.rcpFrom='';F.rcpTo='';F.rcpFilter='';render()">Clear search</button>`:''}</div>
  ${list.length?tbl(['No.','Date','Group','Ticket','Subscriber','Mode','Installments','Amount','Subscription','Penalty','Status',''],list.map(r=>`<tr>${td(r.no)}${td(dmy(r.date))}${td(esc((G(r.gid)||{}).name))}${td(r.ticket)}${td(esc(pnn(r.pid)))}${td(esc(r.mode))}${td(r.insts&&r.insts.length?r.insts.join(', '):'Oldest first')}${td(inr(r.amount),1)}${td(inr(subOf(r)),1)}${td(inr(r.penalty),1)}${td(r.cancel?pill('Cancelled','bad'):r.dis?pill('Dishonoured','bad'):pill('Valid','good')+(r.smsAt?' '+pill('SMS sent','nps'):''))}
  <td><button class="btn g sm" onclick="F.rview='${r.id}';render();scrollTo(0,0)">View</button> ${r.cancel?'':`<button class="btn g sm" onclick="goReceipt('print','${r.id}')">Print</button> <button class="btn g sm" onclick="goReceipt('sms','${r.id}')">SMS</button> <button class="btn g sm" onclick="goReceipt('print','${r.id}')">WhatsApp / Email</button> <button class="btn g sm" onclick="F.rEdit='${r.id}';render();scrollTo(0,0)">Edit</button> <button class="btn d sm" onclick="cancelReceipt('${r.id}')">Cancel</button>`} <button class="btn d sm" onclick="delReceipt('${r.id}')">Delete</button></td></tr>`),[7,8,9]):(shw?'<div class="empty">No receipt matches.</div>':'<p class="muted">Recent receipts are not listed here. Search by receipt number, name, ticket, cheque number or amount, pick a group, or choose a date range to see receipts.</p>')}</div>`}
-function rInfo(){const g=G(F.rcpGroup),el=$('rinfo');if(!el)return;if(!g){el.innerHTML='<span class="muted">Select a chit group and a ticket.</span>';const ri=$('rinst');if(ri)ri.innerHTML='';return}const t=+($('r_ticket')||{}).value,L=t?ledger(g,t):null;rMode();
- if(!L){el.innerHTML='<span class="muted">Choose a ticket.</span>';$('rinst').innerHTML='';return}
- const p=P(L.e.pid),s=tstat(g,t);
- el.innerHTML=`<b>${esc(pnn(L.e.pid))}</b> ${pill(s[0],s[1])} <span class="muted">${esc(pmob(p))}</span><table><tr><td>Installments due so far</td><td>${L.rows.length} (${inr(L.totalDue)})</td></tr><tr><td>Paid</td><td>${inr(L.totalPaid)}</td></tr>
- <tr><td>${L.balance>=0?'Arrears':'Advance'}</td><td class="${L.balance>0?'bad':'good'}">${inr(Math.abs(L.balance))}</td></tr><tr><td>Penalty due (${L.ps?(S.penPS==null?1.5:S.penPS):(S.penNPS==null?1.2:S.penNPS)}% per month)</td><td>₹${f2(L.penDue)}</td></tr>${L.enrolDue?`<tr><td>Enrolment fee pending</td><td>${inr(L.enrolDue)}</td></tr>`:''}</table>${scBadge(L.e.pid,g,t,1)}`;
- F.rOut=Math.max(0,L.balance)+L.penDue;
- {const o=[];S.groups.forEach(x=>enrollsOf(x.id).forEach(y=>{if(y.pid===L.e.pid&&!(x.id===g.id&&y.ticket==t))o.push([x,y])}));
- if(o.length)el.innerHTML+=`<div style="margin-top:10px"><b>Other chits held by ${esc(pnn(L.e.pid))}</b> <span class="muted">tap one to switch</span>`+tbl(['Group','Ticket','Status','Arrears / credit','Penalty due',''],o.map(([x,y])=>{const M2=ledger(x,y.ticket),st=tstat(x,y.ticket);return`<tr class="click" onclick="F.rcpGroup='${x.id}';F.rcpTicket='${y.ticket}';render();scrollTo(0,0)">${td(esc(x.name))}${td(y.ticket)}${td(pill(st[0],st[1]))}${td(M2?(M2.balance>0.5?'<span class="bad">'+inr(M2.balance)+' due</span>':M2.advance>0.5?'<span class="good">'+inr(M2.advance)+' credit</span>':'Nil'):'-',1)}${td(M2&&M2.penDue>0.5?inr(M2.penDue):'-',1)}${td('<button class="btn g sm">Open</button>')}</tr>`}),[3,4])+'</div>'}
- const open=L.rows.filter(r=>r.due-r.paid>0.005);
- $('rinst').innerHTML=open.length?`<h3>Pending installments</h3>
- <div class="row" style="gap:6px;margin-bottom:8px"><button class="btn g sm" onclick="rQuick('first')">Oldest unpaid</button><button class="btn g sm" onclick="rQuick('two')">Oldest two</button><button class="btn g sm" onclick="rQuick('over')">All overdue</button><button class="btn g sm" onclick="rQuick('all')">All unpaid</button><button class="btn g sm" onclick="rQuick('none')">Clear</button></div>
- <div class="tw"><table><thead><tr><th></th><th>Installment</th><th>Due date</th><th class="r">Dividend</th><th class="r">Amount</th><th class="r">Paid</th><th class="r">Balance</th><th class="r">Penalty</th><th>Status</th></tr></thead><tbody>${open.map(r=>{const pr=L.penRows.find(x=>x.no===r.no&&!x.on),bal=r.due-r.paid,openRow=bal>0.005,st=!openRow?['Paid','good']:(r.paid>0?['Part paid','warn']:(r.date<today()?['Overdue','bad']:['Due','nps']));
- return`<tr id="ir_${r.no}" ${openRow?`class="click" onclick="rRow(${r.no},event)"`:'style="opacity:.6"'}><td>${openRow?`<input type="checkbox" id="ri_${r.no}" onchange="rPick()" aria-label="Pay installment ${r.no}" style="width:auto">`:''}</td><td>${r.no}</td><td>${dmy(r.date)}</td><td class="r">${f2(r.div)}</td><td class="r">${inr(r.due)}</td><td class="r">${inr(r.paid)}</td><td class="r">${openRow?inr(bal):'-'}</td><td class="r">${pr?'₹'+f2(pr.pen):'0.00'}</td><td>${pill(st[0],st[1])}</td></tr>`}).join('')}</tbody><tfoot><tr><td></td><td colspan="2"><b>Total</b></td><td class="r"><b>${f2(open.reduce((x,r)=>x+r.div,0))}</b></td><td class="r"><b>${inr(open.reduce((x,r)=>x+r.due,0))}</b></td><td class="r"><b>${inr(open.reduce((x,r)=>x+r.paid,0))}</b></td><td class="r"><b>${inr(open.reduce((x,r)=>x+r.due-r.paid,0))}</b></td><td class="r"><b>₹${f2(L.penDue)}</b></td><td></td></tr></tfoot></table></div>
- <p class="muted" id="rsel" style="margin:6px 0 0">Tap rows to choose the installments this receipt pays. With none chosen, the payment goes to the oldest unpaid installment first.</p>`:`<p class="muted">${L.rows.length?'All installments due so far are paid. A payment now is held as advance.':'No installment is due yet. A payment now is held as advance.'}</p>`}
-function rRow(k,e){if(e.target.tagName==='INPUT')return;const c=$('ri_'+k);c.checked=!c.checked;rPick()}
-function rQuick(m){const g=G(F.rcpGroup),L=ledger(g,+$('r_ticket').value);if(!L)return;const open=L.rows.filter(r=>r.due-r.paid>0.005);
- const pick=m==='first'?open.slice(0,1):m==='two'?open.slice(0,2):m==='over'?open.filter(r=>r.date<today()):m==='all'?open:[];
- L.rows.forEach(r=>{const c=$('ri_'+r.no);if(c)c.checked=pick.some(x=>x.no===r.no)});rPick()}
-function rPick(){const g=G(F.rcpGroup),L=ledger(g,+$('r_ticket').value);if(!L)return;let sum=0;const ks=[];
- L.rows.forEach(r=>{const c=$('ri_'+r.no);if(c&&c.checked){sum+=r.due-r.paid;ks.push(r.no)}});
- $('r_amt').value=Math.round((sum+num($('r_pen').value)+num($('r_enr').value)+num($('r_bnk').value)+num($('r_oth').value)+num($('r_inc').value))*100)/100;rSub();
- L.rows.forEach(r=>{const tr=$('ir_'+r.no),c=$('ri_'+r.no);if(tr)tr.classList.toggle('sel',!!(c&&c.checked))});
- $('rsel').textContent=ks.length?'Selected: installment '+ks.join(', ')+' ('+inr(sum)+'). You can still edit the amount for a part payment.':'Tap rows to choose the installments this receipt pays. With none chosen, the payment goes to the oldest unpaid installment first.'}
+/* receipt entry, laid out like the old software's member receipt: subscriber information on the right, and the
+   installments a receipt pays given as a range (from .. to). Typing the amount fills the range from the oldest unpaid
+   installment; changing the range fills the amount. */
+const rLedger=()=>{const g=G(F.rcpGroup),t=+(($('r_ticket')||{}).value);return g&&t?ledger(g,t):null};
+const rMonL=(g,k)=>instMon(g,k).replace(' ','-');
+function rInfo(){const g=G(F.rcpGroup),el=$('rinfo');if(!el)return;rMode();const L=rLedger();
+ if(!L){el.innerHTML=`<span class="muted">${g?'Choose a ticket.':'Select a chit group and a ticket.'}</span>`;['r_subscr','r_fut'].forEach(i=>{if($(i))$(i).value=''});if($('r_st'))$('r_st').innerHTML='';return}
+ const t=+$('r_ticket').value,p=P(L.e.pid),s=tstat(g,t),rs=S.receipts.filter(r=>r.gid===g.id&&r.ticket==t&&!r.cancel).sort((a,b)=>String(a.date).localeCompare(String(b.date))),last=rs[rs.length-1];
+ let upto=0;for(const r of L.rows){if(r.due-r.paid>0.005)break;upto=r.no}
+ const fut=(S.future||[]).filter(f=>f.pid===L.e.pid&&!f.cancel).reduce((x,f)=>x+fBal(f),0);
+ $('r_subscr').value=pnn(L.e.pid);$('r_st').innerHTML=`<span class="${s[1]==='ps'?'good':'bad'}">${esc(s[0])}</span>`;$('r_fut').value=f2(fut);
+ if(L.e.cagent&&$('r_agent'))$('r_agent').value=L.e.cagent;
+ el.innerHTML=`<table class="si"><tr><td class="k">Address</td><td colspan="3">(${esc(mno(p||{}))}) ~${esc(pmob(p))} ~ ${esc(paddr(p))}</td></tr>
+ <tr><td class="k">Payable</td><td>${f2(L.totalDue)}</td><td class="k">Paid</td><td>${f2(L.totalPaid)}</td></tr>
+ <tr><td class="k">PaidUpto</td><td>${upto?upto+' ('+rMonL(g,upto)+')':'0'}</td><td class="k">L.P.Date</td><td>${last?dmy(last.date).replace(/-/g,'/'):''}</td></tr>
+ <tr><td colspan="4" style="height:12px"></td></tr>
+ <tr><td class="k">LessAtCr</td><td>0.00</td><td class="k">NetDue</td><td>${f2(Math.max(0,L.balance))}</td></tr>
+ <tr><td class="k">Advance</td><td>${f2(L.advance)}</td><td class="k">Future</td><td>${f2(fut)}</td></tr>
+ <tr><td class="k">Penalty</td><td>${f2(L.penDue)}</td><td class="k">D.F.D</td><td>0</td></tr></table>
+ <table class="si" style="margin-top:6px"><tr><th>Bank</th><th>Penalty</th><th>INC</th><th>Verif</th><th>EnrolFee</th><th>Others</th></tr>
+ <tr><td class="c">0</td><td class="c">${f2(L.penDue)}</td><td class="c">0</td><td class="c">0</td><td class="c">${f2(L.enrolDue)}</td><td class="c">0</td></tr></table>${scBadge(L.e.pid,g,t,1)}`;
+ F.rOut=Math.max(0,L.balance)+L.penDue;rAuto()}
+function rMonths(){const g=G(F.rcpGroup),a=num($('r_if').value),b=num($('r_it').value);$('r_mon').textContent=g&&a&&b>=a?(a===b?rMonL(g,a):rMonL(g,a)+' TO '+rMonL(g,b)):''}
+function rAuto(){const L=rLedger();if(!L||!$('r_if'))return;let left=num($('r_sub').value),a=0,b=0;
+ for(const r of L.rows){const bal=r.due-r.paid;if(bal<=0.005)continue;if(left<=0.005)break;if(!a)a=r.no;b=r.no;left-=bal}
+ $('r_if').value=a;$('r_it').value=b;rMonths()}
+function rRange(){const L=rLedger();if(!L)return rMonths();const a=num($('r_if').value),b=num($('r_it').value);
+ if(a&&b>=a){const sum=L.rows.filter(r=>r.no>=a&&r.no<=b).reduce((x,r)=>x+Math.max(0,r.due-r.paid),0);
+  $('r_amt').value=Math.round((sum+num($('r_pen').value)+num($('r_enr').value)+num($('r_bnk').value)+num($('r_oth').value)+num($('r_inc').value))*100)/100;rSub()}
+ rMonths()}
 function rCq(){const n=($('r_cno')||{}).value;return n?S.receipts.filter(x=>!x.cancel&&x.chq&&x.chq.no===n):[]}
-function rBal(){const a=num($('r_camt').value),used=rCq().reduce((t,x)=>t+num(x.amount),0)+num($('r_amt').value);$('r_cbal').value=a?Math.round((a-used)*100)/100:''}
+function rBal(){if(!$('r_camt')||!$('r_amt'))return;const a=num($('r_camt').value),used=rCq().reduce((t,x)=>t+num(x.amount),0)+num($('r_amt').value);$('r_cbal').value=a?Math.round((a-used)*100)/100:''}
 function rSame(){if(!$('r_csame').checked)return;const l=rCq();if(!l.length){$('r_csame').checked=false;return err('Type the cheque number first. No earlier receipt has this cheque number.')}const c=l[l.length-1].chq;$('r_cbank').value=c.bank||'';$('r_cdate').value=c.date||'';$('r_cplace').value=c.place||'';$('r_cdep').value=c.dep||'';$('r_camt').value=c.amt||'';$('r_cnl').checked=!!c.nonLocal;rBal()}
 function rSelf(){const g=G(F.rcpGroup),t=+($('r_ticket')||{}).value,e=g&&enrollOf(g.id,t);if(!e)return err('Choose the group and ticket first.');const o=[];S.groups.forEach(x=>enrollsOf(x.id).forEach(y=>{if(y.pid===e.pid)o.push([x,y])}));
  $('rself').innerHTML='<span class="muted">All tickets of '+esc(pnn(e.pid))+': </span>'+o.map(([x,y])=>`<button class="btn g sm" onclick="F.rcpGroup='${x.id}';F.rcpTicket='${y.ticket}';render()">${esc(x.name)} / ${y.ticket}</button>`).join(' ')}
-function rMode(){const m=($('r_mode')||{}).value;const w=$('rself');if(w&&(m==='Adv.Rct.Adj'||m==='Bid Adv.'))w.innerHTML='<p class="warn" style="margin:0">Advance receipts are applied to installments automatically as each auction makes them due. Do not enter an adjusting receipt for the same money, or it will be counted twice. Use this mode only for a real new payment.</p>';else if(w&&w.querySelector('.warn'))w.innerHTML='';const c=$('r_chq');if(c){c.hidden=!m||m==='Cash'||isAdjMode(m);c.style.display=c.hidden?'none':''}}
-function rSub(){if($('r_cbal'))setTimeout(rBal,0);$('r_sub').value=num($('r_amt').value)-num($('r_pen').value)-num($('r_enr').value)-num($('r_bnk').value)-num($('r_oth').value)-num($('r_inc').value)}
-function rFill(){const g=G(F.rcpGroup),L=ledger(g,+$('r_ticket').value);if(!L)return;L.rows.forEach(r=>{const c=$('ri_'+r.no);if(c)c.checked=true});$('r_pen').value=L.penDue||'';$('r_enr').value=L.enrolDue||'';rPick()}
+function rMode(){const m=($('r_mode')||{}).value;const w=$('rself');if(w&&(m==='Adv.Rct.Adj'||m==='Bid Adv.'))w.innerHTML='<p class="warn" style="margin:0">Advance receipts are applied to installments automatically as each auction makes them due. Do not enter an adjusting receipt for the same money, or it will be counted twice. Use this mode only for a real new payment.</p>';else if(w&&w.querySelector('.warn'))w.innerHTML='';const c=$('r_chq');if(c){const off=!m||m==='Cash'||isAdjMode(m);c.classList.toggle('off',off);c.querySelectorAll('input').forEach(i=>{i.disabled=off})}}
+function rSub(){if($('r_cbal'))setTimeout(rBal,0);const ch=num($('r_pen').value)+num($('r_enr').value)+num($('r_bnk').value)+num($('r_oth').value)+num($('r_inc').value);if($('r_chg'))$('r_chg').value=Math.round(ch*100)/100;$('r_sub').value=Math.round((num($('r_amt').value)-ch)*100)/100}
 function saveReceipt(mode){const g=G(F.rcpGroup);if(!g)return err('Select the chit group.');const t=+$('r_ticket').value,e=enrollOf(g.id,t),amt=num($('r_amt').value);
  if(!e)return err('Choose a ticket.');if(!$('r_date').value)return err('Enter the receipt date.');{const lm=lockMsg($('r_date').value);if(lm)return err(lm)}if(amt<=0)return err('Enter the receipt amount.');
- const r={id:uid(),no:++S.seq.r,date:$('r_date').value,mode:$('r_mode').value,gid:g.id,ticket:t,pid:e.pid,tr:$('r_tr').value,trDate:$('r_trd').value,agent:$('r_agent').value,amount:amt,penalty:num($('r_pen').value),enrolFee:num($('r_enr').value),bankCharge:num($('r_bnk').value),otherCharge:num($('r_oth').value),incCharge:num($('r_inc').value),by:ST.user?ST.user.name:'',reason:$('r_why').value,chq:{no:$('r_cno').value,bank:$('r_cbank').value,date:$('r_cdate').value,place:$('r_cplace').value,dep:$('r_cdep').value,amt:num($('r_camt').value),nonLocal:$('r_cnl').checked,same:$('r_csame').checked},cancel:false};
- const L0=ledger(g,t);r.insts=L0?L0.rows.filter(x=>{const c=$('ri_'+x.no);return c&&c.checked}).map(x=>x.no):[];
+ const i1=num(($('r_if')||{}).value),i2=num(($('r_it')||{}).value);if(i1&&i2<i1)return err('The installments "TO" number must be the same or after the first.');
+ const r={id:uid(),no:++S.seq.r,date:$('r_date').value,mode:$('r_mode').value,gid:g.id,ticket:t,pid:e.pid,tr:[$('r_tr').value.trim(),($('r_trn')||{value:''}).value.trim()].filter(Boolean).join('/'),trDate:$('r_trd').value,agent:$('r_agent').value,amount:amt,penalty:num($('r_pen').value),enrolFee:num($('r_enr').value),bankCharge:num($('r_bnk').value),otherCharge:num($('r_oth').value),incCharge:num($('r_inc').value),by:ST.user?ST.user.name:'',reason:$('r_why').value,chq:{no:$('r_cno').value,bank:$('r_cbank').value,date:$('r_cdate').value,place:$('r_cplace').value,dep:$('r_cdep').value,amt:num($('r_camt').value),nonLocal:$('r_cnl').checked,same:$('r_csame').checked},cancel:false};
+ const L0=ledger(g,t);
+ r.insts=L0&&i1?L0.rows.filter(x=>x.no>=i1&&x.no<=i2).map(x=>x.no):[];
+ Object.assign(r,{collAt:($('r_coll')||{}).value||'',branch:($('r_branch')||{}).value||'',debit:($('r_debit')||{}).value||'',incentive:num(($('r_incv')||{}).value),series:(($('r_ser')||{}).value||'').trim()});if($('r_coll'))F.rcpColl=$('r_coll').value;
  if(subOf(r)<0)return err('Penalty, fees and charges are more than the amount received.');
  S.receipts.push(r);log('Receipt '+r.no+': '+inr(amt)+' ticket '+t+' of '+g.name);save();
  if(!mode&&$('r_sms')&&$('r_sms').checked)mode='sms';
+ if(mode==='new'&&$('r_sms')&&$('r_sms').checked){goReceipt('sms',r.id);return}
  if(mode==='new'){F.rcpTicket='';note('Receipt '+r.no+' saved. Ready for the next receipt.');scrollTo(0,0);return}
  if(mode==='print'||mode==='sms'){goReceipt(mode,r.id);return}
  F.rview=r.id;note('Receipt '+r.no+' saved.');scrollTo(0,0)}
