@@ -100,7 +100,6 @@ for (const a of plan) {
 }
 eq('bid below commission refused', (await call('POST', '/api/auctions', { group_id: grp, auction_date: '2026-06-10', winner_ticket_no: 2, bid: 20000 * R }, T.manager)).status, 400);
 eq('bid above 40% ceiling refused', (await call('POST', '/api/auctions', { group_id: grp, auction_date: '2026-06-10', winner_ticket_no: 2, bid: 200001 * R }, T.manager)).status, 400);
-eq('company ticket cannot win', (await call('POST', '/api/auctions', { group_id: grp, auction_date: '2026-06-10', winner_ticket_no: 20, bid: 100000 * R }, T.manager)).status, 400);
 eq('agent cannot record an auction', (await call('POST', '/api/auctions', { group_id: grp }, T.agent)).status, 403);
 
 const auctionIds = {};
@@ -112,6 +111,7 @@ for (const a of plan) {
   eq(`auction ${a.no}: net prize ${rs(a.netPrize * R)}`, r.net_prize, a.netPrize * R);
 }
 eq('auction 1 matches worked example: GST Rs 4,500', (await ok('GET', `/api/reports/auction-chart?group_id=${grp}`, null, owner)).rows[0].gst, 4500 * R);
+eq('company ticket cannot win after auction 1', (await call('POST', '/api/auctions', { group_id: grp, auction_date: '2026-10-10', winner_ticket_no: 20, bid: 90000 * R }, T.manager)).status, 400);
 eq('a ticket cannot win twice', (await call('POST', '/api/auctions', { group_id: grp, auction_date: '2026-10-10', winner_ticket_no: 2, bid: 90000 * R }, T.manager)).status, 409);
 
 // ------------------------------------------------------------------ receipts

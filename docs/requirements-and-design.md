@@ -75,7 +75,7 @@ All amounts are in rupees, stored as exact decimals, never floating point. These
 8. **Dividend timing** is set per group: it applies to the same month's installment or from the next month.
 9. **Late fee** = unpaid installment × annual rate × days late ÷ 365, counted from the installment's due date. PS and NPS have separate rates.
 10. **Receipts** pay the installments the user chose first. Any excess goes to the oldest unpaid installments, then is held as advance. Penalty, enrolment fee and charges are recorded separately and do not reduce installments.
-11. **A ticket wins once.** Company tickets cannot win. Cancelled receipts stay in the records, marked cancelled, and are left out of totals.
+11. **A ticket wins once.** The company ticket is the default winner of the first auction (staff can choose a member instead) and may also win a no-auction month; it cannot win any other auction. Cancelled receipts stay in the records, marked cancelled, and are left out of totals.
 
 **Worked example** (chit ₹5,00,000, 20 tickets, commission 5%, GST 18%, winning bid ₹1,00,000)
 
