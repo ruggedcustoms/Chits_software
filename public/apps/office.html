@@ -1862,7 +1862,7 @@ function pageReceipts(){
    <span>TR. No.</span><div class="duo"><input id="r_tr" placeholder="Book"><input id="r_trn" placeholder="Number"></div>
   </div><div class="kv">
    <span>Date Of Receipt</span><input type="date" id="r_date" value="${today()}">
-   <span class="rq">Group &amp; Tkt No.</span><div class="duo"><select id="r_gid" style="flex:1 1 auto;min-width:110px" onchange="F.rcpGroup=this.value;F.rcpTicket='';render()">${gopts(g?g.id:'',0,1)}</select><select id="r_ticket" style="max-width:84px" onchange="F.rcpTicket=this.value;rInfo()"><option value="">Tkt</option>${tix.map(e=>`<option value="${e.ticket}" data-k="${esc(pmob(P(e.pid))+' '+pname(e.pid))}" ${e.ticket==sel?'selected':''}>${e.ticket}</option>`).join('')}</select></div>
+   <span class="rq">Group &amp; Tkt No.</span><div class="duo"><select id="r_gid" style="flex:1 1 auto;min-width:110px" onchange="F.rcpGroup=this.value;F.rcpTicket='';render()">${gopts(g?g.id:'',0,1)}</select><select id="r_ticket" style="flex:0 0 76px" onchange="F.rcpTicket=this.value;rInfo()"><option value="">Tkt</option>${tix.map(e=>`<option value="${e.ticket}" data-k="${esc(pmob(P(e.pid))+' '+pname(e.pid))}" ${e.ticket==sel?'selected':''}>${e.ticket}</option>`).join('')}</select></div>
    <span class="rq">Receipt No</span><div class="duo"><input id="r_ser" value="${esc(F.rcpSer||'')}" placeholder="Series" onchange="F.rcpSer=this.value"><input class="num" value="${(S.seq.r||0)+1}" readonly title="The receipt number is given when you save"></div>
    <span>TR Date</span><input type="date" id="r_trd">
   </div></div>
@@ -1901,7 +1901,8 @@ function pageReceipts(){
    <span>Date</span><input type="date" id="r_cdate"><span>Type</span><label class="chk"><input type="checkbox" id="r_cnl" style="width:auto"> Non Local</label><span></span><label class="chk"><input type="checkbox" id="r_csame" style="width:auto" onchange="rSame()"> Same Cheque</label><span>Balance</span><input id="r_cbal" class="num" readonly>
   </div></div>
   <div class="row" style="justify-content:space-between;margin-top:10px"><button class="lk" onclick="go('pdc')">Get Post Dated Cheques</button><button class="lk" onclick="go('chqm')">Get UnCleared Cheques</button></div>
- </div></div></div>
+ </div></div>
+ <div class="pn" style="grid-column:1/-1"><div class="ph" style="border-top:0">INSTALLMENTS, MONTHS &amp; DIVIDEND</div><div class="pb" id="rinst"></div></div></div>
  ${F.rEdit?editRcCard():''}<div class="card"><h2>${shw?'Receipts found ('+list0.length+(list0.length>list.length?', showing '+list.length:'')+')':'Find a receipt'}</h2><div class="row" style="align-items:flex-end"><label class="f">Group<select onchange="F.rcpFilter=this.value;render()">${gopts(F.rcpFilter||'',1)}</select></label><label class="f" style="min-width:260px">Search<input id="rc_q" value="${esc(F.rcpQ||'')}" placeholder="Receipt no., name, member no., mobile, ticket, cheque no., amount" onchange="F.rcpQ=this.value;render()"></label><label class="f">From<input type="date" value="${F.rcpFrom||''}" onchange="F.rcpFrom=this.value;render()"></label><label class="f">To<input type="date" value="${F.rcpTo||''}" onchange="F.rcpTo=this.value;render()"></label>${rq||F.rcpFrom||F.rcpTo||F.rcpFilter?`<button class="btn g" onclick="F.rcpQ='';F.rcpFrom='';F.rcpTo='';F.rcpFilter='';render()">Clear search</button>`:''}</div>
  ${list.length?tbl(['No.','Date','Group','Ticket','Subscriber','Mode','Installments','Amount','Subscription','Penalty','Status',''],list.map(r=>`<tr>${td(r.no)}${td(dmy(r.date))}${td(esc((G(r.gid)||{}).name))}${td(r.ticket)}${td(esc(pnn(r.pid)))}${td(esc(r.mode))}${td(r.insts&&r.insts.length?r.insts.join(', '):'Oldest first')}${td(inr(r.amount),1)}${td(inr(subOf(r)),1)}${td(inr(r.penalty),1)}${td(r.cancel?pill('Cancelled','bad'):r.dis?pill('Dishonoured','bad'):pill('Valid','good')+(r.smsAt?' '+pill('SMS sent','nps'):''))}
  <td><button class="btn g sm" onclick="F.rview='${r.id}';render();scrollTo(0,0)">View</button> ${r.cancel?'':`<button class="btn g sm" onclick="goReceipt('print','${r.id}')">Print</button> <button class="btn g sm" onclick="goReceipt('sms','${r.id}')">SMS</button> <button class="btn g sm" onclick="goReceipt('print','${r.id}')">WhatsApp / Email</button> <button class="btn g sm" onclick="F.rEdit='${r.id}';render();scrollTo(0,0)">Edit</button> <button class="btn d sm" onclick="cancelReceipt('${r.id}')">Cancel</button>`} <button class="btn d sm" onclick="delReceipt('${r.id}')">Delete</button></td></tr>`),[7,8,9]):(shw?'<div class="empty">No receipt matches.</div>':'<p class="muted">Recent receipts are not listed here. Search by receipt number, name, ticket, cheque number or amount, pick a group, or choose a date range to see receipts.</p>')}</div>`}
@@ -1911,7 +1912,7 @@ function pageReceipts(){
 const rLedger=()=>{const g=G(F.rcpGroup),t=+(($('r_ticket')||{}).value);return g&&t?ledger(g,t):null};
 const rMonL=(g,k)=>instMon(g,k).replace(' ','-');
 function rInfo(){const g=G(F.rcpGroup),el=$('rinfo');if(!el)return;rMode();const L=rLedger();
- if(!L){el.innerHTML=`<span class="muted">${g?'Choose a ticket.':'Select a chit group and a ticket.'}</span>`;['r_subscr','r_fut'].forEach(i=>{if($(i))$(i).value=''});if($('r_st'))$('r_st').innerHTML='';return}
+ if(!L){el.innerHTML=`<span class="muted">${g?'Choose a ticket.':'Select a chit group and a ticket.'}</span>`;rInst();['r_subscr','r_fut'].forEach(i=>{if($(i))$(i).value=''});if($('r_st'))$('r_st').innerHTML='';return}
  const t=+$('r_ticket').value,p=P(L.e.pid),s=tstat(g,t),rs=S.receipts.filter(r=>r.gid===g.id&&r.ticket==t&&!r.cancel).sort((a,b)=>String(a.date).localeCompare(String(b.date))),last=rs[rs.length-1];
  let upto=0;for(const r of L.rows){if(r.due-r.paid>0.005)break;upto=r.no}
  const fut=(S.future||[]).filter(f=>f.pid===L.e.pid&&!f.cancel).reduce((x,f)=>x+fBal(f),0);
@@ -1927,7 +1928,18 @@ function rInfo(){const g=G(F.rcpGroup),el=$('rinfo');if(!el)return;rMode();const
  <table class="si" style="margin-top:6px"><tr><th>Bank</th><th>Penalty</th><th>INC</th><th>Verif</th><th>EnrolFee</th><th>Others</th></tr>
  <tr><td class="c">0</td><td class="c">${f2(L.penDue)}</td><td class="c">0</td><td class="c">0</td><td class="c">${f2(L.enrolDue)}</td><td class="c">0</td></tr></table>${scBadge(L.e.pid,g,t,1)}`;
  F.rOut=Math.max(0,L.balance)+L.penDue;rAuto()}
-function rMonths(){const g=G(F.rcpGroup),a=num($('r_if').value),b=num($('r_it').value);$('r_mon').textContent=g&&a&&b>=a?(a===b?rMonL(g,a):rMonL(g,a)+' TO '+rMonL(g,b)):''}
+/* every installment due so far with its month and dividend; tap a row to take the range up to it */
+function rInst(){const el=$('rinst');if(!el)return;const g=G(F.rcpGroup),L=rLedger();
+ if(!L){el.innerHTML='<span class="muted">Choose the group and ticket to see its installments.</span>';return}
+ if(!L.rows.length){el.innerHTML='<span class="muted">No installment is due yet. A payment now is held as advance.</span>';return}
+ const a=num(($('r_if')||{}).value),b=num(($('r_it')||{}).value),sum=k=>L.rows.reduce((x,r)=>x+k(r),0);
+ el.innerHTML=`<div class="tw"><table class="si" style="table-layout:auto"><thead><tr><th>Inst. No.</th><th>Month</th><th>Due Date</th><th>Dividend</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Penalty</th><th>Status</th></tr></thead><tbody>${L.rows.map(r=>{const bal=Math.max(0,r.due-r.paid),pr=L.penRows.find(x=>x.no===r.no&&!x.on),st=bal<=0.005?['Paid','good']:r.paid>0?['Part paid','warn']:r.date<today()?['Overdue','bad']:['Due','nps'],inR=a&&r.no>=a&&r.no<=b;
+  return`<tr class="click${inR?' sel':''}" onclick="rTap(${r.no})" title="Pay up to installment ${r.no}"${bal<=0.005?' style="opacity:.6"':''}><td class="c">${r.no}</td><td class="c">${esc(rMonL(g,r.no))}</td><td class="c">${dmy(r.date).replace(/-/g,'/')}</td><td class="num">${f2(r.div)}</td><td class="num">${f2(r.due)}</td><td class="num">${f2(r.paid)}</td><td class="num">${f2(bal)}</td><td class="num">${pr?f2(pr.pen):'0.00'}</td><td class="c">${pill(st[0],st[1])}</td></tr>`}).join('')}</tbody>
+ <tfoot><tr><td colspan="3"><b>Total</b></td><td class="num"><b>${f2(sum(r=>r.div))}</b></td><td class="num"><b>${f2(sum(r=>r.due))}</b></td><td class="num"><b>${f2(sum(r=>r.paid))}</b></td><td class="num"><b>${f2(sum(r=>Math.max(0,r.due-r.paid)))}</b></td><td class="num"><b>${f2(L.penDue)}</b></td><td></td></tr></tfoot></table></div>
+ <p class="muted" style="margin:6px 0 0">Tap an installment to pay up to it. Highlighted rows are the installments this receipt pays.</p>`}
+function rTap(k){const L=rLedger();if(!L)return;const first=(L.rows.find(r=>r.due-r.paid>0.005)||{}).no||k,a=num($('r_if').value);
+ $('r_if').value=a&&a<=k?a:Math.min(first,k);$('r_it').value=k;rRange()}
+function rMonths(){const g=G(F.rcpGroup),a=num($('r_if').value),b=num($('r_it').value);$('r_mon').textContent=g&&a&&b>=a?(a===b?rMonL(g,a):rMonL(g,a)+' TO '+rMonL(g,b)):'';rInst()}
 function rAuto(){const L=rLedger();if(!L||!$('r_if'))return;let left=num($('r_sub').value),a=0,b=0;
  for(const r of L.rows){const bal=r.due-r.paid;if(bal<=0.005)continue;if(left<=0.005)break;if(!a)a=r.no;b=r.no;left-=bal}
  $('r_if').value=a;$('r_it').value=b;rMonths()}
