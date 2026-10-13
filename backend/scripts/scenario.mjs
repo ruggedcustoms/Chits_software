@@ -57,7 +57,7 @@ const person = async (key, name, roles, mobile) =>
   (persons[key] = (await ok('POST', '/api/persons', { name, roles, relation_type: 'S/o', relation_name: 'Test Parent', addresses: { residential: { city: 'Bengaluru', state: 'Karnataka', pin: '560001', mobile } } }, owner)).id);
 await person('agentA', 'Test Agent A', ['Collection agent', 'Business agent'], '9100000001');
 await person('agentB', 'Test Agent B', ['Collection agent'], '9100000002');
-for (let t = 1; t <= 19; t++) await person('m' + t, `Test Member ${String(t).padStart(2, '0')}`, ['Member'], '92000000' + String(t).padStart(2, '0'));
+for (let t = 1; t <= 20; t++) await person('m' + t, `Test Member ${String(t).padStart(2, '0')}`, ['Member'], '92000000' + String(t).padStart(2, '0'));
 eq('bad PAN refused', (await call('POST', '/api/persons', { name: 'x', pan: '123' }, owner)).status, 400);
 
 for (const [username, role, personId] of [['manager', 'Manager'], ['accountant', 'Accountant'], ['agent', 'Collection agent', persons.agentA], ['agent2', 'Collection agent', persons.agentB], ['viewer', 'Viewer']]) {
@@ -79,7 +79,8 @@ const enr = {};
 for (let t = 1; t <= 19; t++) {
   enr[t] = (await ok('POST', '/api/enrollments', { group_id: grp, ticket_no: t, person_id: persons['m' + t], collection_agent_id: t <= 14 ? persons.agentA : persons.agentB, business_agent_id: persons.agentA, nominee_name: 'Test Nominee', nominee_relation: 'Spouse' }, T.manager)).id;
 }
-enr[20] = (await ok('POST', '/api/enrollments', { group_id: grp, ticket_no: 20, is_company: true }, T.manager)).id;
+// Ticket 20 is held by a member who never pays (no company ticket in this group; see section 8).
+enr[20] = (await ok('POST', '/api/enrollments', { group_id: grp, ticket_no: 20, person_id: persons.m20 }, T.manager)).id;
 eq('ticket taken twice refused', (await call('POST', '/api/enrollments', { group_id: grp, ticket_no: 3, person_id: persons.m1 }, T.manager)).status, 409);
 eq('ticket outside the group refused', (await call('POST', '/api/enrollments', { group_id: grp, ticket_no: 21, person_id: persons.m1 }, T.manager)).status, 400);
 
@@ -111,7 +112,6 @@ for (const a of plan) {
   eq(`auction ${a.no}: net prize ${rs(a.netPrize * R)}`, r.net_prize, a.netPrize * R);
 }
 eq('auction 1 matches worked example: GST Rs 4,500', (await ok('GET', `/api/reports/auction-chart?group_id=${grp}`, null, owner)).rows[0].gst, 4500 * R);
-eq('company ticket cannot win after auction 1', (await call('POST', '/api/auctions', { group_id: grp, auction_date: '2026-10-10', winner_ticket_no: 20, bid: 90000 * R }, T.manager)).status, 400);
 eq('a ticket cannot win twice', (await call('POST', '/api/auctions', { group_id: grp, auction_date: '2026-10-10', winner_ticket_no: 2, bid: 90000 * R }, T.manager)).status, 409);
 
 // ------------------------------------------------------------------ receipts
@@ -188,8 +188,8 @@ eq('ticket 3: late fee', L3.penalty_due, plan.slice(1).reduce((s, a) => s + fee(
 eq('ticket 2: shown as prized (PS)', (await acct(2)).prized, true);
 
 const out = await ok('GET', `/api/reports/outstanding?group_id=${grp}&as_of=${AS_OF}`, null, owner);
-eq('outstanding lists only tickets 3 and 4', out.rows.map((r) => r.ticket_no).join(','), '3,4');
-eq('outstanding total arrears', out.totals.arrears, L3.arrears + L4.arrears);
+eq('outstanding lists only tickets 3, 4 and 20', out.rows.map((r) => r.ticket_no).join(','), '3,4,20');
+eq('outstanding total arrears', out.totals.arrears, L3.arrears + 2 * L4.arrears);
 const agentOut = await ok('GET', `/api/reports/outstanding?as_of=${AS_OF}&only_dues=0`, null, T.agent2);
 eq('agent B sees only tickets 15 to 19', agentOut.rows.map((r) => r.ticket_no).join(','), '15,16,17,18,19');
 
@@ -228,15 +228,26 @@ const db = await ok('GET', '/api/reports/day-book?date=2026-06-20', null, T.acco
 eq('day book of 20 Jun balances', db.totals.debit, db.totals.credit);
 eq('viewer cannot see the audit log', (await call('GET', '/api/audit', null, T.viewer)).status, 403);
 
+// ------------------------------------------------------------------ company ticket and auction 1
+console.log('\n8. Auction 1 of a group with a company ticket');
+const lockG = (await ok('POST', '/api/groups', { name: 'LOCK-4', chit_amount: 100000 * R, installments: 4, start_date: '2026-06-01', commission_bp: 500, max_bid_bp: 4000 }, T.manager)).id;
+await ok('POST', '/api/enrollments', { group_id: lockG, ticket_no: 1, person_id: persons.m1 }, T.manager);
+await ok('POST', '/api/enrollments', { group_id: lockG, ticket_no: 4, is_company: true }, T.manager);
+eq('a member cannot take auction 1', (await call('POST', '/api/auctions', { group_id: lockG, auction_date: '2026-06-10', winner_ticket_no: 1, decided_by: 'bidding', bid: 10000 * R }, T.manager)).status, 400);
+eq('the company ticket must be "company decided"', (await call('POST', '/api/auctions', { group_id: lockG, auction_date: '2026-06-10', winner_ticket_no: 4, decided_by: 'bidding', bid: 10000 * R }, T.manager)).status, 400);
+const co1 = await ok('POST', '/api/auctions', { group_id: lockG, auction_date: '2026-06-10', winner_ticket_no: 4, decided_by: 'company' }, T.manager);
+check('auction 1 taken by the company at the commission, no dividend', co1.bid === 5000 * R && co1.dividend_per_ticket === 0, `(bid ${co1.bid}, dividend ${co1.dividend_per_ticket})`);
+eq('auction 2 is open to members again', (await call('POST', '/api/auctions', { group_id: lockG, auction_date: '2026-07-10', winner_ticket_no: 1, decided_by: 'bidding', bid: 10000 * R }, T.manager)).status, 201);
+
 // ------------------------------------------------------------------ audit and security
-console.log('\n8. Audit trail and sign-in security');
+console.log('\n9. Audit trail and sign-in security');
 const audit = await ok('GET', '/api/audit?limit=1000', null, owner);
 const count = (entity, action) => audit.filter((a) => a.entity === entity && a.action === action).length;
 eq('audit: every receipt recorded', count('receipts', 'create'), sent.length + 1);
 eq('audit: cancellation recorded', count('receipts', 'cancel'), 1);
-eq('audit: every auction recorded', count('auctions', 'create'), 4);
+eq('audit: every auction recorded', count('auctions', 'create'), 6);
 eq('audit: prize payments recorded', count('prize_payments', 'create'), 2);
-eq('audit: enrollments recorded', count('enrollments', 'create'), 20);
+eq('audit: enrollments recorded', count('enrollments', 'create'), 22);
 check('audit: shows who did it', audit.every((a) => a.user), '(a row has no user)');
 
 for (let i = 0; i < 5; i++) await call('POST', '/api/auth/login', { company_id: co.company_id, username: 'viewer', password: 'wrong-password-1' });

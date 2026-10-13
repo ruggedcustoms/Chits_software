@@ -52,8 +52,11 @@ async function createAuction({ request, env, ctx }) {
   const ticket = int(b, 'winner_ticket_no', { required: true, min: 1, max: g.installments, label: 'winning ticket' });
   const e = s.enrollments.find((x) => x.ticket_no === ticket);
   if (!e) throw bad(`Ticket ${ticket} is vacant.`);
-  // A company ticket can take the chit in auction 1 (where it is the default winner) and in the
-  // first months with no auction.
+  // Auction 1 of a group with a company ticket is always taken by the company, decided by the company.
+  if (auctionNo === 1 && s.enrollments.some((x) => x.is_company) && (!e.is_company || decidedBy !== 'company')) {
+    throw bad('Auction 1 is always taken by the company ticket, decided by the company.');
+  }
+  // Otherwise a company ticket can take the chit only in the first months with no auction.
   if (e.is_company && auctionNo > Math.max(1, g.no_auction_installments || 0)) throw bad('A company ticket can win only the first auction or a no-auction month.');
   const prev = s.auctions.find((a) => a.winner_enrollment_id === e.id);
   if (prev) throw conflict(`Ticket ${ticket} already won auction ${prev.auction_no}.`);
