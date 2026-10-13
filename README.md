@@ -36,7 +36,12 @@ npm run build   # output in dist/
 
 ## Deploy
 
-Import the GitHub repo in Vercel. It detects Vite automatically (build command `npm run build`, output `dist`). `vercel.json` sends every route to the React app.
+Every push to `main` on GitHub deploys both parts automatically:
+
+- **Website:** Vercel builds it (`npm run build`, output `dist`). `vercel.json` sends `/api` to the API and every other route to the React app.
+- **API:** Cloudflare Workers Builds deploys `backend/`: it applies any new database migrations, then deploys the Worker.
+
+Check the result in the Vercel dashboard (Deployments) and in Cloudflare (Workers & Pages, chit-master-api, Deployments).
 
 ## Folders
 

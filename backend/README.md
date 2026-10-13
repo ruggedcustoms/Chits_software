@@ -62,6 +62,7 @@ The test logins it creates are saved to `test-logins.local.txt`, which is not co
 3. `npm run db:migrate:remote`
 4. `npx wrangler secret put SETUP_KEY` and keep the key somewhere safe
 5. `npm run deploy`
+6. Connected to GitHub with Workers Builds (Settings, Builds): root directory `backend`, build command `npm ci`, deploy command `npx wrangler d1 migrations apply chit-master-dev --remote && npx wrangler deploy`. From then on, every push to `main` applies new migrations and deploys. The build token needs D1 Edit permission.
 
 For working on your own computer, put `SETUP_KEY=<any long random text>` in `.dev.vars` (not committed).
 
