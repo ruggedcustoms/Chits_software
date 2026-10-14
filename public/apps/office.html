@@ -481,7 +481,7 @@ function acEntries(){const GM=!S.acNet,HELD=GM?A.os:A.held,E=[],push=(date,src,r
   push(r.date,'Receipt',r.no,pnn(r.pid)+', '+(g.name||'')+' / '+r.ticket+(r.mode?' ('+r.mode+')':''),[{a:isAdjMode(r.mode)?adjAcct(r.mode):cashOrBank(r.mode,r.debit),dr:amt},{a:HELD,cr:amt-pen-fee-oth},{a:A.pen,cr:pen},{a:A.enr,cr:fee},{a:A.oth,cr:oth}])});
  S.future.forEach(f=>{if(f.cancel||f.dis)return;push(f.date,'Future receipt','F'+f.no,pnn(f.pid),[{a:cashOrBank(f.mode,f.debit),dr:num(f.amount)},{a:A.fut,cr:num(f.amount)}]);
   (f.refunds||[]).forEach(x=>{if(x.dis)return;push(x.date,'Subscriber refund','SRF '+x.vno,pnn(f.pid)+' (future receipt F'+f.no+')',[{a:A.fut,dr:num(x.amount)+num(x.ded)},{a:bkId(x.acctId),cr:num(x.amount)},{a:A.canc,cr:num(x.ded)}])})});
- if(!GM)S.auctions.forEach(a=>{if(a.coWin)return;const g=G(a.gid)||{},np=num(netOf(a)),cm=num(a.comm),gs=num(a.gst);push(a.date,'Auction',a.no+' '+(g.name||''),'Auction '+a.no+' of '+(g.name||'')+': ticket '+a.ticket,[{a:A.held,dr:np+cm+gs},{a:A.prize,cr:np},{a:A.comm,cr:cm},{a:A.gst,cr:gs}])});
+ if(!GM)S.auctions.forEach(a=>{if(a.coWin)return;const g=G(a.gid)||{},np=num(netOf(a)),cm=num(a.comm),gs=num(a.gst);push(a.date,'Auction',a.no+' '+(g.name||''),'Auction '+a.no+' of '+(g.name||'')+': ticket '+a.ticket,[{a:A.held,dr:np+cm+(a.gstNotDed?0:gs)},{a:A.gstr,dr:a.gstNotDed?gs:0},{a:A.prize,cr:np},{a:A.comm,cr:cm},{a:A.gst,cr:gs}])});
   if(GM){const byM={},MN=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];S.auctions.forEach(a=>{if(G(a.gid)&&a.date)(byM[a.date.slice(0,7)]=byM[a.date.slice(0,7)]||[]).push(a)});
    Object.keys(byM).sort().forEach(m=>{const y=+m.slice(0,4),mo=+m.slice(5,7),last=m+'-'+String(new Date(y,mo,0).getDate()).padStart(2,'0'),first=mo===12?(y+1)+'-01-01':y+'-'+String(mo+1).padStart(2,'0')+'-01',nar='Auction Entry For The month of : '+MN[mo-1]+' '+y;
     let gross=0,prize=0,comm=0,pool=0,co=0,gst=0,own=0,fd=0;
@@ -492,7 +492,7 @@ function acEntries(){const GM=!S.acNet,HELD=GM?A.os:A.held,E=[],push=(date,src,r
     J(last,'-5',[{a:A.bids,dr:co},{a:A.fchit,cr:co}]);J(last,'-6',[{a:A.inv,dr:own},{a:A.os,cr:own}]);J(last,'-7',[{a:A.gstr,dr:gst},{a:A.gst,cr:gst}]);
     J(first,'-8',[{a:A.div,dr:pool},{a:A.os,cr:pool}]);J(first,'-9',[{a:A.os,dr:fd},{a:A.fdiv,cr:fd}])})}
  const gdone={};
-  S.payouts.forEach(x=>{if(x.dis)return;const a=S.auctions.find(y=>y.id===x.aid)||{},g=G(a.gid)||{},am=num(x.amount),ab=num(x.adjBP),av=num(x.adjAdv);let gp=0;if(GM&&num(a.gst)>0&&netOf(a)>0){gp=Math.min(r2(num(a.gst)-(gdone[a.id]||0)),r2(num(a.gst)*(am+ab+av)/netOf(a)));gdone[a.id]=(gdone[a.id]||0)+gp}
+  S.payouts.forEach(x=>{if(x.dis)return;const a=S.auctions.find(y=>y.id===x.aid)||{},g=G(a.gid)||{},am=num(x.amount),ab=num(x.adjBP),av=num(x.adjAdv);let gp=0;if(GM&&num(a.gst)>0&&netOf(a)>0&&!a.gstNotDed){gp=Math.min(r2(num(a.gst)-(gdone[a.id]||0)),r2(num(a.gst)*(am+ab+av)/netOf(a)));gdone[a.id]=(gdone[a.id]||0)+gp}
   push(x.date,'Bid payment',(x.series||'BPY')+' '+(x.vno||''),(g.name||'')+' / ticket '+a.ticket+', '+pnn((enrollOf(a.gid,a.ticket)||{}).pid),[{a:A.prize,dr:am+ab+av+gp},{a:bkId(x.acctId),cr:am},{a:HELD,cr:ab},{a:A.badv,cr:av},{a:A.gstr,cr:gp}])});
  S.cancels.forEach(c=>{const g=G(c.gid)||{},pd=num(c.paid),cm=num(c.comm),ch=num(c.chg)+num(c.oth);
   push(c.date,'Member removal',(c.series||'CRF')+' '+c.vno,pnn(c.pid)+', '+(g.name||'')+' / '+c.ticket,[{a:HELD,dr:pd},{a:A.comm,cr:cm},{a:A.canc,cr:ch},{a:A.refp,cr:pd-cm-ch}]);
@@ -3359,15 +3359,18 @@ function imEngine(){
  /* prize payments */
  const pk=new Set;S.payouts.forEach(x=>{if(x.oldNo)pk.add(x.aid+'|#'+low(x.oldNo));pk.add([x.aid,x.date,num(x.amount),x.ref||''].join('|'))});
  const payH=r=>{const o=r.o,w=[],gr=grp(o);if(!gr.g)return['err',gr.e];const g=gr.g;
-  let a=null;if(o.auctionNo!==''){const k=imNum(o.auctionNo);a=S.auctions.find(x=>x.gid===g.id&&x.no===k);if(!a)return['err','Auction '+o.auctionNo+' of '+g.name+' is not recorded. Import the Auctions sheet first.']}
+  let a=null;const k0=o.auctionNo===''?null:imNum(o.auctionNo);if(k0){a=S.auctions.find(x=>x.gid===g.id&&x.no===k0);if(!a)return['err','Auction '+o.auctionNo+' of '+g.name+' is not recorded. Import the Auctions sheet first.']}
   if(o.ticket!==''){const t=tkt(g,o.ticket);if(!t)return['err','Winner ticket must be a whole number from 1 to '+g.n];const b=won.get(g.id+'|'+t);if(!b)return['err','Ticket '+t+' of '+g.name+' has not won an auction'];if(a&&a.id!==b.id)return['err','Auction '+o.auctionNo+' was won by ticket '+a.ticket+', not '+t];a=b}
-  if(!a)return['err','Give the Auction no. or the Winner ticket'];
+  if(!a)return k0===0?['skip','Auction no. is 0, so this is not a payment of an auction prize (for example an advance paid before the auction). Left out; enter it in Bid advance if it is one.']:['err','Give the Auction no. or the Winner ticket'];
   const date=pdate(o.date);if(!date)return['err','Payment date is missing or not valid ("'+o.date+'")'];
-  const amt=imNum(o.amount);if(!(amt>0))return['err','Amount paid must be a number above 0'];
+  const amt=imNum(o.amount);if(amt===0||String(o.amount).trim()==='')return['skip','Amount is 0 or blank (for example a cancelled payment), so the row is left out'];if(!(amt>0))return['err','Amount paid must be a number above 0'];
   const paid=S.payouts.reduce((s,x)=>x.aid===a.id&&!x.dis?s+num(x.amount)+num(x.adjBP)+num(x.adjAdv):s,0),bal=netOf(a)-paid;
   const key=o.oldNo?a.id+'|#'+low(o.oldNo):'',nat=[a.id,date,amt,o.ref].join('|');
   if(key&&pk.has(key))return['skip','Already imported (old voucher no. '+o.oldNo+')'];if(!o.oldNo&&pk.has(nat))return['skip','Same auction, date, amount and reference already exists'];
-  if(amt>bal+0.5)return['err','Amount '+amt+' is more than the balance prize of '+Math.round(bal*100)/100+' for auction '+a.no+' of '+g.name];
+  if(amt>bal+0.5){const gs=num(a.gst),ex=Math.round((amt-bal)*100)/100;
+   if(gs>0&&!a.gstNotDed&&Math.abs(ex-gs)<=1){a.netPrize=num(a.prize);a.gstNotDed=true;
+    w.push('Paid '+amt+', which is the prize before GST. The old software did not deduct the GST of '+gs+' from this winner, so the prize is taken as paid in full and the GST is shown as not recovered from the winner.')}
+   else return['err','Amount '+amt+' is more than the balance prize of '+Math.round(bal*100)/100+' for auction '+a.no+' of '+g.name+'. The difference of '+ex+(gs>0?' is not this auction\'s GST ('+gs+'), so it is something else. Check this payment in the old software.':' cannot be GST: this auction has no GST in this software (check the GST % of the group).')]}
   let mode=pickOpt(M('mode'),o.mode)||o.mode||'NEFT/RTGS';if(o.mode&&!pickOpt(M('mode'),o.mode))w.push('Payment mode "'+o.mode+'" is not in your list; kept as typed');
   let b=null;if(o.bank){b=bkFind(o.bank);if(!b)w.push('Bank account "'+o.bank+'" not found. Add it in the Bank accounts sheet. The payment is posted to the general bank balance')}else w.push('No bank account given. The payment is posted to the general bank balance');
   const e=enr.get(g.id+'|'+a.ticket)||{};if(date<a.date)w.push('Payment date is before the auction date');
