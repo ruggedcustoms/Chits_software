@@ -3325,6 +3325,10 @@ function imEngine(){
   if(rs.every(x=>x[0]==='skip'))return['skip','Already enrolled'];return['ok','',w,more]};
  /* auctions */
  const aucIn1=g=>rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&imNum(x.o.no)===1);
+ /* for clearer messages: the auction rows of a group in the file, and its member tickets that never win in it */
+ const fileWins=g=>rowsBy.auctions.filter(x=>gkey(x.o.group)===gkey(g.name)).map(x=>({no:imNum(x.o.no),t:tkt(g,x.o.ticket),rn:x.rn}));
+ const neverWin=g=>{const w=new Set(fileWins(g).map(x=>x.t));S.auctions.forEach(a=>{if(a.gid===g.id)w.add(a.ticket)});
+  return S.enrolls.filter(e=>e.gid===g.id&&e.pid!=='CO'&&!w.has(e.ticket)).map(e=>e.ticket).sort((a,b)=>a-b)};
  /* one auction period earlier: a month for monthly groups (same day, or the month's last day) */
  const prevPer=(g,d)=>{if(!d)return'';const[y,m,dd]=d.split('-').map(Number);if(!g.atype||g.atype==='Monthly'){const last=new Date(y,m-1,0).getDate();return iso(new Date(y,m-2,Math.min(dd,last)))}
   return iso(new Date(y,m-1,dd-({Weekly:7,Fortnightly:14,Daily:1}[g.atype]||7)))};
@@ -3345,7 +3349,8 @@ function imEngine(){
    if(x[0]!=='ok')return['err','Auction 1 of '+g.name+' is not in the file and could not be added for the company ticket: '+x[1]];
    w.push('Auction 1 of '+g.name+' was not in the file, so it was added as the company\'s month: ticket '+co+', '+dmy(prevPer(g,date))+'.');done=1}
   if(k!==done+1)return['err',done===0&&!rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&String(+imNum(x.o.no))==='1')?'Auctions 1 to '+(k-1)+' of '+g.name+' are not in the file (auction 1 can be added automatically for the company, but not the others), so its auctions cannot start at no. '+k+'. Export the auction list from the start of the group (in the old software choose all years in Date Range, not Current Year) and upload again.':'Auction no. '+k+' is out of order. Auction '+(done+1)+' of '+g.name+' must come first.'];
-  if(ex)return['err','Ticket '+t+' has already won auction '+ex.no];
+  if(ex){const nw=neverWin(g),rw=fileWins(g).find(x=>x.no===ex.no);
+   return['err','Ticket '+t+' has already won auction '+ex.no+(rw?' (row '+rw.rn+')':'')+'. A ticket wins only once, so one of these two rows has the wrong Winner ticket.'+(nw.length?' No auction in the file is won by ticket'+(nw.length>1?'s ':' ')+nw.join(', ')+'. Should one of them be '+(nw.length>1?'one of these':nw[0])+'?':'')]}
   const e=enr.get(g.id+'|'+t);if(!e)return['err','Ticket '+t+' is not enrolled in '+g.name+'. Enrol it first.'];const coW=e.pid==='CO';
   const c=calcAuction(g,bid,g.gstPct);if(bid<c.comm)return['err','Bid '+bid+' is below the commission '+c.comm];
   if(bid>g.amount*g.maxPct/100)w.push('Bid is above the '+g.maxPct+'% ceiling of this group');
@@ -3360,7 +3365,8 @@ function imEngine(){
  const pk=new Set;S.payouts.forEach(x=>{if(x.oldNo)pk.add(x.aid+'|#'+low(x.oldNo));pk.add([x.aid,x.date,num(x.amount),x.ref||''].join('|'))});
  const payH=r=>{const o=r.o,w=[],gr=grp(o);if(!gr.g)return['err',gr.e];const g=gr.g;
   let a=null,byTicket=false;const k0=o.auctionNo===''?null:imNum(o.auctionNo);
-  if(o.ticket!==''){const t=tkt(g,o.ticket);if(!t)return['err','Winner ticket must be a whole number from 1 to '+g.n];const b=won.get(g.id+'|'+t);if(!b)return['err','Ticket '+t+' of '+g.name+' has not won an auction'];
+  if(o.ticket!==''){const t=tkt(g,o.ticket);if(!t)return['err','Winner ticket must be a whole number from 1 to '+g.n];const b=won.get(g.id+'|'+t);if(!b){const fw=fileWins(g).filter(x=>x.t===t),ak=k0?S.auctions.find(x=>x.gid===g.id&&x.no===k0):null;
+    return['err','Ticket '+t+' of '+g.name+' has not won an auction'+(fw.length?'. In the Auctions sheet it wins auction '+fw.map(x=>x.no+' (row '+x.rn+')').join(', ')+', which could not be imported. Fix that auction first; this payment will then go in.':'. No auction in the Auctions sheet is won by ticket '+t+(ak?', and the file\'s auction '+k0+' was won by ticket '+ak.ticket:'')+'. Check the Winner ticket here and in the Auctions sheet.')]}
    a=b;byTicket=true;if(k0&&k0!==b.no)w.push('The file says auction '+k0+', but ticket '+t+' won auction '+b.no+'. The payment is recorded against auction '+b.no+', the auction this ticket won'+(k0===b.no+1?' (the file\'s number looks like the installment no., which is one more than the auction no.)':'')+'.')}
   else if(k0){a=S.auctions.find(x=>x.gid===g.id&&x.no===k0);if(!a)return['err','Auction '+o.auctionNo+' of '+g.name+' is not recorded. Import the Auctions sheet first.']}
   if(!a)return k0===0?['skip','Auction no. is 0, so this is not a payment of an auction prize (for example an advance paid before the auction). Left out; enter it in Bid advance if it is one.']:['err','Give the Auction no. or the Winner ticket'];
