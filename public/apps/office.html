@@ -3104,7 +3104,7 @@ const IMS={
  ledgers:[['code','Account code',0,['code','ledgercode','acode','accode']],['name','Account name',1,['account','ledger','ledgername','accountname','particulars','name']],['group','Group',1,['accountgroup','type','accounttype','category','nature']],['sub','Sub-group',0,['subgroup','subcategory']],['opening','Opening balance',0,['openingbal','balance','obal','openbal','amount']],['drcr','Dr or Cr',0,['drcr','debitcredit','side','baltype','dc']],['date','As on date',0,['asondate','openingdate','date']]],
  vouchers:[['vno','Voucher no',1,['voucherno','vchno','entryno','journalno']],['date','Date',1,['voucherdate','vchdate','entrydate']],['type','Voucher type',0,['type','vouchertype','vchtype','kind']],['account','Account',1,['ledger','ledgername','accountname','particulars','head','accounthead']],['debit','Debit',0,['dr','debitamount','debitamt']],['credit','Credit',0,['cr','creditamount','creditamt']],['narr','Narration',0,['narration','remarks','note']],['party','Party',0,['paidto','receivedfrom','payee']],['ref','Cheque / UTR no',0,['chequeno','utr','utrno','refno','reference','chqno']]]
 };
-let IM={sheets:[],res:null,err:'',done:null,undo:null,onlyErr:true};
+let IM={sheets:[],res:null,err:'',done:null,undo:null,onlyErr:true,pick:{}};
 const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
 const imDfix=s=>{if(!IM.swap)return s;const m=String(s).match(/^(\d{4})-(\d\d)-(\d\d)$/);if(!m)return s;const mo=+m[2],d=+m[3];return d<=12&&mo!==d?m[1]+'-'+m[3]+'-'+m[2]:s};
 const imSerial=n=>{const d=new Date((Math.floor(n)-25569)*864e5);return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0')};
@@ -3192,7 +3192,7 @@ async function imLoad(inp){const fs=[...inp.files];IM.err='';IM.done=null;
 /* the importer: runs against the live data S (a copy of it when only checking) */
 function imEngine(){
  const R={tabs:{},issues:[],cols:[]};IMT.forEach(t=>R.tabs[t]={n:0,ok:0,skip:0,err:0,warn:0});
- const add=(t,r,st,msg)=>{const c=R.tabs[t];if(st==='warn')c.warn++;else c[st]++;if(msg)R.issues.push({t,sheet:r.loc,row:r.rn,st,msg})};
+ const add=(t,r,st,msg,more)=>{const c=R.tabs[t];if(st==='warn')c.warn++;else c[st]++;if(msg)R.issues.push(Object.assign({t,sheet:r.loc,row:r.rn,st,msg},more||{}))};
  const rowsBy={};IMT.forEach(t=>rowsBy[t]=[]);
  IM.sheets.forEach(sh=>{if(!sh.type)return;const m=imMap(sh.hdr,IMS[sh.type]);
   R.cols.push({t:sh.type,sheet:sh.name,map:IMS[sh.type].map(f=>[f[1],m.idx[f[0]]!=null?String(sh.hdr[m.idx[f[0]]]):'']).filter(x=>x[1]),unused:sh.hdr.filter((h,j)=>String(h||'').trim()&&!Object.values(m.idx).includes(j)).map(String)});
@@ -3220,7 +3220,7 @@ function imEngine(){
     name, the mobile and the father / spouse name in the row are used to pick the right one. */
  const mob10=v=>String(v||'').replace(/\D/g,'').slice(-10),adKey=v=>String(v||'').toLowerCase().replace(/[^a-z0-9]/g,''),sameUsed=new Map();
  /* a member code that is not found is reported, but the mobile and name are still tried first */
- const findE=o=>{const f=findE0(o);if(f.p||!o.mcode||findP(o.mcode).p)return f;
+ const findE=(o,key)=>{const ch=key&&IM.pick&&IM.pick[key];if(ch){const f=findP(ch);if(f.p)return Object.assign({},f,{w:'Member '+ch+' chosen by you for this row.'})}const f=findE0(o);if(f.p||!o.mcode||findP(o.mcode).p)return f;
   return{e:'Member code "'+o.mcode+'" is not in the Members sheet (Old code column) or the app.'+(f.e?' '+f.e:'')}};
  const findE0=o=>{
   if(o.mcode){const f=findP(o.mcode);if(f.p)return f}
@@ -3239,7 +3239,8 @@ function imEngine(){
    const q=c.slice().sort((x,y)=>String(x.oldCode||'').localeCompare(String(y.oldCode||''),undefined,{numeric:true})||(x.mno||0)-(y.mno||0)),key=low(name),n=sameUsed.get(key)||0,pk=q[n%q.length];sameUsed.set(key,n+1);
    const ids=q.map(p=>p.oldCode||mno(p)).join('; '),why=ak[0]?'the same address':'no mobile, father / spouse name or address to tell them apart';
    return{p:pk,w:'"'+name+'" has '+c.length+' member records ('+ids+') with '+why+', so they are taken as one customer with several chits. This ticket went to '+(pk.oldCode||mno(pk))+'. Check it, or put the Member code in this row.'}}
-  return{e:'Name "'+name+'" matches '+c.length+' different members ('+c.map(p=>(p.oldCode||mno(p))+(pmob(p)?', '+pmob(p):'')).join('; ')+'). Add a Member code (old code) or Mobile column to the Enrollments sheet to pick the right one.'}};
+  return{e:'Name "'+name+'" matches '+c.length+' different members ('+c.map(p=>(p.oldCode||mno(p))+(pmob(p)?', '+pmob(p):'')).join('; ')+'). Choose the right member below, or add a Member code (old code) or Mobile column to the Enrollments sheet.',
+   cands:c.map(p=>({code:p.oldCode||mno(p),txt:[p.oldCode||mno(p),pmob(p)||'no mobile',p.relName?'S/O or W/O '+p.relName:'',paddr(p)].filter(Boolean).join(' · ')}))}};
  const newOpt=(k,v)=>{if(v&&!S.masters[k].some(x=>low(x)===low(v)))S.masters[k].push(v)};
  const pickOpt=(arr,v)=>arr.find(x=>imn(x)===imn(v));
 
@@ -3318,7 +3319,7 @@ function imEngine(){
   String(o.ticket).split(/[,;\s]+/).filter(Boolean).forEach(x=>{const m=x.match(/^(\d+)(?:-(\d+))?$/);if(!m){bad=true;return}for(let i=+m[1];i<=+(m[2]||m[1]);i++)ts.push(i)});
   if(bad||!ts.length||ts.some(t=>t<1||t>g.n))return['err','Ticket no. must be whole numbers from 1 to '+g.n+' for '+g.name+'. Several tickets can be written like 5, 6 or 5-6.'];
   if(![o.mcode,o.mmobile,o.member].some(v=>String(v||'').trim()))return['err','No member in this row. Give the Member code (old code), Mobile or Member name that is also in the Members sheet.'];
-  const f=findE(o);if(f.e)return['err',f.e];if(f.w)w.push(f.w);if(!f.p)return['err','Member "'+[o.mcode,o.member,o.mmobile].filter(Boolean).join(' / ')+'" not found. Check the Member code / Mobile / name, or add the member in the Members sheet.'];
+  const key=r.loc+'|'+r.rn,f=findE(o,key);if(f.e)return['err',f.e,[],f.cands?{cands:f.cands,key}:null];if(f.w)w.push(f.w);if(!f.p)return['err','Member "'+[o.mcode,o.member,o.mmobile].filter(Boolean).join(' / ')+'" not found. Check the Member code / Mobile / name, or add the member in the Members sheet.'];
   const rs=ts.map(t=>enrollOne(r,g,t,f,w)),er=rs.filter(x=>x[0]==='err');
   if(er.length)return['err',er.map(x=>x[1]).join('; ')+(rs.some(x=>x[0]==='ok')?' (the other tickets in this row were enrolled)':'')];
   if(rs.every(x=>x[0]==='skip'))return['skip','Already enrolled'];return['ok','',w]};
@@ -3416,7 +3417,7 @@ function imEngine(){
    const kind=vcKind({type,lines}),c=VK[kind];S.seq.vch=S.seq.vch||{};const n=S.seq.vch[kind]=(S.seq.vch[kind]||0)+1;S.vouchers=S.vouchers||[];
    S.vouchers.push({id:uid(),n,no:c.pre+' '+n,kind,type:c.type,date,lines,narr:rs.map(r=>r.o.narr).find(Boolean)||'',party:rs.map(r=>r.o.party).find(Boolean)||'',ref:rs.map(r=>r.o.ref).find(Boolean)||'',mode:'',chqDate:'',oldNo:f.o.vno});vold.add(k);return['ok','',w]})()}catch(e){x=['err','Unexpected problem with this voucher: '+e.message]}
    add('vouchers',f,x[0],x[1]);(x[2]||[]).forEach(m=>add('vouchers',f,'warn',m))})};
- const run=(t,h,sorter)=>{const rows=rowsBy[t];if(sorter)rows.sort(sorter);rows.forEach(r=>{let x;try{x=h(r)}catch(e){x=['err','Unexpected problem with this row: '+e.message]}add(t,r,x[0],x[1]);(x[2]||[]).forEach(m=>add(t,r,'warn',m))})};
+ const run=(t,h,sorter)=>{const rows=rowsBy[t];if(sorter)rows.sort(sorter);rows.forEach(r=>{let x;try{x=h(r)}catch(e){x=['err','Unexpected problem with this row: '+e.message]}add(t,r,x[0],x[1],x[3]);(x[2]||[]).forEach(m=>add(t,r,'warn',m))})};
  const gs=(a,b)=>gkey(a.o.group)<gkey(b.o.group)?-1:gkey(a.o.group)>gkey(b.o.group)?1:0,dk=s=>pdate(s)||'9999';
  run('banks',bankH);run('ledgers',ledH);
  if(R.tabs.banks.ok||R.tabs.ledgers.ok){const dif=r2(acAll().reduce((s,a)=>s+acSign(a),0));if(Math.abs(dif)>0.5){R.tabs.ledgers.warn++;R.issues.push({t:'ledgers',sheet:'All',row:'-',st:'warn',msg:'Opening balances of all accounts do not balance: debits are '+(dif>0?'more':'less')+' than credits by '+inr(Math.abs(dif))+'. Set the difference against Capital and reserves.'})}}
@@ -3427,6 +3428,7 @@ function imEngine(){
  S.seq.m=mx;return R}
 const imDry=()=>{const bak=S;S=JSON.parse(JSON.stringify(S));try{return imEngine()}finally{S=bak}};
 const imTotal=R=>Object.values(R.tabs).reduce((s,c)=>s+c.ok,0);
+function imPick(key,code){if(!code)return;IM.pick[key]=code;imCheck()}
 function imCheck(){if(!IM.sheets.some(s=>s.type))return note('Choose at least one sheet type first.','bad');IM.done=null;IM.res=null;render();setTimeout(()=>{try{IM.res=imDry()}catch(e){IM.err='The check failed: '+e.message}render();scrollTo(0,document.body.scrollHeight>0?$('im_res')?$('im_res').offsetTop:0:0)},30)}
 function imGo(){const n=imTotal(IM.res);if(!n)return note('There are no valid rows to import.','bad');
  askConfirm('Import '+n+' valid row'+(n===1?'':'s')+' into your live data? Rows with errors are left out. You can undo straight afterwards.',()=>{
@@ -3453,7 +3455,7 @@ function pageImport(){
   ${(R.cols||[]).length?`<details style="margin:10px 0"><summary><b>How your columns were read</b> <span class="muted">(check that each field took the right column)</span></summary>${R.cols.map(c=>`<p style="margin:10px 0 4px"><b>${esc(IML[c.t])}</b> <span class="muted">sheet "${esc(c.sheet)}"</span></p>${tbl(['Field','Your column'],c.map.map(([f,h])=>`<tr>${td(esc(f))}${td(esc(h))}</tr>`))}${c.unused.length?`<p class="muted" style="margin:4px 0 0">Not used: ${c.unused.map(esc).join(', ')}</p>`:''}`).join('')}</details>`:''}
   <div class="row" style="margin:12px 0"><button class="btn" onclick="imGo()" ${imTotal(R)?'':'disabled'}>Import ${imTotal(R)} valid row${imTotal(R)===1?'':'s'}</button>${R.issues.length?`<button class="btn g" onclick="imProblems()">Download problem list</button><label class="chk"><input type="checkbox" ${IM.onlyErr?'checked':''} onchange="IM.onlyErr=this.checked;render()"> Show errors only</label>`:''}</div>
   ${imTotal(R)&&Object.values(R.tabs).some(c=>c.err)?'<p class="muted">Rows with errors will be left out. Dependent rows (for example receipts for a ticket that failed to enrol) show as errors too. Fix them in your file and upload again; the rows already imported will be skipped.</p>':''}
-  ${issues.length?tbl(['Data','Sheet','Row','Result','Details'],issues.slice(0,300).map(i=>`<tr>${td(IML[i.t])}${td(esc(i.sheet))}${td(i.row,1)}${td(pill(i.st==='err'?'Error':i.st==='warn'?'Warning':'Skipped',i.st==='err'?'bad':i.st==='warn'?'warn':'mute'))}${td(esc(i.msg))}</tr>`),[2])+(issues.length>300?`<p class="muted">Showing the first 300 of ${issues.length}. Download the problem list for all of them.</p>`:''):'<p class="good"><b>No problems found.</b></p>'}</div>`:''}
+  ${issues.length?tbl(['Data','Sheet','Row','Result','Details'],issues.slice(0,300).map(i=>`<tr>${td(IML[i.t])}${td(esc(i.sheet))}${td(i.row,1)}${td(pill(i.st==='err'?'Error':i.st==='warn'?'Warning':'Skipped',i.st==='err'?'bad':i.st==='warn'?'warn':'mute'))}${td(esc(i.msg)+(i.cands?`<div style="margin-top:6px"><select aria-label="Choose the member for row ${esc(i.row)}" onchange="imPick('${esc(i.key)}',this.value)"><option value="">Choose the member for this row…</option>${i.cands.map(c=>`<option value="${esc(c.code)}">${esc(c.txt)}</option>`).join('')}</select></div>`:''))}</tr>`),[2])+(issues.length>300?`<p class="muted">Showing the first 300 of ${issues.length}. Download the problem list for all of them.</p>`:''):'<p class="good"><b>No problems found.</b></p>'}</div>`:''}
  ${D?`<div class="card"><h2>Import finished</h2>${imSumTable(D)}<div class="row" style="margin-top:12px"><button class="btn g" onclick="go('members')">View members</button><button class="btn g" onclick="go('enroll')">View enrolments</button><button class="btn g" onclick="go('receipts')">View receipts</button><button class="btn g" onclick="goK('reports:trial')">Trial balance</button>${IM.undo?'<button class="btn d" onclick="imUndo()">Undo this import</button>':''}</div></div>`:''}`}
 
 /* sample file */
