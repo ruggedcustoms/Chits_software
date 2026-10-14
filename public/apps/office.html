@@ -3283,7 +3283,8 @@ function imEngine(){
  /* members */
  const memberH=r=>{const o=r.o,w=[];if(!o.name)return['err','Name is empty'];
   let mv=null;if(o.mno){const d=o.mno.replace(/\D/g,'');if(!d)return['err','Member no. "'+o.mno+'" has no digits'];mv=+d}
-  const link=(p,why)=>{if(o.oldCode&&!p.oldCode){p.oldCode=o.oldCode;idx(p)}return['skip',why+' ('+p.name+', '+mno(p)+')']};
+  const link=(p,why)=>{if(o.oldCode){if(!p.oldCode)p.oldCode=o.oldCode;else if(low(p.oldCode)!==low(o.oldCode)&&!(p.oldAlt||[]).some(c=>low(c)===low(o.oldCode)))(p.oldAlt=p.oldAlt||[]).push(o.oldCode);idx(p)}
+   return['skip',why+' ('+p.name+', '+mno(p)+(o.oldCode&&low(o.oldCode)!==low(p.oldCode)?'; old code '+o.oldCode+' kept with this member':'')+')']};
   if(o.oldCode&&byOld.get(low(o.oldCode)))return link(byOld.get(low(o.oldCode)),'Old code already imported');
   let fileNo='';if(mv){const ex0=byOld.get(low(String(mv)));if(ex0&&low(ex0.name)===low(o.name)&&!byMno.get(mv))return link(ex0,'Already imported (file no. '+mv+')')}
   if(mv&&byMno.get(mv)){const p=byMno.get(mv);if(low(p.name)===low(o.name))return link(p,'Member no. already exists');const ex1=byOld.get(low(String(mv)));if(ex1&&low(ex1.name)===low(o.name))return link(ex1,'Already imported (file no. '+mv+')');fileNo=String(mv);w.push('Member no. '+mv+' was already used by '+p.name+'. A new number is given and the file number '+mv+' is kept as Old code.');mv=null}
@@ -3322,16 +3323,27 @@ function imEngine(){
   if(er.length)return['err',er.map(x=>x[1]).join('; ')+(rs.some(x=>x[0]==='ok')?' (the other tickets in this row were enrolled)':'')];
   if(rs.every(x=>x[0]==='skip'))return['skip','Already enrolled'];return['ok','',w]};
  /* auctions */
+ const aucIn1=g=>rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&imNum(x.o.no)===1);
+ /* one auction period earlier: a month for monthly groups (same day, or the month's last day) */
+ const prevPer=(g,d)=>{if(!d)return'';const[y,m,dd]=d.split('-').map(Number);if(!g.atype||g.atype==='Monthly'){const last=new Date(y,m-1,0).getDate();return iso(new Date(y,m-2,Math.min(dd,last)))}
+  return iso(new Date(y,m-1,dd-({Weekly:7,Fortnightly:14,Daily:1}[g.atype]||7)))};
  const aucH=r=>{const o=r.o,w=[],gr=grp(o);if(!gr.g)return['err',gr.e];const g=gr.g,t=tkt(g,o.ticket);if(!t)return['err','Winner ticket must be a whole number from 1 to '+g.n];
   const date=pdate(o.date);if(!date)return['err','Auction date is missing or not valid ("'+o.date+'")'];
-  const kx0=low(o.kind),compK=/comp|decid|none/.test(kx0),done=acnt.get(g.id)||0,k=o.no===''?done+1:imNum(o.no);
+  const kx0=low(o.kind),compK=/comp|decid|none/.test(kx0);let done=acnt.get(g.id)||0;const k=o.no===''?done+1:imNum(o.no);
   let bid=imNum(o.bid);const noBid=!(bid>0);
   if(noBid&&Number.isInteger(k)&&(compK||k<=noAuc(g)||k===1)){bid=commAmt(g);w.push('No bid given. The month is treated as decided by the company, with the commission as the bid.')}
   if(!(bid>0)||bid>=g.amount)return['err','Bid amount must be above 0 and below the chit amount '+g.amount+'. If this month had no bidding, put "Company decided" in the Decided by column.'];
   if(!Number.isInteger(k)||k<1||k>g.n)return['err','Auction no. must be a whole number from 1 to '+g.n];
   const ex=won.get(g.id+'|'+t);
   if(k<=done){const a=S.auctions.find(x=>x.gid===g.id&&x.no===k);return a&&a.ticket===t?['skip','Auction '+k+' already recorded']:['err','Auction '+k+' of '+g.name+' is already recorded for ticket '+(a?a.ticket:'?')]}
-  if(k!==done+1)return['err',done===0&&!rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&String(+imNum(x.o.no))==='1')?'Auction 1 of '+g.name+' is not in the file, so its auctions cannot start at no. '+k+'. Export the auction list from the start of the group (in the old software choose all years in Date Range, not Current Year) and upload again.':'Auction no. '+k+' is out of order. Auction '+(done+1)+' of '+g.name+' must come first.'];
+  /* auction 1 is the company's month: when the file starts at auction 2, add auction 1 for the company ticket,
+     one period before auction 2 */
+  if(k===2&&done===0&&!aucIn1(g)){const co=S.enrolls.filter(e=>e.gid===g.id&&e.pid==='CO').map(e=>e.ticket).sort((a,b)=>a-b)[0];
+   if(!co)return['err','Auction 1 of '+g.name+' is not in the file, and this group has no company ticket to take it. Add auction 1 to the file, or give the group a company ticket.'];
+   const due=pdate(o.due),x=aucH({rn:r.rn,loc:r.loc,o:Object.assign({},o,{no:'1',ticket:String(co),bid:'0',kind:'Company decided',date:prevPer(g,date),due:due?prevPer(g,due):''})});
+   if(x[0]!=='ok')return['err','Auction 1 of '+g.name+' is not in the file and could not be added for the company ticket: '+x[1]];
+   w.push('Auction 1 of '+g.name+' was not in the file, so it was added as the company\'s month: ticket '+co+', '+dmy(prevPer(g,date))+'.');done=1}
+  if(k!==done+1)return['err',done===0&&!rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&String(+imNum(x.o.no))==='1')?'Auctions 1 to '+(k-1)+' of '+g.name+' are not in the file (auction 1 can be added automatically for the company, but not the others), so its auctions cannot start at no. '+k+'. Export the auction list from the start of the group (in the old software choose all years in Date Range, not Current Year) and upload again.':'Auction no. '+k+' is out of order. Auction '+(done+1)+' of '+g.name+' must come first.'];
   if(ex)return['err','Ticket '+t+' has already won auction '+ex.no];
   const e=enr.get(g.id+'|'+t);if(!e)return['err','Ticket '+t+' is not enrolled in '+g.name+'. Enrol it first.'];const coW=e.pid==='CO';
   const c=calcAuction(g,bid,g.gstPct);if(bid<c.comm)return['err','Bid '+bid+' is below the commission '+c.comm];
