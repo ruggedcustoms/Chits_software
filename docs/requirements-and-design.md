@@ -207,7 +207,7 @@ These need the owner's decision or a sample before the production build can be f
 - [ ] Lottery months: what does the winner receive, what does the foreman keep, and does a dividend exist?
 - [ ] Do prized subscribers pay the full installment or the installment less dividend?
 - [ ] Does the dividend apply to the same month's installment or from the next month?
-- [x] GST on commission: only deducted from the winner's prize, or also charged to prized subscribers each month? Decided 14 October 2026: deducted from the winner's prize only (net prize = bid payable - GST). Old payments imported from Chitcare where GST was not deducted are kept as paid, with the GST shown as not recovered from that winner.
+- [x] GST on commission: only deducted from the winner's prize, or also charged to prized subscribers each month? Decided 14 October 2026: deducted from the winner's prize only (net prize = bid payable - GST). Old auctions imported from Chitcare keep the tax actually deducted then (service tax, then GST, at the rate of the auction's date), worked out from the prize paid.
 - [ ] Company tickets: does the company pay installments on them and receive their dividend?
 - [ ] Which state is the company registered in, and can we get sample copies of the registrar forms filed today?
 - [ ] Size: number of branches, users, running groups and subscribers, so hosting can be sized.
