@@ -3212,7 +3212,7 @@ function imEngine(){
  S.persons.forEach(idx);
  const findP=s=>{s=String(s||'').trim();if(!s)return{};let p=byOld.get(low(s))||(cKey(s).length>=3&&/[a-z]/i.test(s)?byOldN.get(cKey(s)):null);if(p)return{p};
   const d=s.replace(/\D/g,'');
-  if(/^[A-Za-z]{0,3}0*\d{1,7}$/.test(s)&&d&&byMno.get(+d)&&(!/^\d{9,}$/.test(s))){const q=byMno.get(+d);return{p:q}}
+  if(d&&!/^\d{9,}$/.test(s)&&byMno.get(+d)&&(/^[A-Za-z]{0,3}0*\d{1,7}$/.test(s)||low(s)===low(mno(byMno.get(+d))))){const q=byMno.get(+d);return{p:q}}
   if(d.length>=10){const l=byMob.get(d.slice(-10));if(l&&l.length===1)return{p:l[0]};if(l&&l.length>1)return{e:'Mobile '+d.slice(-10)+' belongs to '+l.length+' members. Use the Old code or Member no.'}}
   const nm=byName.get(low(s));if(nm&&nm.length===1)return{p:nm[0]};if(nm&&nm.length>1)return{e:'Name "'+s+'" matches '+nm.length+' members. Use the Old code or Member no.'};
   return{}};
@@ -3220,7 +3220,7 @@ function imEngine(){
     name, the mobile and the father / spouse name in the row are used to pick the right one. */
  const mob10=v=>String(v||'').replace(/\D/g,'').slice(-10),adKey=v=>String(v||'').toLowerCase().replace(/[^a-z0-9]/g,''),sameUsed=new Map();
  /* a member code that is not found is reported, but the mobile and name are still tried first */
- const findE=(o,key)=>{const ch=key&&IM.pick&&IM.pick[key];if(ch){const f=findP(ch);if(f.p){const c0=findE0(o);return Object.assign({},f,{w:'Member '+ch+' chosen by you for this row.',cands:c0.cands,picked:ch})}}const f=findE0(o);if(f.p||!o.mcode||findP(o.mcode).p)return f;
+ const findE=(o,key)=>{const ch=key&&IM.pick&&IM.pick[key];if(ch){const q=ch[0]==='#'?byMno.get(+ch.slice(1)):findP(ch).p;if(q){const c0=findE0(o);return{p:q,w:'Member '+(q.oldCode||mno(q))+' chosen by you for this row.',cands:c0.cands,picked:ch}}}const f=findE0(o);if(f.p||!o.mcode||findP(o.mcode).p)return f;
   return{e:'Member code "'+o.mcode+'" is not in the Members sheet (Old code column) or the app.'+(f.e?' '+f.e:'')}};
  const findE0=o=>{
   if(o.mcode){const f=findP(o.mcode);if(f.p)return f}
@@ -3240,7 +3240,7 @@ function imEngine(){
    const ids=q.map(p=>p.oldCode||mno(p)).join('; '),why=ak[0]?'the same address':'no mobile, father / spouse name or address to tell them apart';
    return{p:pk,w:'"'+name+'" has '+c.length+' member records ('+ids+') with '+why+', so they are taken as one customer with several chits. This ticket went to '+(pk.oldCode||mno(pk))+'. Check it, or put the Member code in this row.'}}
   return{e:'Name "'+name+'" matches '+c.length+' different members ('+c.map(p=>(p.oldCode||mno(p))+(pmob(p)?', '+pmob(p):'')).join('; ')+'). Choose the right member below, or add a Member code (old code) or Mobile column to the Enrollments sheet.',
-   cands:c.map(p=>({code:p.oldCode||mno(p),txt:[p.oldCode||mno(p),pmob(p)||'no mobile',p.relName?'S/O or W/O '+p.relName:'',paddr(p)].filter(Boolean).join(' · ')}))}};
+   cands:c.map(p=>({code:p.oldCode||'#'+p.mno,txt:[p.oldCode||mno(p),pmob(p)||'no mobile',p.relName?'S/O or W/O '+p.relName:'',paddr(p)].filter(Boolean).join(' · ')}))}};
  const newOpt=(k,v)=>{if(v&&!S.masters[k].some(x=>low(x)===low(v)))S.masters[k].push(v)};
  const pickOpt=(arr,v)=>arr.find(x=>imn(x)===imn(v));
 
@@ -3431,7 +3431,7 @@ const imTotal=R=>Object.values(R.tabs).reduce((s,c)=>s+c.ok,0);
 function imPick(key,code,row){if(!code)return;IM.pick[key]=code;const y=scrollY;IM.done=null;
  setTimeout(()=>{try{IM.res=imDry()}catch(e){IM.err='The check failed: '+e.message}
   const left=IM.res?IM.res.issues.filter(i=>i.st==='err'&&i.cands).length:0;
-  flash={t:'Row '+(row||'')+': '+code+' chosen.'+(left?' '+left+' row'+(left>1?'s':'')+' still need a member.':' Every row has a member now.'),k:'ok'};render();scrollTo(0,y)},10)}
+  flash={t:'Row '+(row||'')+': '+(code[0]==='#'?(S.mPrefix==null?'M':S.mPrefix)+String(code.slice(1)).padStart(5,'0'):code)+' chosen.'+(left?' '+left+' row'+(left>1?'s':'')+' still need a member.':' Every row has a member now.'),k:'ok'};render();scrollTo(0,y)},10)}
 function imCheck(){if(!IM.sheets.some(s=>s.type))return note('Choose at least one sheet type first.','bad');IM.done=null;IM.res=null;render();setTimeout(()=>{try{IM.res=imDry()}catch(e){IM.err='The check failed: '+e.message}render();scrollTo(0,document.body.scrollHeight>0?$('im_res')?$('im_res').offsetTop:0:0)},30)}
 function imGo(){const n=imTotal(IM.res);if(!n)return note('There are no valid rows to import.','bad');
  askConfirm('Import '+n+' valid row'+(n===1?'':'s')+' into your live data? Rows with errors are left out. You can undo straight afterwards.',()=>{
