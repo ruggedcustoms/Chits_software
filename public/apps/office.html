@@ -3220,7 +3220,7 @@ function imEngine(){
     name, the mobile and the father / spouse name in the row are used to pick the right one. */
  const mob10=v=>String(v||'').replace(/\D/g,'').slice(-10),adKey=v=>String(v||'').toLowerCase().replace(/[^a-z0-9]/g,''),sameUsed=new Map();
  /* a member code that is not found is reported, but the mobile and name are still tried first */
- const findE=(o,key)=>{const ch=key&&IM.pick&&IM.pick[key];if(ch){const f=findP(ch);if(f.p)return Object.assign({},f,{w:'Member '+ch+' chosen by you for this row.'})}const f=findE0(o);if(f.p||!o.mcode||findP(o.mcode).p)return f;
+ const findE=(o,key)=>{const ch=key&&IM.pick&&IM.pick[key];if(ch){const f=findP(ch);if(f.p){const c0=findE0(o);return Object.assign({},f,{w:'Member '+ch+' chosen by you for this row.',cands:c0.cands,picked:ch})}}const f=findE0(o);if(f.p||!o.mcode||findP(o.mcode).p)return f;
   return{e:'Member code "'+o.mcode+'" is not in the Members sheet (Old code column) or the app.'+(f.e?' '+f.e:'')}};
  const findE0=o=>{
   if(o.mcode){const f=findP(o.mcode);if(f.p)return f}
@@ -3319,10 +3319,10 @@ function imEngine(){
   String(o.ticket).split(/[,;\s]+/).filter(Boolean).forEach(x=>{const m=x.match(/^(\d+)(?:-(\d+))?$/);if(!m){bad=true;return}for(let i=+m[1];i<=+(m[2]||m[1]);i++)ts.push(i)});
   if(bad||!ts.length||ts.some(t=>t<1||t>g.n))return['err','Ticket no. must be whole numbers from 1 to '+g.n+' for '+g.name+'. Several tickets can be written like 5, 6 or 5-6.'];
   if(![o.mcode,o.mmobile,o.member].some(v=>String(v||'').trim()))return['err','No member in this row. Give the Member code (old code), Mobile or Member name that is also in the Members sheet.'];
-  const key=r.loc+'|'+r.rn,f=findE(o,key);if(f.e)return['err',f.e,[],f.cands?{cands:f.cands,key}:null];if(f.w)w.push(f.w);if(!f.p)return['err','Member "'+[o.mcode,o.member,o.mmobile].filter(Boolean).join(' / ')+'" not found. Check the Member code / Mobile / name, or add the member in the Members sheet.'];
+  const key=r.loc+'|'+r.rn,f=findE(o,key);if(f.e)return['err',f.e,[],f.cands?{cands:f.cands,key}:null];if(f.w)w.push(f.w);const more=f.picked?{cands:f.cands||[],key,picked:f.picked}:null;if(!f.p)return['err','Member "'+[o.mcode,o.member,o.mmobile].filter(Boolean).join(' / ')+'" not found. Check the Member code / Mobile / name, or add the member in the Members sheet.'];
   const rs=ts.map(t=>enrollOne(r,g,t,f,w)),er=rs.filter(x=>x[0]==='err');
   if(er.length)return['err',er.map(x=>x[1]).join('; ')+(rs.some(x=>x[0]==='ok')?' (the other tickets in this row were enrolled)':'')];
-  if(rs.every(x=>x[0]==='skip'))return['skip','Already enrolled'];return['ok','',w]};
+  if(rs.every(x=>x[0]==='skip'))return['skip','Already enrolled'];return['ok','',w,more]};
  /* auctions */
  const aucIn1=g=>rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&imNum(x.o.no)===1);
  /* one auction period earlier: a month for monthly groups (same day, or the month's last day) */
@@ -3417,7 +3417,7 @@ function imEngine(){
    const kind=vcKind({type,lines}),c=VK[kind];S.seq.vch=S.seq.vch||{};const n=S.seq.vch[kind]=(S.seq.vch[kind]||0)+1;S.vouchers=S.vouchers||[];
    S.vouchers.push({id:uid(),n,no:c.pre+' '+n,kind,type:c.type,date,lines,narr:rs.map(r=>r.o.narr).find(Boolean)||'',party:rs.map(r=>r.o.party).find(Boolean)||'',ref:rs.map(r=>r.o.ref).find(Boolean)||'',mode:'',chqDate:'',oldNo:f.o.vno});vold.add(k);return['ok','',w]})()}catch(e){x=['err','Unexpected problem with this voucher: '+e.message]}
    add('vouchers',f,x[0],x[1]);(x[2]||[]).forEach(m=>add('vouchers',f,'warn',m))})};
- const run=(t,h,sorter)=>{const rows=rowsBy[t];if(sorter)rows.sort(sorter);rows.forEach(r=>{let x;try{x=h(r)}catch(e){x=['err','Unexpected problem with this row: '+e.message]}add(t,r,x[0],x[1],x[3]);(x[2]||[]).forEach(m=>add(t,r,'warn',m))})};
+ const run=(t,h,sorter)=>{const rows=rowsBy[t];if(sorter)rows.sort(sorter);rows.forEach(r=>{let x;try{x=h(r)}catch(e){x=['err','Unexpected problem with this row: '+e.message]}add(t,r,x[0],x[1],x[0]==='err'?x[3]:null);(x[2]||[]).forEach((m,j)=>add(t,r,'warn',m,j===0&&x[0]!=='err'?x[3]:null))})};
  const gs=(a,b)=>gkey(a.o.group)<gkey(b.o.group)?-1:gkey(a.o.group)>gkey(b.o.group)?1:0,dk=s=>pdate(s)||'9999';
  run('banks',bankH);run('ledgers',ledH);
  if(R.tabs.banks.ok||R.tabs.ledgers.ok){const dif=r2(acAll().reduce((s,a)=>s+acSign(a),0));if(Math.abs(dif)>0.5){R.tabs.ledgers.warn++;R.issues.push({t:'ledgers',sheet:'All',row:'-',st:'warn',msg:'Opening balances of all accounts do not balance: debits are '+(dif>0?'more':'less')+' than credits by '+inr(Math.abs(dif))+'. Set the difference against Capital and reserves.'})}}
@@ -3428,7 +3428,10 @@ function imEngine(){
  S.seq.m=mx;return R}
 const imDry=()=>{const bak=S;S=JSON.parse(JSON.stringify(S));try{return imEngine()}finally{S=bak}};
 const imTotal=R=>Object.values(R.tabs).reduce((s,c)=>s+c.ok,0);
-function imPick(key,code){if(!code)return;IM.pick[key]=code;imCheck()}
+function imPick(key,code,row){if(!code)return;IM.pick[key]=code;const y=scrollY;IM.done=null;
+ setTimeout(()=>{try{IM.res=imDry()}catch(e){IM.err='The check failed: '+e.message}
+  const left=IM.res?IM.res.issues.filter(i=>i.st==='err'&&i.cands).length:0;
+  flash={t:'Row '+(row||'')+': '+code+' chosen.'+(left?' '+left+' row'+(left>1?'s':'')+' still need a member.':' Every row has a member now.'),k:'ok'};render();scrollTo(0,y)},10)}
 function imCheck(){if(!IM.sheets.some(s=>s.type))return note('Choose at least one sheet type first.','bad');IM.done=null;IM.res=null;render();setTimeout(()=>{try{IM.res=imDry()}catch(e){IM.err='The check failed: '+e.message}render();scrollTo(0,document.body.scrollHeight>0?$('im_res')?$('im_res').offsetTop:0:0)},30)}
 function imGo(){const n=imTotal(IM.res);if(!n)return note('There are no valid rows to import.','bad');
  askConfirm('Import '+n+' valid row'+(n===1?'':'s')+' into your live data? Rows with errors are left out. You can undo straight afterwards.',()=>{
@@ -3443,7 +3446,7 @@ function imProblems(){const R=IM.res;if(!R)return;const q=s=>'"'+String(s).repla
 function imSumTable(R){return tbl(['Data','Rows read','Will be imported','Already there (skipped)','Errors (left out)','Warnings'],IMT.filter(t=>R.tabs[t].n||R.tabs[t].err).map(t=>{const c=R.tabs[t];return`<tr>${td('<b>'+IML[t]+'</b>')}${td(c.n,1)}${td(c.ok,1)}${td(c.skip,1)}${td(c.err?'<b class="bad">'+c.err+'</b>':0,1)}${td(c.warn?'<span class="warn">'+c.warn+'</span>':0,1)}</tr>`}),[1,2,3,4,5])}
 function pageImport(){
  const R=IM.res,D=IM.done;
- const issues=R?R.issues.filter(i=>!IM.onlyErr||i.st==='err'):[];
+ const issues=R?R.issues.filter(i=>!IM.onlyErr||i.st==='err'||i.picked):[];
  return`<h1>Import data</h1><p class="sub">Move your members, groups, enrolments, auctions, receipts, prize payments, bank accounts, account balances and vouchers from your old software. Nothing is saved until you check the report and press Import.</p>
  <div class="card"><h2>Steps</h2><ol style="margin:0 0 10px 18px;line-height:1.8"><li>Download the sample file and look at the sheets and columns.</li><li>Export your data from the old software to Excel (.xlsx) or CSV, and arrange it like the sample. Column headings need not match exactly: common names such as <i>Mobile No</i> or <i>Chit Value</i> are recognised.</li><li>Choose your file below. Each sheet is detected automatically; correct it if it guessed wrong.</li><li>Press <b>Check data</b>. This only reads and reports. Fix the file and check again as often as you like.</li><li>When the report looks right, press <b>Import</b>. Re-uploading the same file is safe: rows already imported are skipped.</li></ol>
   <div class="row"><button class="btn g" onclick="imSample()">Download sample file</button><button class="btn g" onclick="go('settings')">Take a backup first</button></div></div>
@@ -3455,7 +3458,7 @@ function pageImport(){
   ${(R.cols||[]).length?`<details style="margin:10px 0"><summary><b>How your columns were read</b> <span class="muted">(check that each field took the right column)</span></summary>${R.cols.map(c=>`<p style="margin:10px 0 4px"><b>${esc(IML[c.t])}</b> <span class="muted">sheet "${esc(c.sheet)}"</span></p>${tbl(['Field','Your column'],c.map.map(([f,h])=>`<tr>${td(esc(f))}${td(esc(h))}</tr>`))}${c.unused.length?`<p class="muted" style="margin:4px 0 0">Not used: ${c.unused.map(esc).join(', ')}</p>`:''}`).join('')}</details>`:''}
   <div class="row" style="margin:12px 0"><button class="btn" onclick="imGo()" ${imTotal(R)?'':'disabled'}>Import ${imTotal(R)} valid row${imTotal(R)===1?'':'s'}</button>${R.issues.length?`<button class="btn g" onclick="imProblems()">Download problem list</button><label class="chk"><input type="checkbox" ${IM.onlyErr?'checked':''} onchange="IM.onlyErr=this.checked;render()"> Show errors only</label>`:''}</div>
   ${imTotal(R)&&Object.values(R.tabs).some(c=>c.err)?'<p class="muted">Rows with errors will be left out. Dependent rows (for example receipts for a ticket that failed to enrol) show as errors too. Fix them in your file and upload again; the rows already imported will be skipped.</p>':''}
-  ${issues.length?tbl(['Data','Sheet','Row','Result','Details'],issues.slice(0,300).map(i=>`<tr>${td(IML[i.t])}${td(esc(i.sheet))}${td(i.row,1)}${td(pill(i.st==='err'?'Error':i.st==='warn'?'Warning':'Skipped',i.st==='err'?'bad':i.st==='warn'?'warn':'mute'))}${td(esc(i.msg)+(i.cands?`<div style="margin-top:6px"><select aria-label="Choose the member for row ${esc(i.row)}" onchange="imPick('${esc(i.key)}',this.value)"><option value="">Choose the member for this row…</option>${i.cands.map(c=>`<option value="${esc(c.code)}">${esc(c.txt)}</option>`).join('')}</select></div>`:''))}</tr>`),[2])+(issues.length>300?`<p class="muted">Showing the first 300 of ${issues.length}. Download the problem list for all of them.</p>`:''):'<p class="good"><b>No problems found.</b></p>'}</div>`:''}
+  ${issues.length?tbl(['Data','Sheet','Row','Result','Details'],issues.slice(0,300).map(i=>`<tr>${td(IML[i.t])}${td(esc(i.sheet))}${td(i.row,1)}${td(i.picked?pill('Chosen','good'):pill(i.st==='err'?'Error':i.st==='warn'?'Warning':'Skipped',i.st==='err'?'bad':i.st==='warn'?'warn':'mute'))}${td(esc(i.msg)+(i.cands&&i.cands.length?`<div style="margin-top:6px"><select aria-label="Choose the member for row ${esc(i.row)}" onchange="imPick('${esc(i.key)}',this.value,${JSON.stringify(String(i.row)).replace(/"/g,'&quot;')})"><option value="">Choose the member for this row…</option>${i.cands.map(c=>`<option value="${esc(c.code)}" ${i.picked===c.code?'selected':''}>${esc(c.txt)}</option>`).join('')}</select></div>`:''))}</tr>`),[2])+(issues.length>300?`<p class="muted">Showing the first 300 of ${issues.length}. Download the problem list for all of them.</p>`:''):'<p class="good"><b>No problems found.</b></p>'}</div>`:''}
  ${D?`<div class="card"><h2>Import finished</h2>${imSumTable(D)}<div class="row" style="margin-top:12px"><button class="btn g" onclick="go('members')">View members</button><button class="btn g" onclick="go('enroll')">View enrolments</button><button class="btn g" onclick="go('receipts')">View receipts</button><button class="btn g" onclick="goK('reports:trial')">Trial balance</button>${IM.undo?'<button class="btn d" onclick="imUndo()">Undo this import</button>':''}</div></div>`:''}`}
 
 /* sample file */
