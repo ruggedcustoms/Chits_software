@@ -11,6 +11,7 @@ D1 is for development and testing. Before real member data goes in, decide wheth
 - **Members, groups, enrollment, auctions, receipts, prize payments**, following the rules in `docs/requirements-and-design.md`.
 - **Books kept as you go**: every auction, receipt and prize payment saves its own balanced voucher in the same step, so the trial balance always matches the records. A cancelled receipt or payment stays on record with its voucher marked cancelled.
 - **Audit trail**: every create, change and cancel records who did it, when, and the old and new values.
+- **Member app**: the office issues each member a login (the member number and a 6-digit temporary password, changed at the first sign-in). A member sees only their own tickets, receipts, auctions and prize money. Member sessions last up to 30 days (15 days without use); five wrong passwords lock the login for 15 minutes. Member and staff tokens do not work on each other's routes.
 - **Reports**: account copy, outstanding and defaulters, collection register, auction chart, prize payments, trial balance, day book.
 
 Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and percentages in **basis points** (5% is `500`).
@@ -32,6 +33,8 @@ Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and perc
 | `GET /api/reports/outstanding`, `collections`, `auction-chart`, `prize-payments`, `trial-balance`, `day-book` | Reports |
 | `GET /api/audit` | Audit trail |
 | `GET /api/sync`, `PATCH /api/settings` | Everything the office screens need in one request; the company's shared settings |
+| `GET/POST /api/member-logins`, `POST /api/member-logins/bulk`, `PATCH/DELETE /api/member-logins/:id` | Member app logins: list, issue or reset (returns the temporary password once), issue to every enrolled member without one, switch off or unlock, remove |
+| `POST /api/member/login`, `POST /api/member/logout`, `POST /api/member/password`, `GET /api/member/home` | The member app: sign in, sign out, change password, and the member's own chits, installments, auctions, receipts and prize money (in rupees) |
 | `PATCH /api/receipts/:id`, `/api/auctions/:id`, `/api/prize-payments/:id` | Change only the extra details (print count, SMS sent), never an amount |
 | `DELETE /api/persons/:id`, `/api/groups/:id`, `/api/enrollments/:id`, `PATCH /api/enrollments/:id` | Delete only what nothing depends on; change a ticket's agents and nominee |
 
@@ -41,7 +44,7 @@ Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and perc
 npm test                    # calculations against the worked example
 ```
 
-`scripts/scenario.mjs` runs a whole group through the API and checks every report, the accounts and the audit trail: 76 checks. It creates a new test company each time it runs.
+`scripts/scenario.mjs` runs a whole group through the API and checks every report, the accounts, the audit trail and the member app: 106 checks. It creates a new test company each time it runs.
 
 ```sh
 # on your computer
@@ -84,7 +87,7 @@ npm run db:migrate:remote     # then apply it to the cloud database
 | Area | Tables |
 | --- | --- |
 | Company and staff | `companies`, `branches`, `roles`, `users`, `sessions`, `sign_ins`, `lookup_values`, `counters` |
-| People | `persons`, `person_addresses`, `member_logins` |
+| People | `persons`, `person_addresses`, `member_logins`, `member_sessions` |
 | Groups | `chit_groups`, `group_deposits` |
 | Tickets | `enrollments`, `ticket_transfers`, `member_removals` |
 | Auctions | `auctions`, `auction_bids`, `bid_advances`, `prize_payments` |

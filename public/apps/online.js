@@ -173,13 +173,13 @@
   // Money records the online version cannot keep yet. Changing them is refused, so nothing is half-saved.
   const NOT_YET = { future: 'Future receipts', cancels: 'Member removal', bidAdv: 'Bid advances', pdcs: 'Post-dated cheques', transfers: 'Ticket transfers', reauctions: 'Reauction',
     denoms: 'Denomination entry', vouchers: 'Vouchers', loans: 'Loans on chits', fds: 'FD register', agentComm: 'Agent commission', agPays: 'Agent payments',
-    closings: 'Year closing', advPosted: 'Advance subscription', docs: 'KYC documents', appLogins: 'Member app logins' };
+    closings: 'Year closing', advPosted: 'Advance subscription', docs: 'KYC documents' };
   const NOT_YET_PAGES = {
     future: 'Future receipts', denom: 'Denomination entry', reauc: 'Reauction', transfer: 'Ticket transfer', rmpay: 'Removal payments', subref: 'Subscriber refund', bidadv: 'Bid advances',
     pdc: 'Post-dated cheques', cancel: 'Member removal', loans: 'Loans on chits', fdreg: 'FD register', advsub: 'Advance subscription', vouch: 'Vouchers', cashrc: 'Cash receipts',
     cashpay: 'Cash payments', petty: 'Petty cash', bankdep: 'Bank deposits', bankpay: 'Bank payments', banktr: 'Bank transfers', agpay: 'Agent payments', agcomm: 'Agent commission',
     import: 'Import data', backup: 'Backup and restore', clearrc: 'Clear receipts', clearauc: 'Clear auctions', readj: 'Readjust receipts', yearclose: 'Year closing',
-    appusers: 'Member app logins', kyc: 'KYC documents', dupm: 'Merge duplicate members', super: 'Software provider', chqupd: 'Cheque update', bstmt: 'Bank statement matching',
+    kyc: 'KYC documents', dupm: 'Merge duplicate members', super: 'Software provider', chqupd: 'Cheque update', bstmt: 'Bank statement matching',
   };
 
   // ---- talking to the API ----
@@ -187,6 +187,7 @@
   let USERS = {};
   let BASE = null; // what S looked like at the last load, by collection and id
   let busy = false;
+  let COID = ''; // this company's id, for the member app link
 
   async function api(method, path, body) {
     const res = await fetch('/api' + path, {
@@ -221,6 +222,7 @@
     BASE = null; // so a save() made while loading is not sent
     const d = await api('GET', '/sync');
     USERS = Object.fromEntries(d.users.map((u) => [u.id, u.name]));
+    COID = d.company.id;
     const set = d.company.settings || {};
     const fresh = norm(Object.assign({}, set, {
       company: set.company || d.company.name,
@@ -237,6 +239,13 @@
     ST.user = { id: d.me.user.id, name: d.me.user.name, user: d.me.user.username, roleId: 'r_online', active: true };
     fresh.staff = [ST.user];
     fresh.lock = {};
+    // Member app logins live on the server; their buttons call it directly (see below), so they are not part of save().
+    fresh.appLogins = {};
+    if (d.me.perms.all || d.me.perms.members) {
+      for (const l of await api('GET', '/member-logins')) {
+        fresh.appLogins[l.person_id] = { must: !!l.must_change, active: !!l.active, locked: !!l.locked, issued: (l.issued_at || '').slice(0, 10), by: l.issued_by || '', last: l.last_sign_in || '' };
+      }
+    }
     S = fresh;
     // The same account list the browser version builds when it starts.
     if (S.accts.length) AX.forEach((a) => { if (!S.accts.some((x) => x.id === a.id)) S.accts.push(Object.assign({}, a)); });
@@ -341,6 +350,61 @@
     if (error) { flash = { t: error, k: 'bad' }; ask_ = null; }
     render();
   }
+
+  // ---- member app logins: each button is one request, then the screen reloads from the server ----
+  async function appCall(fn) {
+    if (busy) return { error: 'Please wait, the last change is still being saved.' };
+    busy = true;
+    showBusy(true);
+    let out, error = null;
+    try { out = await fn(); } catch (e) { error = e.message; }
+    try { await loadAll(); } catch (e) { error = error || e.message; }
+    busy = false;
+    showBusy(false);
+    if (error) flash = { t: error, k: 'bad' };
+    return { out, error };
+  }
+  window.apIssue = async (pid) => {
+    const { out, error } = await appCall(() => api('POST', '/member-logins', { person_id: pid }));
+    if (!error) F.apNew = { pid, pw: out.password, list: null };
+    render();
+  };
+  // The member app link carries the company, so members never type a company code.
+  const appLink = () => location.origin + '/apps/member.html?co=' + encodeURIComponent(COID);
+  const localApMsg = window.apMsg, localApList = window.apListText;
+  window.apMsg = (pid, pw) => { const l = localApMsg(pid, pw).split('\n'); l.splice(2, 0, 'Open the app: ' + appLink()); return l.join('\n'); };
+  window.apListText = (l) => 'Member app: ' + appLink() + '\n' + localApList(l);
+  window.apReset = (pid) => askConfirm('Make a new temporary password for ' + pnn(pid) + '? The old password stops working and the member is signed out of the app.', () => window.apIssue(pid));
+  window.apToggle = async (pid) => {
+    const l = appL()[pid];
+    if (!l) return;
+    const { error } = await appCall(() => api('PATCH', '/member-logins/' + pid, l.locked && l.active ? { unlock: true } : { active: !l.active }));
+    if (error) return render();
+    note(l.locked && l.active ? 'Login unlocked.' : l.active ? 'Login switched off. The member cannot sign in to the app.' : 'Login switched on.');
+  };
+  window.apRemove = (pid) => askConfirm('Remove the app login of ' + pnn(pid) + '? You can issue a new one later.', async () => {
+    const { error } = await appCall(() => api('DELETE', '/member-logins/' + pid));
+    F.apNew = null;
+    if (error) return render();
+    note('Login removed.');
+  });
+  window.apBulk = () => {
+    const todo = apPids().filter((id) => !appL()[id]);
+    if (!todo.length) return note('Every member already has a login.');
+    askConfirm('Issue logins to ' + todo.length + ' member' + (todo.length > 1 ? 's' : '') + '? The temporary passwords are shown once, on the next screen.', async () => {
+      const list = [];
+      // The server issues a batch at a time. Passwords already issued stay in the list even if a later batch fails.
+      await appCall(async () => {
+        let r;
+        do {
+          r = await api('POST', '/member-logins/bulk');
+          for (const x of r.issued) list.push({ pid: x.person_id, user: x.username, pw: x.password });
+        } while (r.remaining > 0 && r.issued.length);
+      });
+      F.apNew = { pid: '', pw: '', list };
+      render();
+    });
+  };
 
   // ---- sign in and out ----
   function signedOut(msg) {

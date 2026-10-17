@@ -56,7 +56,7 @@ export function decideBid(g, auctionNo, decidedBy, bidInput) {
 export const rs = (p) => 'Rs ' + (p / RUPEE).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
 // Whole months late, counting a started month (prototype: per-month late fee).
-function monthsLate(from, to) {
+export function monthsLate(from, to) {
   if (to <= from) return 0;
   const [y1, m1, d1] = from.split('-').map(Number);
   const [y2, m2, d2] = to.split('-').map(Number);

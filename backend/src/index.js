@@ -1,11 +1,13 @@
 // Chit Master Pro API (Cloudflare Worker + D1).
 // Every route except health, setup and login needs "Authorization: Bearer <token>" from /api/auth/login.
+// Member app routes (/api/member/...) take a member token from /api/member/login instead.
 // Money is in paise and percentages in basis points, both as whole numbers.
 
 import { HttpError, json } from './lib/http.js';
-import { authenticate } from './lib/auth.js';
+import { authenticate, authenticateMember } from './lib/auth.js';
 import { authRoutes } from './routes/auth.js';
 import { masterRoutes } from './routes/masters.js';
+import { memberRoutes } from './routes/member.js';
 import { moneyRoutes } from './routes/money.js';
 import { reportRoutes } from './routes/reports.js';
 import { syncRoutes } from './routes/sync.js';
@@ -22,10 +24,10 @@ async function health({ env, request }) {
 const compile = ([method, path, handler, opts = {}]) => {
   const names = [];
   const re = new RegExp('^' + path.replace(/:(\w+)/g, (_, n) => (names.push(n), '([^/]+)')) + '$');
-  return { method, re, names, handler, public: !!opts.public };
+  return { method, re, names, handler, public: !!opts.public, member: !!opts.member };
 };
 
-const routes = [['GET', '/api/health', health, { public: true }], ...authRoutes, ...masterRoutes, ...moneyRoutes, ...reportRoutes, ...syncRoutes].map(compile);
+const routes = [['GET', '/api/health', health, { public: true }], ...authRoutes, ...masterRoutes, ...moneyRoutes, ...reportRoutes, ...syncRoutes, ...memberRoutes].map(compile);
 
 function dbError(err) {
   const m = String(err && err.message);
@@ -46,7 +48,7 @@ export default {
       if (r.method !== request.method) continue;
       const params = Object.fromEntries(r.names.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
       try {
-        const ctx = r.public ? null : await authenticate(env.DB, request);
+        const ctx = r.public ? null : r.member ? await authenticateMember(env.DB, request) : await authenticate(env.DB, request);
         return await r.handler({ request, env, ctx, params, query: url.searchParams });
       } catch (err) {
         const known = err instanceof HttpError ? err : dbError(err);

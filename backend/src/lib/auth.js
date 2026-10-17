@@ -39,7 +39,7 @@ export function checkPasswordRules(password) {
   return null;
 }
 
-async function sha256Hex(text) {
+export async function sha256Hex(text) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -161,3 +161,100 @@ export const DEFAULT_ROLES = [
     perms: { dash: 'view', groups: 'view', members: 'view', enroll: 'view', auctions: 'view', payable: 'view', receipts: 'view', accounts: 'view', reports: 'view' },
   },
 ];
+
+// ---- member app ----
+// Members sign in with their member number and a password the office issues. Sessions last
+// longer than staff ones, since the app stays signed in on the member's own phone.
+
+const MEMBER_IDLE_DAYS = 15;
+const MEMBER_MAX_DAYS = 30;
+
+// A 6-digit temporary password, shown once to the office.
+export function tempPassword() {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return String(100000 + (a[0] % 900000));
+}
+
+export function checkMemberPassword(password, username) {
+  if (typeof password !== 'string' || password.length < 6) return 'Password must be at least 6 characters.';
+  if (/^(.)\1+$/.test(password)) return 'Password cannot be one character repeated.';
+  if (['123456', '1234567', '12345678', '654321'].includes(password)) return 'This password is too easy to guess.';
+  if (username && password.replace(/\D/g, '') === String(username).replace(/\D/g, '') && /^\d+$/.test(password)) return 'Password cannot be your member number.';
+  return null;
+}
+
+// The member number from what the member types: "M00084", "m84" or "84".
+export const memberNoOf = (username) => {
+  const d = String(username || '').replace(/\D/g, '');
+  return d ? Number(d) : null;
+};
+
+export async function memberLogin(db, companyId, username, password, ip) {
+  const wrong = new HttpError(401, 'Wrong member number or password.');
+  const no = memberNoOf(username);
+  const company = await db.prepare("SELECT id FROM companies WHERE id = ? AND status = 'Active'").bind(companyId).first();
+  if (!company || !no) throw wrong;
+  const row = await db.prepare(
+    `SELECT l.*, p.id AS pid FROM persons p JOIN member_logins l ON l.person_id = p.id
+      WHERE p.company_id = ? AND p.member_no = ?`
+  ).bind(companyId, no).first();
+  const note = (ok, detail) => db.prepare('INSERT INTO sign_ins (id, company_id, username, user_id, ok, detail, ip) VALUES (?, ?, ?, NULL, ?, ?, ?)')
+    .bind(crypto.randomUUID(), companyId, 'member:' + no, ok, detail, ip);
+  if (!row) {
+    await note(0, 'member app: no login').run();
+    throw wrong;
+  }
+  const now = nowIso();
+  if (row.locked_until && row.locked_until > now) {
+    await note(0, 'member app: locked').run();
+    throw new HttpError(423, `Too many wrong passwords. Try again after ${LOCK_MINUTES} minutes, or ask the office to reset your password.`);
+  }
+  if (!row.active) {
+    await note(0, 'member app: switched off').run();
+    throw new HttpError(403, 'Your app login is switched off. Please contact the office.');
+  }
+  if (!(await verifyPassword(password, row.password_hash))) {
+    const failures = row.failed_attempts + 1;
+    const lock = failures >= MAX_FAILURES ? addMinutes(now, LOCK_MINUTES) : null;
+    await db.batch([
+      db.prepare('UPDATE member_logins SET failed_attempts = ?, locked_until = ? WHERE person_id = ?').bind(lock ? 0 : failures, lock, row.pid),
+      note(0, lock ? 'member app: wrong password, locked' : 'member app: wrong password'),
+    ]);
+    throw wrong;
+  }
+  const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const expires = addMinutes(now, MEMBER_MAX_DAYS * 24 * 60);
+  await db.batch([
+    db.prepare('UPDATE member_logins SET failed_attempts = 0, locked_until = NULL, last_sign_in = ? WHERE person_id = ?').bind(now, row.pid),
+    db.prepare('INSERT INTO member_sessions (token_hash, person_id, company_id, created_at, last_seen, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(await sha256Hex(token), row.pid, companyId, now, now, expires),
+    note(1, 'member app'),
+  ]);
+  return { token, expires_at: expires, must_change: !!row.must_change };
+}
+
+export async function memberLogout(db, token) {
+  await db.prepare('DELETE FROM member_sessions WHERE token_hash = ?').bind(await sha256Hex(token)).run();
+}
+
+// The signed-in member, from "Authorization: Bearer <token>". Staff tokens do not work here, and member tokens
+// do not work on staff routes, since each looks only in its own session table.
+export async function authenticateMember(db, request) {
+  const header = request.headers.get('authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) throw new HttpError(401, 'Please sign in.');
+  const hash = await sha256Hex(token);
+  const row = await db.prepare(
+    `SELECT s.last_seen, s.expires_at, s.company_id, p.id, p.name, p.member_no, l.active, l.must_change
+       FROM member_sessions s JOIN persons p ON p.id = s.person_id JOIN member_logins l ON l.person_id = s.person_id
+      WHERE s.token_hash = ?`
+  ).bind(hash).first();
+  const now = nowIso();
+  if (!row || !row.active || row.expires_at <= now || addMinutes(row.last_seen, MEMBER_IDLE_DAYS * 24 * 60) <= now) {
+    if (row) await db.prepare('DELETE FROM member_sessions WHERE token_hash = ?').bind(hash).run();
+    throw new HttpError(401, 'Your session has ended. Please sign in again.');
+  }
+  if (addMinutes(row.last_seen, 1) <= now) await db.prepare('UPDATE member_sessions SET last_seen = ? WHERE token_hash = ?').bind(now, hash).run();
+  return { token, member: { id: row.id, name: row.name, member_no: row.member_no }, companyId: row.company_id, mustChange: !!row.must_change };
+}

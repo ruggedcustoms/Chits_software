@@ -258,6 +258,57 @@ eq('owner can unlock it', (await call('POST', '/api/auth/login', { company_id: c
 await ok('POST', '/api/auth/logout', null, T.manager);
 eq('signed-out session no longer works', (await call('GET', '/api/groups', null, T.manager)).status, 401);
 
+// ------------------------------------------------------------------ member app
+console.log('\n10. Member app');
+const mcall = (method, path, body, token) => call(method, path, body, token);
+eq('viewer cannot issue an app login', (await call('POST', '/api/member-logins', { person_id: persons.m2 }, T.viewer)).status, 403);
+eq('no login yet: sign-in refused', (await call('POST', '/api/member/login', { company_id: co.company_id, username: 'M2', password: '123456' })).status, 401);
+const iss2 = await ok('POST', '/api/member-logins', { person_id: persons.m2 }, owner);
+check('login issued: username is the member number, 6-digit password', /^[A-Z]*0*\d+$/.test(iss2.username) && /^\d{6}$/.test(iss2.password), JSON.stringify(iss2));
+const ml = await ok('POST', '/api/member/login', { company_id: co.company_id, username: iss2.username.toLowerCase(), password: iss2.password });
+eq('first sign-in must change the password', ml.must_change, true);
+eq('nothing shown until the password is changed', (await mcall('GET', '/api/member/home', null, ml.token)).status, 403);
+eq('wrong current password refused', (await mcall('POST', '/api/member/password', { current_password: '000000', new_password: 'Garden42' }, ml.token)).status, 400);
+eq('too easy a password refused', (await mcall('POST', '/api/member/password', { current_password: iss2.password, new_password: '111111' }, ml.token)).status, 400);
+await ok('POST', '/api/member/password', { current_password: iss2.password, new_password: 'Garden42' }, ml.token);
+eq('temporary password stops working', (await call('POST', '/api/member/login', { company_id: co.company_id, username: iss2.username, password: iss2.password })).status, 401);
+const m2 = await ok('POST', '/api/member/login', { company_id: co.company_id, username: iss2.username, password: 'Garden42' });
+eq('new password works, no change needed', m2.must_change, false);
+const h2 = await ok('GET', '/api/member/home', null, m2.token);
+check('member sees only their own ticket', h2.chits.length === 1 && h2.chits[0].group === 'TEST-20' && h2.chits[0].ticket === 2, JSON.stringify(h2.chits.map((c) => [c.group, c.ticket])));
+eq('member: won auction 1', h2.chits[0].won, 1);
+eq('member: net prize as recorded', h2.chits[0].prize.netPrize, plan[0].netPrize);
+eq('member: one installment row per auction', h2.chits[0].rows.length, 4);
+eq('member: all auction results listed', h2.chits[0].auc.length, 4);
+check('member: receipts are only for their ticket', h2.receipts.every((r) => r.ticket === 2 && r.group === 'TEST-20'), JSON.stringify(h2.receipts.map((r) => r.ticket)));
+eq('member: name', h2.member.name, 'Test Member 02');
+
+const iss1 = await ok('POST', '/api/member-logins', { person_id: persons.m1 }, owner);
+const m1t = (await ok('POST', '/api/member/login', { company_id: co.company_id, username: iss1.username, password: iss1.password })).token;
+await ok('POST', '/api/member/password', { current_password: iss1.password, new_password: 'River77x' }, m1t);
+const h1 = await ok('GET', '/api/member/home', null, m1t);
+check('member with two chits sees both, nobody else\'s', h1.chits.length === 2 && h1.chits.every((c) => c.ticket === 1), JSON.stringify(h1.chits.map((c) => [c.group, c.ticket])));
+
+eq('staff token does not open the member app', (await mcall('GET', '/api/member/home', null, owner)).status, 401);
+eq('member token does not open office data', (await call('GET', '/api/groups', null, m2.token)).status, 401);
+
+const bulk = await ok('POST', '/api/member-logins/bulk', null, owner);
+check('bulk: every other enrolled member gets a login', bulk.issued.length === 18 && bulk.remaining === 0, `(issued ${bulk.issued.length}, remaining ${bulk.remaining})`);
+eq('logins listed', (await ok('GET', '/api/member-logins', null, owner)).length, 20);
+
+await ok('PATCH', `/api/member-logins/${persons.m1}`, { active: false }, owner);
+eq('switched-off login: open session ends', (await mcall('GET', '/api/member/home', null, m1t)).status, 401);
+eq('switched-off login: cannot sign in', (await call('POST', '/api/member/login', { company_id: co.company_id, username: iss1.username, password: 'River77x' })).status, 403);
+
+for (let i = 0; i < 5; i++) await call('POST', '/api/member/login', { company_id: co.company_id, username: iss2.username, password: 'wrong-pin' });
+eq('5 wrong passwords lock the member login', (await call('POST', '/api/member/login', { company_id: co.company_id, username: iss2.username, password: 'Garden42' })).status, 423);
+const reset = await ok('POST', '/api/member-logins', { person_id: persons.m2 }, owner);
+const after = await ok('POST', '/api/member/login', { company_id: co.company_id, username: iss2.username, password: reset.password });
+eq('office reset unlocks and asks for a new password', after.must_change, true);
+eq('reset ends the old sessions', (await mcall('GET', '/api/member/home', null, m2.token)).status, 401);
+await ok('POST', '/api/member/logout', null, after.token);
+eq('signed-out member session no longer works', (await mcall('POST', '/api/member/password', {}, after.token)).status, 401);
+
 // ------------------------------------------------------------------ summary
 const lines = [`API: ${BASE}`, `Company code: ${co.company_id}`, ...Object.entries(logins).map(([u, p]) => `${u.padEnd(10)} ${p}`)];
 const loginsFile = /localhost|127\.0\.0\.1/.test(BASE) ? 'test-logins.dev.local.txt' : 'test-logins.local.txt';
