@@ -2101,6 +2101,8 @@ function acData(g,t){const L=ledger(g,t);if(!L)return null;const inst=chitInst(g
  const last=L.rows[L.rows.length-1],curDue=last?Math.max(0,last.due-last.paid):0,netDue=Math.max(0,L.balance);
  const shown=new Set(lines.filter(l=>l.no!=='').map(l=>l.no)),sr=L.rows.filter(r=>shown.has(r.no)),tot={div:sr.reduce((s,r)=>s+r.div,0),net:sr.reduce((s,r)=>s+r.due,0),inst:sr.length*inst,sub:L.totalPaid,chg:lines.reduce((s,l)=>s+num(l.chg),0)};
  return{g,t,L,e,p,won,lines,rets,pending,tot,inst,pu,lp:rs.length?rs.map(r=>r.date).sort().pop():'',remaining:Math.max(0,num(g.n)-pu)*inst,last,curDue,prevDue:Math.max(0,netDue-curDue),netDue}}
+/* the company ticket's auction has no bid payment, so its particulars show nothing payable */
+const coAucKv=(g,a)=>[['Date Of Auction',dmy(a.date)],['Auction No',String(a.no)],['Chit Amount',f0(g.amount)],['Taken By','Company ticket'],['Bid Payable','Not payable (company ticket)'],['Balance Amount','0.00']];
 const acPRows=d=>d.pending.length?d.pending.map(q=>[String(q.no),q.mon,f2(q.div),f2(q.left)]):[[d.last?String(d.last.no):'',d.last?instMon(d.g,d.last.no):'',d.last?f2(d.last.div):'',d.last?f2(d.curDue):'']];
 const scArc=(v1,v2)=>{const pt=v=>{const a=Math.PI*(1-(v-300)/600);return[(100+80*Math.cos(a)).toFixed(1),(100-80*Math.sin(a)).toFixed(1)]},A=pt(v1),B=pt(v2);return`M${A[0]} ${A[1]} A80 80 0 0 1 ${B[0]} ${B[1]}`};
 function scBadge(pid,g,t,mini){const s=scPerson(pid,''),tk=scRows(g,t),has=s.score!=null,col=!has?'#9aa5ab':s.score>=800?'#15803d':s.score>=700?'#65a30d':s.score>=600?'#d97706':s.score>=500?'#ea580c':'#b91c1c';
@@ -2119,7 +2121,8 @@ function acDoc(g,t){const d=acData(g,t);if(!d)return'<div class="empty">Choose a
  const dr=v=>num(v)>0.005?f2(v)+' Dr':(num(v)<-0.005?f2(-v)+' Cr':'0');
  const kv=(k,v)=>`<div class="ac-kv"><span>${k}</span><span>: ${v}</span></div>`;
  let auc='';
- if(won){const a=won,ps=S.payouts.filter(x=>x.aid===a.id).sort((x,y)=>x.date.localeCompare(y.date)),paid=ps.reduce((s,x)=>s+(x.dis?0:num(x.amount)),0),adj=ps.reduce((s,x)=>s+num(x.adjBP)+num(x.adjAdv),0),np=netOf(a),bal=np-adj-paid;
+ if(won&&won.coWin)auc=`<div class="ac-row"><div class="ac-box"><div class="ac-bh">Auction Particulars</div>${coAucKv(g,won).map(([k,v])=>kv(k,E(v))).join('')}</div></div>`;
+ else if(won){const a=won,ps=S.payouts.filter(x=>x.aid===a.id).sort((x,y)=>x.date.localeCompare(y.date)),paid=ps.reduce((s,x)=>s+(x.dis?0:num(x.amount)),0),adj=ps.reduce((s,x)=>s+num(x.adjBP)+num(x.adjAdv),0),np=netOf(a),bal=np-adj-paid;
   const adjs=ps.filter(x=>num(x.adjBP)+num(x.adjAdv)>0).map(x=>[dmy(x.date),g.name+'/'+a.ticket,f2(num(x.adjBP)+num(x.adjAdv))]);if(num(a.gst)>0)adjs.unshift([dmy(a.date),g.name+'/'+a.ticket+(a.inv?' ('+a.inv.no+')':''),f2(a.gst)]);const adjT=num(a.gst)+adj;
   auc=`<div class="ac-row"><div class="ac-box"><div class="ac-bh">Auction Particulars</div>${kv('Date Of Auction',dmy(a.date))}${kv('Auction No',a.no)}${kv('Chit Amount',f0(g.amount))}${kv('Less Company Commission',f2(a.comm))}${kv('Less Dividend to Members',f2(a.pool))}${kv('Bid Payable',f2(a.prize))}${kv('Less BPAdjustments',f2(num(a.gst)+adj))}${a.inv?kv('GST Invoice No',E(a.inv.no)):''}${kv('Payment Date',ps.length?dmy(ps[ps.length-1].date):'')}${kv('Paid Amount',f2(paid))}${kv('Balance Amount',f2(Math.max(0,bal)))}</div>
   ${adjs.length?`<div class="ac-box"><div class="ac-bh">BP Adjustments</div><table class="ac-t2"><thead><tr><th>Rect Date</th><th>Grp &amp; Chit No</th><th class="r">Rect Amt</th></tr></thead><tbody>${adjs.map(x=>`<tr><td>${x[0]}</td><td>${E(x[1])}</td><td class="r">${x[2]}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2" class="r">Total</td><td class="r">${f2(adjT)}</td></tr></tfoot></table></div>`:''}</div>
@@ -2232,15 +2235,15 @@ async function acPdf(g,t){
  if(d.rets.length){const rr=d.rets.map(x=>[dmy(x.date),String(x.rno),x.cno,x.bank,x.no===''?'':x.no+' '+x.mon,f2(x.amt),x.on?dmy(x.on):'',x.chg?f2(x.chg):'']),ws=[70,60,80,130,90,80,80,70];need(40+rr.length*16);txt('Cheque Returns',M,y-10,9,F2);y-=16;drawRow(M,ws,['Receipt Date','Receipt No','Cheque No','Bank','Inst.','Amount','Returned On','Charges'],{b:1,fill:GR,al:'c'});rr.forEach(q=>drawRow(M,ws,q,{r:[5,7]}));y-=10}
  /* auction particulars */
  if(won){const a=won,ps=S.payouts.filter(x=>x.aid===a.id).sort((x,y2)=>x.date.localeCompare(y2.date)),paid=ps.reduce((s,x)=>s+(x.dis?0:num(x.amount)),0),adj=ps.reduce((s,x)=>s+num(x.adjBP)+num(x.adjAdv),0),bal=netOf(a)-adj-paid,adjs=ps.filter(x=>num(x.adjBP)+num(x.adjAdv)>0).map(x=>[dmy(x.date),g.name+'/'+a.ticket,f2(num(x.adjBP)+num(x.adjAdv))]);if(num(a.gst)>0)adjs.unshift([dmy(a.date),g.name+'/'+a.ticket+(a.inv?' ('+a.inv.no+')':''),f2(a.gst)]);
-  const kv=[['Date Of Auction',dmy(a.date)],['Auction No',a.no],['Chit Amount',f0(g.amount)],['Less Company Commission',f2(a.comm)],['Less Dividend to Members',f2(a.pool)],['Bid Payable',f2(a.prize)],['Less BPAdjustments',f2(num(a.gst)+adj)],...(a.inv?[['GST Invoice No',a.inv.no]]:[]),['Payment Date',ps.length?dmy(ps[ps.length-1].date):''],['Paid Amount',f2(paid)],['Balance Amount',f2(Math.max(0,bal))]];
+  const kv=a.coWin?coAucKv(g,a):[['Date Of Auction',dmy(a.date)],['Auction No',a.no],['Chit Amount',f0(g.amount)],['Less Company Commission',f2(a.comm)],['Less Dividend to Members',f2(a.pool)],['Bid Payable',f2(a.prize)],['Less BPAdjustments',f2(num(a.gst)+adj)],...(a.inv?[['GST Invoice No',a.inv.no]]:[]),['Payment Date',ps.length?dmy(ps[ps.length-1].date):''],['Paid Amount',f2(paid)],['Balance Amount',f2(Math.max(0,bal))]];
   const bh=kv.length*LH+24;need(bh+8);const y0=y;box(M,y,300,bh);page.drawRectangle({x:M,y:y-14,width:300,height:14,color:GR,borderColor:LN,borderWidth:.6});txt('Auction Particulars',M+(300-tw('Auction Particulars',F2,8.5))/2,y-11,8.5,F2);
   kv.forEach(([k,v],i)=>{txt(k,M+6,y-14-FS-3-i*LH,FS,F2);txt(': '+v,M+150,y-14-FS-3-i*LH,FS,F1)});
   let yEnd=y0-bh;
-  if(adjs.length){const ws=[70,150,70],x0=M+320;y=y0;txt('BP Adjustments',x0,y-9,8.5,F2);y-=13;drawRow(x0,ws,['Rect Date','Grp & Chit No','Rect Amt'],{b:1,fill:GR,al:'c'});adjs.forEach(x=>drawRow(x0,ws,x,{r:[2]}));drawRow(x0,ws,['','Total',f2(num(a.gst)+adj)],{r:[2],b:1});yEnd=Math.min(yEnd,y)}
+  if(adjs.length&&!a.coWin){const ws=[70,150,70],x0=M+320;y=y0;txt('BP Adjustments',x0,y-9,8.5,F2);y-=13;drawRow(x0,ws,['Rect Date','Grp & Chit No','Rect Amt'],{b:1,fill:GR,al:'c'});adjs.forEach(x=>drawRow(x0,ws,x,{r:[2]}));drawRow(x0,ws,['','Total',f2(num(a.gst)+adj)],{r:[2],b:1});yEnd=Math.min(yEnd,y)}
   y=yEnd-10;
-  {const ws=[80,50,70,70,70,150,80,CW-570],hd=()=>drawRow(M,ws,['Payment Date','Series','Voucher No','Amount','Mode','Cheque / UTR No','Issued Date','Bank Name'],{b:1,fill:GR,al:'c'});need(50);hd();
+  if(!a.coWin){const ws=[80,50,70,70,70,150,80,CW-570],hd=()=>drawRow(M,ws,['Payment Date','Series','Voucher No','Amount','Mode','Cheque / UTR No','Issued Date','Bank Name'],{b:1,fill:GR,al:'c'});need(50);hd();
    if(ps.length)ps.forEach(x=>drawRow(M,ws,[dmy(x.date),x.series||'',x.vno||'',f2(x.amount),x.mode,x.ref||'',dmy(x.chqDate||x.date),x.acct||''],{r:[3],hdr:hd}));else drawRow(M,[CW],['No payment made yet.'],{hdr:hd});y-=10}
-  {need(46);const bx=M,bw=200;box(bx,y,bw,38);page.drawRectangle({x:bx,y:y-14,width:bw,height:14,color:GR,borderColor:LN,borderWidth:.6});txt('Charges Particulars',bx+(bw-tw('Charges Particulars',F2,8.5))/2,y-11,8.5,F2);
+  if(!a.coWin){need(46);const bx=M,bw=200;box(bx,y,bw,38);page.drawRectangle({x:bx,y:y-14,width:bw,height:14,color:GR,borderColor:LN,borderWidth:.6});txt('Charges Particulars',bx+(bw-tw('Charges Particulars',F2,8.5))/2,y-11,8.5,F2);
    txt('GST',bx+6,y-26,FS,F2);txt(': '+f2(a.gst),bx+70,y-26,FS,F1);txt('Total',bx+6,y-35,FS,F2);txt(': '+f2(a.gst),bx+70,y-35,FS,F1);y-=48}
  }
  /* footer note and signatures */
@@ -2281,7 +2284,8 @@ function acModel(g,t){const d=acData(g,t);if(!d)return null;
  m.rets=d.rets.map(x=>[dmy(x.date),String(x.rno),x.cno,x.bank,x.no===''?'':x.no+' '+x.mon,f2(x.amt),x.on?dmy(x.on):'',x.chg?f2(x.chg):'']);
  m.sum=[['Due :',f2(d.curDue)],['Previous Due :',f2(d.prevDue)],['Net Due :',f2(d.netDue)],['Penalty :',f2(L.penDue)],['Total Due :',f2(d.netDue+L.penDue),1]];
  m.auc=null;
- if(won){const a=won,ps=S.payouts.filter(x=>x.aid===a.id).sort((x,y)=>x.date.localeCompare(y.date)),paid=ps.reduce((s,x)=>s+(x.dis?0:num(x.amount)),0),adj=ps.reduce((s,x)=>s+num(x.adjBP)+num(x.adjAdv),0),bal=netOf(a)-adj-paid;
+ if(won&&won.coWin)m.auc={kv:coAucKv(g,won),adjs:[],adj:'0.00',pays:[],gst:'0.00',co:1};
+ else if(won){const a=won,ps=S.payouts.filter(x=>x.aid===a.id).sort((x,y)=>x.date.localeCompare(y.date)),paid=ps.reduce((s,x)=>s+(x.dis?0:num(x.amount)),0),adj=ps.reduce((s,x)=>s+num(x.adjBP)+num(x.adjAdv),0),bal=netOf(a)-adj-paid;
   m.auc={kv:[['Date Of Auction',dmy(a.date)],['Auction No',String(a.no)],['Chit Amount',f0(g.amount)],['Less Company Commission',f2(a.comm)],['Less Dividend to Members',f2(a.pool)],['Bid Payable',f2(a.prize)],['Less BPAdjustments',f2(num(a.gst)+adj)],...(a.inv?[['GST Invoice No',a.inv.no]]:[]),['Payment Date',ps.length?dmy(ps[ps.length-1].date):''],['Paid Amount',f2(paid)],['Balance Amount',f2(Math.max(0,bal))]],
    adjs:(num(a.gst)>0?[[dmy(a.date),g.name+'/'+a.ticket+(a.inv?' ('+a.inv.no+')':''),f2(a.gst)]]:[]).concat(ps.filter(x=>num(x.adjBP)+num(x.adjAdv)>0).map(x=>[dmy(x.date),g.name+'/'+a.ticket,f2(num(x.adjBP)+num(x.adjAdv))])),adj:f2(num(a.gst)+adj),
    pays:ps.map(x=>[dmy(x.date),x.series||'',x.vno||'',f2(x.amount),x.mode||'',x.ref||'',dmy(x.chqDate||x.date),x.acct||'']),gst:f2(a.gst)}}
@@ -2352,9 +2356,9 @@ async function acXlsx(g,t){const m=acModel(g,t);if(!m)throw new Error('no data')
   let r2=r0;if(a.adjs.length){put(r2,6,'BP Adjustments',{b:1},NC-6);r2++;const hd={b:1,f:GR,h:'center',bd:'tblr'};put(r2,6,'Rect Date',hd,2);put(r2,8,'Grp & Chit No',hd,3);put(r2,11,'Rect Amt',hd,2);r2++;
    a.adjs.forEach(x=>{put(r2,6,x[0],{bd:'tblr'},2);put(r2,8,x[1],{bd:'tblr'},3);put(r2,11,x[2],{bd:'tblr',h:'right'},2);r2++});put(r2,6,'',{bd:'tblr'},2);put(r2,8,'Total',{b:1,bd:'tblr',h:'right'},3);put(r2,11,a.adj,{b:1,bd:'tblr',h:'right'},2);r2++}
   r=Math.max(r,r2)+1;
-  {const hd={b:1,f:GR,h:'center',bd:'tblr'},sp=[[0,2],[2,1],[3,1],[4,2],[6,2],[8,2],[10,1],[11,2]];['Payment Date','Series','Voucher No','Amount','Mode','Cheque / UTR No','Issued Date','Bank Name'].forEach((s,i)=>put(r,sp[i][0],s,hd,sp[i][1]));r++;
+  if(!a.co){const hd={b:1,f:GR,h:'center',bd:'tblr'},sp=[[0,2],[2,1],[3,1],[4,2],[6,2],[8,2],[10,1],[11,2]];['Payment Date','Series','Voucher No','Amount','Mode','Cheque / UTR No','Issued Date','Bank Name'].forEach((s,i)=>put(r,sp[i][0],s,hd,sp[i][1]));r++;
    if(a.pays.length)a.pays.forEach(x=>{x.forEach((v,i)=>put(r,sp[i][0],v,{bd:'tblr',h:i===3?'right':'left'},sp[i][1]));r++});else{put(r,0,'No payment made yet.',{bd:'tblr'},NC);r++}}
-  r++;{const r1=r;put(r,0,'Charges Particulars',{b:1,f:GR,h:'center'},4);put(r+1,0,'GST',{b:1},2);put(r+1,2,': '+a.gst,{},2);put(r+2,0,'Total',{b:1},2);put(r+2,2,': '+a.gst,{},2);box(r1,0,r+2,3);r+=3}
+  if(!a.co){r++;const r1=r;put(r,0,'Charges Particulars',{b:1,f:GR,h:'center'},4);put(r+1,0,'GST',{b:1},2);put(r+1,2,': '+a.gst,{},2);put(r+2,0,'Total',{b:1},2);put(r+2,2,': '+a.gst,{},2);box(r1,0,r+2,3);r+=3}
   r++}
  all(r,0,AC_NOTE,{z:9});r++;hts[r]=34;r++;
  [[0,'Accountant'],[5,'Branch Manager'],[10,'Managing Director']].forEach(([c,s])=>put(r,c,s,{b:1,h:'center',bd:'t'},3));
@@ -2426,9 +2430,10 @@ async function acDocx(g,t){const m=acModel(g,t);if(!m)throw new Error('no data')
   const kvp=[par(run('Auction Particulars',{b:1,z:18}),{al:'center'}),...a.kv.map(x=>par(run(x[0],{b:1,z:17})+'<w:r><w:tab/></w:r>'+run(': '+x[1],{z:17}),{tab:3300}))].join('');
   let right='';if(a.adjs.length){const g3=[sp(6,8),sp(8,11),sp(11,13)];right=P_('BP Adjustments',{b:1,z:18})+tbl(g3,[{c:['Rect Date','Grp & Chit No','Rect Amt'].map((s,i)=>tc(g3[i],P_(s,{b:1,z:17,al:'center'}),{fill:'E4E8EE'})).join('')},...a.adjs.map(x=>({c:x.map((v,i)=>tc(g3[i],P_(v,{z:17,al:i===2?'right':'left'}))).join('')})),{c:tc(g3[0],'<w:p/>')+tc(g3[1],P_('Total',{b:1,z:17,al:'right'}))+tc(g3[2],P_(a.adj,{b:1,z:17,al:'right'}))}])}
   body+=tbl([wA,wB,wC],[{c:tc(wA,kvp,{box:1})+tc(wB,'<w:p/>')+tc(wC,right||'<w:p/>')}],{nob:1})+gap;
+  if(!a.co){
   const pw=[sp(0,2),sp(2,3),sp(3,4),sp(4,6),sp(6,8),sp(8,10),sp(10,11),sp(11,13)],ph=['Payment Date','Series','Voucher No','Amount','Mode','Cheque / UTR No','Issued Date','Bank Name'];
   body+=tbl(pw,[{c:ph.map((s,i)=>tc(pw[i],P_(s,{b:1,z:16,al:'center'}),{fill:'E4E8EE'})).join('')},...(a.pays.length?a.pays.map(x=>({c:x.map((v,i)=>tc(pw[i],P_(v,{z:16,al:i===3?'right':'left'}))).join('')})):[{c:tc(TOT,P_('No payment made yet.',{z:17}),{span:8})}])])+gap;
-  const cw=[sp(0,2),sp(2,4)];body+=tbl(cw,[{c:tc(cw[0]+cw[1],P_('Charges Particulars',{b:1,z:18,al:'center'}),{span:2,fill:'E4E8EE'})},{c:tc(cw[0],P_('GST',{b:1,z:17}))+tc(cw[1],P_(': '+a.gst,{z:17}))},{c:tc(cw[0],P_('Total',{b:1,z:17}))+tc(cw[1],P_(': '+a.gst,{z:17}))}])+gap}
+  const cw=[sp(0,2),sp(2,4)];body+=tbl(cw,[{c:tc(cw[0]+cw[1],P_('Charges Particulars',{b:1,z:18,al:'center'}),{span:2,fill:'E4E8EE'})},{c:tc(cw[0],P_('GST',{b:1,z:17}))+tc(cw[1],P_(': '+a.gst,{z:17}))},{c:tc(cw[0],P_('Total',{b:1,z:17}))+tc(cw[1],P_(': '+a.gst,{z:17}))}])+gap}}
  body+=P_(AC_NOTE,{z:17,after:360});
  {const w3=[sp(0,3),sp(3,5),sp(5,8),sp(8,10),sp(10,13)];const sg=(w,s)=>tc(w,P_(s,{b:1,z:18,al:'center'})).replace('</w:tcPr>','<w:tcBorders><w:top w:val="single" w:sz="6" w:color="111111"/></w:tcBorders></w:tcPr>');
   body+=tbl(w3,[{c:sg(w3[0],'Accountant')+tc(w3[1],'<w:p/>')+sg(w3[2],'Branch Manager')+tc(w3[3],'<w:p/>')+sg(w3[4],'Managing Director')}],{nob:1})}
