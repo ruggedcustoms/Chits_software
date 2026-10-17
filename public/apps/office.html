@@ -3229,12 +3229,24 @@ function imEngine(){
  /* a member code that is not found is reported, but the mobile and name are still tried first */
  const findE=(o,key)=>{const ch=key&&IM.pick&&IM.pick[key];if(ch){const q=ch[0]==='#'?byMno.get(+ch.slice(1)):findP(ch).p;if(q){const c0=findE0(o);return{p:q,w:'Member '+(q.oldCode||mno(q))+' chosen by you for this row.',cands:c0.cands,picked:ch}}}const f=findE0(o);if(f.p||!o.mcode||findP(o.mcode).p)return f;
   return{e:'Member code "'+o.mcode+'" is not in the Members sheet (Old code column) or the app.'+(f.e?' '+f.e:'')}};
+ /* no member has exactly this name: try it without dots and spaces, and in any word order ("MURALI.A" = "A MURALI");
+    otherwise list members who share a word of the name, to choose from */
+ const nKey=v=>low(v).replace(/[^a-z]/g,''),tKey=v=>low(v).split(/[^a-z]+/).filter(Boolean).sort().join(' ');
+ const pCand=p=>({code:p.oldCode||'#'+p.mno,txt:[p.oldCode||mno(p),p.name,pmob(p)||'no mobile',p.relName?'S/O or W/O '+p.relName:'',paddr(p)].filter(Boolean).join(' · ')});
+ const looseName=name=>{const nk=nKey(name),tk=tKey(name);if(nk.length<3)return null;
+  let c=S.persons.filter(p=>nKey(p.name)===nk||tKey(p.name)===tk);
+  if(c.length===1)return{p:c[0],w:'No member is named exactly "'+name+'", so '+(c[0].oldCode||mno(c[0]))+' "'+c[0].name+'" was taken (the same name apart from dots, spaces or word order). Check it.'};
+  if(c.length>1)return{e:'No member is named exactly "'+name+'", and '+c.length+' members have nearly the same name. Choose the right member below.',cands:c.map(pCand)};
+  const ws=low(name).split(/[^a-z]+/).filter(x=>x.length>=3);
+  c=ws.length?S.persons.filter(p=>{const pw=low(p.name).split(/[^a-z]+/);return ws.some(x=>pw.includes(x))}).slice(0,10):[];
+  if(c.length)return{e:'No member named "'+name+'" in the Members sheet or the app. Members with a similar name are below: choose one if it is the same person, or add this member to the Members sheet and upload again.',cands:c.map(pCand)};
+  return{e:'No member named "'+name+'" in the Members sheet or the app, and no member has a similar name. Add this member to the Members sheet (or correct the spelling here), then upload again.'}};
  const findE0=o=>{
   if(o.mcode){const f=findP(o.mcode);if(f.p)return f}
   if(mob10(o.mmobile).length===10){const l=byMob.get(mob10(o.mmobile));if(l&&l.length===1)return{p:l[0]}}
   const name=String(o.member||'').trim();if(!name)return o.mcode?{e:'Member code "'+o.mcode+'" not found in the Members sheet or the app.'}:{};
   const f=findP(name);if(f.p)return f;
-  let c=byName.get(low(name))||[];if(c.length<2)return f;
+  let c=byName.get(low(name))||[];if(!c.length&&!f.e){const lz=looseName(name);if(lz)return lz}if(c.length<2)return f;
   if(mob10(o.mmobile).length===10){const c2=c.filter(p=>mob10(pmob(p))===mob10(o.mmobile));if(c2.length)c=c2}
   if(c.length>1&&o.mrel){const c2=c.filter(p=>low(p.relName)===low(o.mrel));if(c2.length)c=c2}
   if(c.length>1&&o.maddr){const a=adKey(o.maddr),c2=a.length>=6?c.filter(p=>{const b=adKey(paddr(p)+' '+(p.address||''));return b&&(b.includes(a)||a.includes(b))}):[];if(c2.length)c=c2}
