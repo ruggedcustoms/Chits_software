@@ -3241,12 +3241,18 @@ function imEngine(){
   c=ws.length?S.persons.filter(p=>{const pw=low(p.name).split(/[^a-z]+/);return ws.some(x=>pw.includes(x))}).slice(0,10):[];
   if(c.length)return{e:'No member named "'+name+'" in the Members sheet or the app. Members with a similar name are below: choose one if it is the same person, or add this member to the Members sheet and upload again.',cands:c.map(pCand)};
   return{e:'No member named "'+name+'" in the Members sheet or the app, and no member has a similar name. Add this member to the Members sheet (or correct the spelling here), then upload again.'}};
+ /* the name is not in the app, but the Members sheet gives it an old code: find the member by that code. If the code
+    belongs to someone with another name (an earlier import), say so instead of guessing. */
+ const fileMem=name=>{const cs=[...new Set(rowsBy.members.filter(x=>x.o.oldCode&&(low(x.o.name)===low(name)||nKey(x.o.name)===nKey(name))).map(x=>x.o.oldCode))];
+  const ps=[...new Set(cs.map(k=>byOld.get(low(k))).filter(Boolean))];if(ps.length!==1)return null;const q=ps[0],qc=q.oldCode||mno(q);
+  if(nKey(q.name)===nKey(name)||tKey(q.name)===tKey(name))return{p:q};
+  return{e:'"'+name+'" is old code '+cs.join(', ')+' in the Members sheet, but the app already has that old code for "'+q.name+'" ('+qc+'), from an earlier import, so the Members row of "'+name+'" was not added. If they are the same person, choose them below. If not, correct the old code in the app (Members) or in the file, then upload again.',cands:[pCand(q)]}};
  const findE0=o=>{
   if(o.mcode){const f=findP(o.mcode);if(f.p)return f}
   if(mob10(o.mmobile).length===10){const l=byMob.get(mob10(o.mmobile));if(l&&l.length===1)return{p:l[0]}}
   const name=String(o.member||'').trim();if(!name)return o.mcode?{e:'Member code "'+o.mcode+'" not found in the Members sheet or the app.'}:{};
   const f=findP(name);if(f.p)return f;
-  let c=byName.get(low(name))||[];if(!c.length&&!f.e){const lz=looseName(name);if(lz)return lz}if(c.length<2)return f;
+  let c=byName.get(low(name))||[];if(!c.length&&!f.e){const fm=fileMem(name);if(fm)return fm;const lz=looseName(name);if(lz)return lz}if(c.length<2)return f;
   if(mob10(o.mmobile).length===10){const c2=c.filter(p=>mob10(pmob(p))===mob10(o.mmobile));if(c2.length)c=c2}
   if(c.length>1&&o.mrel){const c2=c.filter(p=>low(p.relName)===low(o.mrel));if(c2.length)c=c2}
   if(c.length>1&&o.maddr){const a=adKey(o.maddr),c2=a.length>=6?c.filter(p=>{const b=adKey(paddr(p)+' '+(p.address||''));return b&&(b.includes(a)||a.includes(b))}):[];if(c2.length)c=c2}
