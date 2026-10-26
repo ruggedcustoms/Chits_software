@@ -75,6 +75,13 @@ input,select{width:100%;border:1.5px solid var(--line);border-radius:12px;paddin
 .msg{border-left:3px solid var(--teal);padding:2px 0 2px 10px}
 .msg+.msg{margin-top:14px}
 .empty{color:var(--mute);text-align:center;padding:24px 0}
+/* company colours (see applyCoTheme): hero card shading with a small sun in the highlight colour, a stripe, progress in both colours */
+.co-themed .hero{background:linear-gradient(135deg,var(--teal),var(--hero2));position:relative;overflow:hidden}
+.co-themed .hero::after{content:"";position:absolute;right:-22px;top:-22px;width:70px;height:70px;border-radius:50%;background:var(--co2);box-shadow:0 0 0 10px color-mix(in srgb,var(--co2) 20%,transparent)}
+.co-themed .hero>*{position:relative;z-index:1}
+.co-themed .top{border-top:4px solid transparent;border-image:linear-gradient(90deg,var(--co1),var(--co2)) 1}
+.co-themed .bar i{background:linear-gradient(90deg,var(--teal),var(--co2))}
+.top .clogo{height:34px;width:auto;max-width:110px;object-fit:contain;border-radius:6px;background:#fff}
 .err{background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:10px 12px;font-size:.88rem;font-weight:600;margin:8px 0}
 @media (prefers-reduced-motion:no-preference){main>*{animation:in .25s ease both}@keyframes in{from{opacity:.01;transform:translateY(4px)}to{opacity:1;transform:none}}}
 .stt{width:100%;border-collapse:collapse;font-size:.78rem;font-variant-numeric:tabular-nums}.stt th{text-align:left;color:var(--mute);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--line)}.stt td{padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -141,7 +148,7 @@ async function mApi(method,path,body){const r=await fetch('/api'+path,{method,he
  let d={};try{d=await r.json()}catch(e){}
  if(!r.ok){const e=new Error(d.error||('The server could not do this ('+r.status+').'));e.status=r.status;throw e}return d}
 async function liveLoad(){const d=await mApi('GET','/member/home');
- DATA={company:d.company.name,phone:d.company.phone,upi:d.company.upi,member:d.member,chits:d.chits,receipts:d.receipts,notices:[],asOf:d.as_of};LV.on=true;st.user=true;st.demo=false}
+ DATA={company:d.company.name,phone:d.company.phone,upi:d.company.upi,brand:d.company.brand||null,member:d.member,chits:d.chits,receipts:d.receipts,notices:[],asOf:d.as_of};LV.on=true;st.user=true;st.demo=false}
 function liveStart(){LV.loading=true;LV.err='';draw();liveLoad().then(()=>{LV.loading=false;st.tab='home';draw()},e=>{LV.loading=false;if(e.status===401||e.status===403){LV.token='';tset('')}LV.err=e.message;draw()})}
 async function signIn(){const u=((document.getElementById('lg_u')||{}).value||'').trim(),p=(document.getElementById('lg_p')||{}).value||'',ce=document.getElementById('lg_c');if(ce)coSet(ce.value.trim());LV.u=u;
  if(!u||!p){LV.err=t('needUP');return draw()}
@@ -162,6 +169,22 @@ async function setPw(withCur){const v=id=>(document.getElementById(id)||{}).valu
 const owe=r=>r.left!=null?r.left:r.payable;
 const rateOf=(c,ps)=>LV.on?(ps?c.ratePs:c.rateNps):(ps?RATE.ps:RATE.nps);
 const canPay=()=>!LV.on||!!DATA.upi;
+/* ---------- company colours: every shade from the company's main and highlight colours, light and dark.
+   A main colour too light for white text is darkened until text reads at 4.5:1. ---------- */
+const hexRgb=h=>{h=String(h||'').replace('#','');return/^[0-9a-f]{6}$/i.test(h)?[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)):null};
+const rgbHex=c=>'#'+c.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+const lumOf=c=>{const f=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)};return .2126*f(c[0])+.7152*f(c[1])+.0722*f(c[2])};
+const contrastOf=(a,b)=>{const x=lumOf(a),y=lumOf(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+const mixC=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
+const fitC=(c,on,toward)=>{let x=c;for(let i=0;i<40&&contrastOf(x,on)<4.5;i++)x=mixC(x,toward,.06);return x};
+function coThemeCss(main,accent){const W=[255,255,255],K=[0,0,0],DB=[13,24,27],m0=hexRgb(main);if(!m0)return'';const a=hexRgb(accent)||m0,h=rgbHex;
+ const m=fitC(m0,W,K),dm=fitC(m0,DB,W);
+ const L=`--teal:${h(m)};--teal-ink:#ffffff;--soft:${h(mixC(m,W,.88))};--surface:${h(mixC(m,W,.95))};--hero2:${h(fitC(mixC(m0,a,.3),W,K))};--co1:${h(m0)};--co2:${h(a)}`;
+ const D=`--teal:${h(dm)};--teal-ink:#06201d;--soft:${h(mixC(dm,DB,.78))};--hero2:${h(dm)};--co1:${h(m0)};--co2:${h(a)}`;
+ return`:root,:root[data-theme="light"]{${L}}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){${D}}}:root[data-theme="dark"]{${D}}`}
+const coBrand=()=>LV.on&&DATA.brand&&DATA.brand.color?DATA.brand:!st.user&&BR&&BR.color?BR:null;
+function applyCoTheme(){const b=coBrand(),css=b?coThemeCss(b.color,b.accent):'';let el=document.getElementById('co-theme');
+ if(!el){el=document.createElement('style');el.id='co-theme';document.body.appendChild(el)}if(el.textContent!==css)el.textContent=css;document.documentElement.classList.toggle('co-themed',!!css)}
 const nextRows=c=>(c.next?`<div class="kv"><span>${t('next')}</span><span>${dmy(c.next)}${c.time?', '+esc(c.time):''}</span></div>`:`<div class="kv"><span>${t('next')}</span><span>${t('noNext')}</span></div>`)+(c.venue?`<div class="kv"><span>${t('venue')}</span><span>${esc(c.venue)}</span></div>`:'');
 Object.assign(L.kn,{dlRc:'ರಸೀದಿ ಡೌನ್‌ಲೋಡ್ (PDF)'});
 function instView(c){const f=st.ifl||'all',rows=c.rows.filter(r=>f==='all'||(f==='paid')===r.paid);
@@ -355,12 +378,12 @@ function accountCard(){return`<h2>${t('stmt')}</h2><div class="card"><div class=
 
 /* ---------- Shell ---------- */
 const TITLES={home:()=>DATA.company,chits:()=>t('chits'),receipts:()=>t('receipts'),auctions:()=>t('auctions'),more:()=>t('more')};
-function draw(){const a=document.getElementById('app'),keepScroll=a.querySelector('main')?a.querySelector('main').scrollTop:0;
+function draw(){applyCoTheme();const a=document.getElementById('app'),keepScroll=a.querySelector('main')?a.querySelector('main').scrollTop:0;
  if(!st.user){a.innerHTML=LV.must?pwView():loginView();return}
  const sub=['chit','pay','live','prize','stmt','score','chpw'].includes(st.tab),title=st.tab==='chpw'?t('chPw'):st.tab==='chit'?((DATA.chits.find(x=>x.id===st.chit)||{}).group||''):st.tab==='pay'?t('pay'):st.tab==='live'?t('liveT'):st.tab==='prize'?t('prizeT'):st.tab==='stmt'?t('stmt'):st.tab==='score'?t('score'):TITLES[st.tab]();
  const view={chpw:chpwView,home:homeView,chits:chitsView,chit:chitView,receipts:receiptsView,auctions:auctionsView,more:moreView,pay:payView,live:liveView,prize:prizeView,stmt:stmtView,score:scoreView}[st.tab]();
  const cur=sub?(st.tab==='stmt'||st.tab==='score'||st.tab==='chpw'?'more':st.tab==='live'||st.tab==='prize'?'auctions':st.chit&&st.tab==='chit'?'chits':'home'):st.tab;
- a.innerHTML=`${st.demo?`<div class="demo">${t('demoBar')}</div>`:''}<header class="top">${sub?`<button class="back" aria-label="${t('back')}" onclick="goBack()">&#8592;</button>`:''}<h1>${esc(title)}</h1></header><main id="mn">${view}</main><nav aria-label="Main">${['home','chits','receipts','auctions','more'].map(k=>`<button onclick="goTab('${k}')" ${cur===k?'aria-current="page"':''}>${svg(k)}${t(k)}</button>`).join('')}</nav>`;
+ a.innerHTML=`${st.demo?`<div class="demo">${t('demoBar')}</div>`:''}<header class="top">${sub?`<button class="back" aria-label="${t('back')}" onclick="goBack()">&#8592;</button>`:LV.on&&DATA.brand&&DATA.brand.logo?`<img class="clogo" src="${esc(DATA.brand.logo)}" alt="">`:''}<h1>${esc(title)}</h1></header><main id="mn">${view}</main><nav aria-label="Main">${['home','chits','receipts','auctions','more'].map(k=>`<button onclick="goTab('${k}')" ${cur===k?'aria-current="page"':''}>${svg(k)}${t(k)}</button>`).join('')}</nav>`;
  const m=document.getElementById('mn');if(m&&keepScroll&&!sub)m.scrollTop=keepScroll}
 function goTab(k){stopLive();st.tab=k;st.rc=null;draw();const m=document.getElementById('mn');if(m)m.scrollTop=0}
 function openChit(id,tab){st.chit=id;st.ctab=tab||'inst';st.tab='chit';draw()}

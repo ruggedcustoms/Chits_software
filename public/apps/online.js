@@ -176,7 +176,7 @@
   // Company settings and day-to-day lists, kept as shared settings on the server.
   const SHARED = ['company', 'coLogo', 'coAddr', 'coHead', 'coGstin', 'coPhone', 'coMobile', 'coWeb', 'coState', 'coEmail', 'coSac', 'masters', 'mPrefix', 'defCo', 'penPS', 'penNPS',
     'lockDate', 'upi', 'upiName', 'smsTpl', 'bpSeries', 'bvSeries', 'invPrefix', 'tdsPct', 'useLot', 'useBid', 'secSet', 'ntTpl', 'ntTplK', 'callMonths', 'acNet', 'targets',
-    'bankAccts', 'cgNotes', 'ocV', 'accts', 'calls', 'enq', 'notices', 'smsLog', 'hist'];
+    'bankAccts', 'cgNotes', 'ocV', 'accts', 'calls', 'enq', 'notices', 'smsLog', 'hist', 'coColor', 'coColor2'];
   // Money records the online version cannot keep yet. Changing them is refused, so nothing is half-saved.
   const NOT_YET = { future: 'Future receipts', cancels: 'Member removal', bidAdv: 'Bid advances', pdcs: 'Post-dated cheques', transfers: 'Ticket transfers', reauctions: 'Reauction',
     denoms: 'Denomination entry', vouchers: 'Vouchers', loans: 'Loans on chits', fds: 'FD register', agentComm: 'Agent commission', agPays: 'Agent payments',
@@ -233,6 +233,9 @@
     const d = await api('GET', '/sync');
     USERS = Object.fromEntries(d.users.map((u) => [u.id, u.name]));
     LIC = d.me.licence || null;
+    // The colours and logo the software provider set for this company.
+    const brand = d.company.brand || {};
+    window.cmBrand = brand;
     COID = d.company.id;
     const set = d.company.settings || {};
     const fresh = norm(Object.assign({}, set, {
@@ -245,6 +248,7 @@
       receipts: d.receipts.map(fromReceipt),
       payouts: d.prize_payments.map(fromPay),
     }));
+    if (!fresh.coLogo && brand.logo) fresh.coLogo = brand.logo;
     fresh.seq = { r: Math.max(0, ...fresh.receipts.map((r) => r.no)), m: Math.max(0, ...fresh.persons.map((p) => p.mno || 0)), b: Math.max(0, ...fresh.payouts.map((x) => x.vno || 0)) };
     fresh.roles = [{ id: 'r_online', name: d.me.role.name, sys: !!d.me.perms.all, perms: permsFor(d.me.perms) }];
     ST.user = { id: d.me.user.id, name: d.me.user.name, user: d.me.user.username, roleId: 'r_online', active: true };
@@ -437,13 +441,14 @@
     if (!co) return;
     try {
       const r = await fetch('/api/brand?co=' + encodeURIComponent(co));
-      if (r.ok) { BRAND = await r.json(); if (!ST.user) render(); }
+      if (r.ok) { BRAND = await r.json(); if (!ST.user) { window.cmBrand = BRAND; render(); } }
     } catch (e) { /* the page works without it */ }
   }
 
   // ---- sign in and out ----
   function signedOut(msg) {
     LIC = null;
+    window.cmBrand = BRAND;
     showLicence();
     token = '';
     store.set(TOKEN_KEY, '');

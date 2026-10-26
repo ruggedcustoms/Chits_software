@@ -12,6 +12,8 @@ const parse = (s) => {
   try { return JSON.parse(s || '{}'); } catch { return {}; }
 };
 const rup = (p) => (p || 0) / 100;
+// The company's colours and logo for the app's look.
+const brandOf = (s) => { const b = parse(s); return { color: b.color || null, accent: b.accent || null, logo: b.logo || null }; };
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const monthOf = (d) => (d ? MON[+d.slice(5, 7) - 1] + ' ' + d.slice(0, 4) : '');
 
@@ -180,7 +182,7 @@ async function home({ env, ctx }) {
   const today = todayIst();
   const pid = ctx.member.id;
   const [company, person, addresses, enrolls, branches] = await db.batch([
-    db.prepare('SELECT name, phone, member_prefix, settings_json FROM companies WHERE id = ?').bind(ctx.companyId),
+    db.prepare('SELECT name, phone, member_prefix, settings_json, brand_json FROM companies WHERE id = ?').bind(ctx.companyId),
     db.prepare('SELECT id, name, member_no, entry_date FROM persons WHERE company_id = ? AND id = ?').bind(ctx.companyId, pid),
     db.prepare('SELECT * FROM person_addresses WHERE person_id = ?').bind(pid),
     db.prepare("SELECT id, group_id FROM enrollments WHERE company_id = ? AND person_id = ? AND status = 'Active'").bind(ctx.companyId, pid),
@@ -250,7 +252,7 @@ async function home({ env, ctx }) {
   const prefix = set.mPrefix != null ? set.mPrefix : co.member_prefix;
   return json({
     as_of: today,
-    company: { name: set.company || co.name, phone: set.coPhone || set.coMobile || co.phone || '', upi: set.upi || '', upiName: set.upiName || '' },
+    company: { name: set.company || co.name, phone: set.coPhone || set.coMobile || co.phone || '', upi: set.upi || '', upiName: set.upiName || '', brand: brandOf(co.brand_json) },
     member: {
       name: p.name, mno: memberCode(prefix, p.member_no), mobile: addr.mobile || '', since: p.entry_date || '',
       address: [addr.door, addr.street, addr.area, addr.city, addr.pin].filter(Boolean).join(', '),

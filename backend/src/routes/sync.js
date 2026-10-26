@@ -15,7 +15,7 @@ async function sync({ env, ctx }) {
   const db = env.DB;
   const c = ctx.companyId;
   const [company, groups, persons, addresses, enrollments, auctions, receipts, insts, payments, users] = await db.batch([
-    db.prepare('SELECT id, name, member_prefix, settings_json FROM companies WHERE id = ?').bind(c),
+    db.prepare('SELECT id, code, name, member_prefix, settings_json, brand_json FROM companies WHERE id = ?').bind(c),
     db.prepare('SELECT * FROM chit_groups WHERE company_id = ? ORDER BY name').bind(c),
     db.prepare('SELECT * FROM persons WHERE company_id = ? ORDER BY member_no').bind(c),
     db.prepare('SELECT a.* FROM person_addresses a JOIN persons p ON p.id = a.person_id WHERE p.company_id = ?').bind(c),
@@ -34,7 +34,7 @@ async function sync({ env, ctx }) {
   const withExtra = (rows) => rows.map((r) => ({ ...r, extra: parse(r.extra_json), extra_json: undefined }));
   return json({
     me: { user: ctx.user, role: ctx.role, perms: ctx.perms, licence: { ...ctx.licence, message: licenceMessage(ctx.licence) } },
-    company: { id: co.id, name: co.name, member_prefix: co.member_prefix, settings: parse(co.settings_json) },
+    company: { id: co.id, code: co.code, name: co.name, member_prefix: co.member_prefix, settings: parse(co.settings_json), brand: parse(co.brand_json) },
     users: users.results,
     groups: withExtra(groups.results),
     persons: withExtra(persons.results).map((p) => ({ ...p, roles: parse(p.roles_json), roles_json: undefined, addresses: addrBy.get(p.id) || [] })),
