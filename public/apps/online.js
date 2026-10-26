@@ -23,6 +23,13 @@
   const setMode = (m) => { store.set(MODE_KEY, m); location.reload(); };
   window.cmSetMode = setMode;
 
+  // The sign-in link on a company's website carries its code (?co=mrj). It always opens the online version.
+  const qco = (() => { try { return (new URLSearchParams(location.search).get('co') || '').trim(); } catch (e) { return ''; } })();
+  if (qco) { store.set(CO_KEY, qco); if (store.get(MODE_KEY) === 'local') store.set(MODE_KEY, 'online'); }
+  // A session belongs to the company it signed in to. A link for another company must not open it.
+  const TOKEN_CO_KEY = 'cm-token-co';
+  if (qco && store.get(TOKEN_CO_KEY).toLowerCase() !== qco.toLowerCase()) { store.set(TOKEN_KEY, ''); store.set(TOKEN_CO_KEY, ''); }
+
   // ---- browser-only mode: leave everything as it is, plus a way back to online ----
   if (store.get(MODE_KEY) === 'local') {
     const tag = document.createElement('div');
@@ -184,6 +191,9 @@
 
   // ---- talking to the API ----
   let token = store.get(TOKEN_KEY);
+  let BRAND = null; // the company's name, logo and colour for its sign-in page
+  let MUST = null;  // { cur } while a temporary password must be replaced
+  let LIC = null;   // the company's licence, from the server
   let USERS = {};
   let BASE = null; // what S looked like at the last load, by collection and id
   let busy = false;
@@ -222,6 +232,7 @@
     BASE = null; // so a save() made while loading is not sent
     const d = await api('GET', '/sync');
     USERS = Object.fromEntries(d.users.map((u) => [u.id, u.name]));
+    LIC = d.me.licence || null;
     COID = d.company.id;
     const set = d.company.settings || {};
     const fresh = norm(Object.assign({}, set, {
@@ -237,6 +248,7 @@
     fresh.seq = { r: Math.max(0, ...fresh.receipts.map((r) => r.no)), m: Math.max(0, ...fresh.persons.map((p) => p.mno || 0)), b: Math.max(0, ...fresh.payouts.map((x) => x.vno || 0)) };
     fresh.roles = [{ id: 'r_online', name: d.me.role.name, sys: !!d.me.perms.all, perms: permsFor(d.me.perms) }];
     ST.user = { id: d.me.user.id, name: d.me.user.name, user: d.me.user.username, roleId: 'r_online', active: true };
+    showLicence();
     fresh.staff = [ST.user];
     fresh.lock = {};
     // Member app logins live on the server; their buttons call it directly (see below), so they are not part of save().
@@ -406,8 +418,33 @@
     });
   };
 
+  // ---- licence: a banner while the company can only look (expired, within the grace days) ----
+  function showLicence() {
+    let el = document.getElementById('cm-lic');
+    if (!LIC || LIC.state !== 'read-only' || !ST.user) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cm-lic';
+      el.setAttribute('role', 'status');
+      el.style.cssText = 'position:sticky;top:0;z-index:9998;background:#fdf0db;color:#7a4500;padding:8px 16px;font:600 14px sans-serif;text-align:center;border-bottom:1px solid #f0c98a';
+      document.body.prepend(el);
+    }
+    el.textContent = LIC.message;
+  }
+
+  async function loadBrand() {
+    const co = store.get(CO_KEY);
+    if (!co) return;
+    try {
+      const r = await fetch('/api/brand?co=' + encodeURIComponent(co));
+      if (r.ok) { BRAND = await r.json(); if (!ST.user) render(); }
+    } catch (e) { /* the page works without it */ }
+  }
+
   // ---- sign in and out ----
   function signedOut(msg) {
+    LIC = null;
+    showLicence();
     token = '';
     store.set(TOKEN_KEY, '');
     ST.user = null;
@@ -420,28 +457,64 @@
   }
 
   function onlineLoginPage() {
-    const lastCo = store.get(CO_KEY);
-    return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:linear-gradient(160deg,#12766b,#073a35)">'
-      + '<div class="card" style="width:100%;max-width:400px;padding:24px"><div style="font:800 1.5rem/1 sans-serif;color:#12766b;margin-bottom:6px">CHIT MASTER PRO</div>'
-      + '<h1 style="margin:10px 0 4px">Sign in</h1><p class="sub">Online: your company\'s shared data, the same on every computer.</p><div id="err" class="err" hidden></div>'
+    if (MUST) return changePwPage();
+    const lastCo = store.get(CO_KEY), b = BRAND;
+    const color = b && b.color ? b.color : '#12766b';
+    const head = b
+      ? (b.logo ? '<div style="text-align:center;margin-bottom:8px"><img src="' + esc(b.logo) + '" alt="" style="max-width:100%;max-height:110px"></div>' : '')
+        + '<div style="font:800 1.25rem/1.2 sans-serif;color:' + esc(color) + ';text-align:center">' + esc(b.name) + '</div>'
+      : '<div style="font:800 1.5rem/1 sans-serif;color:#12766b;margin-bottom:6px">CHIT MASTER PRO</div>';
+    return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:linear-gradient(160deg,' + esc(color) + ',#0b1f24)">'
+      + '<div class="card" style="width:100%;max-width:400px;padding:24px">' + head
+      + '<h1 style="margin:14px 0 4px">Staff sign in</h1><div id="err" class="err" hidden></div>'
       + '<label class="f">Username<input id="ol_u" autocomplete="username" autofocus onkeydown="if(event.key===\'Enter\')$(\'ol_p\').focus()"></label>'
       + '<label class="f">Password<input id="ol_p" type="password" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')doLogin()"></label>'
-      + '<label class="f">Company code <small>(only if your office has more than one company)</small><input id="ol_c" value="' + esc(lastCo) + '" autocomplete="off"></label>'
+      + (lastCo && b ? '' : '<label class="f">Company code <small>(in the sign-in link from your company\'s website)</small><input id="ol_c" value="' + esc(lastCo) + '" autocomplete="off"></label>')
       + '<div class="row" style="margin-top:12px"><button class="btn" id="ol_go" onclick="doLogin()" style="width:100%;justify-content:center">Sign in</button></div>'
       + '<p class="muted" style="margin:14px 0 0">Forgot your password? Ask your owner to reset it.</p>'
-      + '<p class="muted" style="margin:8px 0 0"><a href="#" onclick="cmSetMode(\'local\');return false">Use this browser\'s own data instead</a> (the earlier prototype, not shared)</p>'
+      + (b ? '' : '<p class="muted" style="margin:8px 0 0"><a href="#" onclick="cmSetMode(\'local\');return false">Use this browser\'s own data instead</a> (the earlier prototype, not shared)</p>')
+      + '<p class="muted" style="margin:10px 0 0;font-size:12px">Software by Rugged Customs</p>'
       + '</div></div>';
   }
 
+  // A temporary password (from the owner or the software provider) must be replaced before anything else.
+  function changePwPage() {
+    return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:linear-gradient(160deg,' + esc((BRAND && BRAND.color) || '#12766b') + ',#0b1f24)">'
+      + '<div class="card" style="width:100%;max-width:400px;padding:24px"><h1 style="margin:0 0 4px">Set your own password</h1>'
+      + '<p class="sub">You signed in with a temporary password. Choose your own to continue.</p><div id="err" class="err" hidden></div>'
+      + '<label class="f">New password<input id="ol_n1" type="password" autocomplete="new-password" autofocus></label>'
+      + '<label class="f">New password again<input id="ol_n2" type="password" autocomplete="new-password" onkeydown="if(event.key===\'Enter\')cmSetPw()"></label>'
+      + '<p class="muted" style="margin:6px 0 0">At least 10 characters, with letters and numbers.</p>'
+      + '<div class="row" style="margin-top:12px"><button class="btn" id="ol_go" onclick="cmSetPw()" style="width:100%;justify-content:center">Save and continue</button></div>'
+      + '<p class="muted" style="margin:12px 0 0"><a href="#" onclick="logout();return false">Sign out</a></p></div></div>';
+  }
+  window.cmSetPw = async function () {
+    const a = $('ol_n1').value, b2 = $('ol_n2').value;
+    if (a !== b2) return err('The two passwords do not match.');
+    $('ol_go').disabled = true;
+    try {
+      await api('POST', '/auth/password', { current_password: MUST.cur, new_password: a });
+      MUST = null;
+      await loadAll();
+      flash = null;
+      go(firstPage());
+    } catch (e) {
+      if ($('ol_go')) $('ol_go').disabled = false;
+      err(e.message);
+    }
+  };
+
   async function onlineLogin() {
-    const u = $('ol_u').value.trim(), p = $('ol_p').value, co = $('ol_c').value.trim();
+    const u = $('ol_u').value.trim(), p = $('ol_p').value, co = $('ol_c') ? $('ol_c').value.trim() : store.get(CO_KEY);
     if (!u || !p) return err('Enter your username and password.');
     $('ol_go').disabled = true;
     try {
-      const r = await api('POST', '/auth/login', Object.assign({ username: u, password: p }, co ? { company_id: co } : {}));
+      const r = await api('POST', '/auth/login', Object.assign({ username: u, password: p }, co ? { company_code: co } : {}));
       token = r.token;
       store.set(TOKEN_KEY, token);
       store.set(CO_KEY, co);
+      store.set(TOKEN_CO_KEY, co || '');
+      if (r.must_change) { MUST = { cur: p }; render(); return; }
       await loadAll();
       flash = null;
       go(firstPage());
@@ -452,6 +525,7 @@
   }
 
   async function onlineLogout() {
+    MUST = null;
     try { await api('POST', '/auth/logout'); } catch (e) { /* already signed out */ }
     signedOut();
   }
@@ -471,6 +545,7 @@
   S = norm({});
   S.staff = [{ id: '_', active: true, user: '', name: '' }];
   ST.user = null;
+  loadBrand();
   if (token) {
     loadAll().then(render, (e) => signedOut(e.message === 'Please sign in again.' ? '' : e.message));
   } else {

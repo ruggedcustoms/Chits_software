@@ -309,6 +309,88 @@ eq('reset ends the old sessions', (await mcall('GET', '/api/member/home', null, 
 await ok('POST', '/api/member/logout', null, after.token);
 eq('signed-out member session no longer works', (await mcall('POST', '/api/member/password', {}, after.token)).status, 401);
 
+// ------------------------------------------------------------------ provider console and licences
+console.log('\n11. Software provider console, company codes and licences');
+const { createHmac } = await import('node:crypto');
+// Authenticator codes worked out here independently (RFC 6238, SHA-1, 30 s, 6 digits).
+const b32 = (s) => { let bits = ''; for (const c of s) bits += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c).toString(2).padStart(5, '0'); return Buffer.from(bits.match(/.{8}/g).map((x) => parseInt(x, 2))); };
+const totp = (secret, step = Math.floor(Date.now() / 30000)) => {
+  const msg = Buffer.alloc(8); msg.writeUInt32BE(Math.floor(step / 2 ** 32), 0); msg.writeUInt32BE(step % 2 ** 32, 4);
+  const h = createHmac('sha1', b32(secret)).update(msg).digest(); const o = h[h.length - 1] & 15;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0');
+};
+const nowStep = () => Math.floor(Date.now() / 30000);
+const tag = crypto.randomUUID().slice(0, 6);
+const adminPw = pw();
+eq('console setup refused without the key', (await call('POST', '/api/platform/setup', { name: 'x', username: 'x', password: adminPw })).status, 403);
+await ok('POST', '/api/platform/setup', { name: 'Test Provider', username: 'rc-' + tag, password: adminPw }, null, { 'x-setup-key': SETUP_KEY });
+const first = await ok('POST', '/api/platform/login', { username: 'rc-' + tag, password: adminPw });
+check('first console sign-in asks to set up the authenticator', first.need === 'setup' && /^[A-Z2-7]{32}$/.test(first.secret) && first.otpauth.startsWith('otpauth://totp/'), JSON.stringify(first).slice(0, 120));
+eq('wrong code refused', (await call('POST', '/api/platform/login', { username: 'rc-' + tag, password: adminPw, code: '000000' })).status, 401);
+const step0 = nowStep();
+const adm = await ok('POST', '/api/platform/login', { username: 'rc-' + tag, password: adminPw, code: totp(first.secret, step0) });
+check('password + authenticator code signs in', !!adm.token && adm.admin.role === 'owner', JSON.stringify(adm).slice(0, 120));
+eq('next sign-in without a code asks for one', (await ok('POST', '/api/platform/login', { username: 'rc-' + tag, password: adminPw })).need, 'code');
+eq('the same code cannot be used twice', (await call('POST', '/api/platform/login', { username: 'rc-' + tag, password: adminPw, code: totp(first.secret, step0) })).status, 401);
+const A = adm.token;
+eq('a company owner cannot open the console', (await call('GET', '/api/platform/companies', null, owner)).status, 401);
+eq('the console cannot open company data', (await call('GET', '/api/groups', null, A)).status, 401);
+
+const code = 'test-' + tag;
+const made = await ok('POST', '/api/platform/companies', {
+  name: 'Console Test Chits', code, owner_name: 'Console Owner', valid_till: '2099-12-31', grace_days: 10,
+  brand: { color: '#0A86D0', accent: '#FFD200', website: 'https://example.com', logo: 'data:image/png;base64,iVBORw0KGgo=' },
+}, A);
+check('company created with a temporary owner password', made.code === code && made.username === 'owner' && /[A-Za-z]/.test(made.password) && /\d/.test(made.password) && made.password.length >= 10, JSON.stringify(made));
+eq('company code must be unique', (await call('POST', '/api/platform/companies', { name: 'Dup', code, owner_name: 'x' }, A)).status, 409);
+const br = await ok('GET', '/api/brand?co=' + code);
+check('sign-in page brand is public: name, logo, colour', br.name === 'Console Test Chits' && br.logo.startsWith('data:image/png') && br.color === '#0A86D0', JSON.stringify(br).slice(0, 160));
+const ow = await ok('POST', '/api/auth/login', { company_code: code.toUpperCase(), username: 'owner', password: made.password });
+eq('owner signs in with the company code and must change the password', ow.must_change, true);
+eq('nothing else until the password is changed', (await call('GET', '/api/groups', null, ow.token)).status, 403);
+const ownerPw = pw();
+await ok('POST', '/api/auth/password', { current_password: made.password, new_password: ownerPw }, ow.token);
+eq('after changing it, the owner works normally', (await call('GET', '/api/groups', null, ow.token)).status, 200);
+
+// support admin
+const sup = await ok('POST', '/api/platform/admins', { name: 'Test Support', username: 'sup-' + tag, role: 'support' }, A);
+const s1 = await ok('POST', '/api/platform/login', { username: 'sup-' + tag, password: sup.password });
+const sTok = (await ok('POST', '/api/platform/login', { username: 'sup-' + tag, password: sup.password, code: totp(s1.secret) })).token;
+eq('support must change the temporary password first', (await call('GET', '/api/platform/companies', null, sTok)).status, 403);
+await ok('POST', '/api/platform/password', { current_password: sup.password, new_password: pw() }, sTok);
+const list = await ok('GET', '/api/platform/companies', null, sTok);
+const mine = list.find((c) => c.code === code);
+check('support sees companies with usage and licence', !!mine && mine.staff === 1 && mine.licence.state === 'active', JSON.stringify(mine || {}).slice(0, 200));
+eq('support cannot create companies', (await call('POST', '/api/platform/companies', { name: 'x', code: 'x-' + tag, owner_name: 'x' }, sTok)).status, 403);
+eq('support cannot change a licence', (await call('PATCH', `/api/platform/companies/${made.company_id}`, { status: 'Suspended' }, sTok)).status, 403);
+const rs1 = await ok('POST', `/api/platform/companies/${made.company_id}/reset-owner`, null, sTok);
+eq('support can reset the owner password: old sessions end', (await call('GET', '/api/groups', null, ow.token)).status, 401);
+const ow2 = await ok('POST', '/api/auth/login', { company_code: code, username: 'owner', password: rs1.password });
+eq('the reset password is temporary', ow2.must_change, true);
+await ok('POST', '/api/auth/password', { current_password: rs1.password, new_password: ownerPw }, ow2.token);
+const O2 = ow2.token;
+
+// licences
+const ist = (days) => new Date(Date.now() + 5.5 * 3600e3 + days * 864e5).toISOString().slice(0, 10);
+await ok('PATCH', `/api/platform/companies/${made.company_id}`, { valid_till: ist(-1), grace_days: 10 }, A);
+eq('expired, within the grace days: can still look', (await call('GET', '/api/groups', null, O2)).status, 200);
+const ro = await call('POST', '/api/groups', { name: 'X' }, O2);
+check('expired, within the grace days: cannot change anything', ro.status === 403 && /look at your data until/.test(ro.data.error), JSON.stringify(ro));
+eq('the read-only state is shown to the office', (await ok('GET', '/api/auth/me', null, O2)).licence.state, 'read-only');
+await ok('PATCH', `/api/platform/companies/${made.company_id}`, { valid_till: ist(-11) }, A);
+eq('after the grace days: open sessions stop', (await call('GET', '/api/groups', null, O2)).status, 403);
+const blockedLogin = await call('POST', '/api/auth/login', { company_code: code, username: 'owner', password: ownerPw });
+check('after the grace days: sign-in refused with a message to renew', blockedLogin.status === 403 && /Rugged Customs/.test(blockedLogin.data.error), JSON.stringify(blockedLogin));
+await ok('PATCH', `/api/platform/companies/${made.company_id}`, { valid_till: '2099-12-31', status: 'Suspended' }, A);
+eq('suspended: sign-in refused', (await call('POST', '/api/auth/login', { company_code: code, username: 'owner', password: ownerPw })).status, 403);
+await ok('PATCH', `/api/platform/companies/${made.company_id}`, { status: 'Active' }, A);
+eq('active again: sign-in works', (await call('POST', '/api/auth/login', { company_code: code, username: 'owner', password: ownerPw })).status, 200);
+eq('another company is not affected', (await call('GET', '/api/groups', null, owner)).status, 200);
+const plog = await ok('GET', '/api/platform/audit', null, A);
+check('console audit records who did what', plog.some((x) => x.action === 'create company' && x.admin === 'Test Provider') && plog.some((x) => x.action === 'reset owner password' && x.admin === 'Test Support'), '');
+await ok('POST', '/api/platform/logout', null, A);
+eq('signed-out console session no longer works', (await call('GET', '/api/platform/me', null, A)).status, 401);
+
 // ------------------------------------------------------------------ summary
 const lines = [`API: ${BASE}`, `Company code: ${co.company_id}`, ...Object.entries(logins).map(([u, p]) => `${u.padEnd(10)} ${p}`)];
 const loginsFile = /localhost|127\.0\.0\.1/.test(BASE) ? 'test-logins.dev.local.txt' : 'test-logins.local.txt';

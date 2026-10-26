@@ -5,9 +5,12 @@
 
 import { HttpError, json } from './lib/http.js';
 import { authenticate, authenticateMember } from './lib/auth.js';
+import { authenticatePlatform } from './lib/platform.js';
+import { licenceMessage } from './lib/licence.js';
 import { authRoutes } from './routes/auth.js';
 import { masterRoutes } from './routes/masters.js';
 import { memberRoutes } from './routes/member.js';
+import { platformRoutes } from './routes/platform.js';
 import { moneyRoutes } from './routes/money.js';
 import { reportRoutes } from './routes/reports.js';
 import { syncRoutes } from './routes/sync.js';
@@ -24,10 +27,19 @@ async function health({ env, request }) {
 const compile = ([method, path, handler, opts = {}]) => {
   const names = [];
   const re = new RegExp('^' + path.replace(/:(\w+)/g, (_, n) => (names.push(n), '([^/]+)')) + '$');
-  return { method, re, names, handler, public: !!opts.public, member: !!opts.member };
+  return { method, re, names, handler, public: !!opts.public, member: !!opts.member, platform: !!opts.platform };
 };
 
-const routes = [['GET', '/api/health', health, { public: true }], ...authRoutes, ...masterRoutes, ...moneyRoutes, ...reportRoutes, ...syncRoutes, ...memberRoutes].map(compile);
+const routes = [['GET', '/api/health', health, { public: true }], ...authRoutes, ...masterRoutes, ...moneyRoutes, ...reportRoutes, ...syncRoutes, ...memberRoutes, ...platformRoutes].map(compile);
+
+// Staff and members who must first set their own password, and companies whose licence has expired
+// (read-only during the grace days), may do only these.
+const ALWAYS = ['/api/auth/me', '/api/auth/logout', '/api/auth/password', '/api/member/logout', '/api/member/password'];
+function gate(ctx, r, method, path) {
+  if (ALWAYS.includes(path)) return;
+  if (ctx.mustChange && !r.member) throw new HttpError(403, 'Please set your own password first.');
+  if (ctx.licence && ctx.licence.state === 'read-only' && method !== 'GET') throw new HttpError(403, licenceMessage(ctx.licence));
+}
 
 function dbError(err) {
   const m = String(err && err.message);
@@ -48,7 +60,8 @@ export default {
       if (r.method !== request.method) continue;
       const params = Object.fromEntries(r.names.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
       try {
-        const ctx = r.public ? null : r.member ? await authenticateMember(env.DB, request) : await authenticate(env.DB, request);
+        const ctx = r.public ? null : r.platform ? await authenticatePlatform(env.DB, request) : r.member ? await authenticateMember(env.DB, request) : await authenticate(env.DB, request);
+        if (ctx && !r.public && !r.platform) gate(ctx, r, request.method, url.pathname);
         return await r.handler({ request, env, ctx, params, query: url.searchParams });
       } catch (err) {
         const known = err instanceof HttpError ? err : dbError(err);

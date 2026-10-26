@@ -1,6 +1,7 @@
 // Passwords, sessions and permissions.
 
 import { HttpError, forbidden, nowIso } from './http.js';
+import { assertNotBlocked, licenceOf } from './licence.js';
 
 const ITERATIONS = 100000; // the most PBKDF2 iterations Workers allow
 const IDLE_MINUTES = 120;  // sign out after 2 hours without use
@@ -54,7 +55,7 @@ export async function login(db, companyId, username, password, ip) {
       .bind(crypto.randomUUID(), companyId, username, userId, detail, ip).run();
   const wrong = new HttpError(401, 'Wrong user name or password.');
 
-  const company = await db.prepare("SELECT id FROM companies WHERE id = ? AND status = 'Active'").bind(companyId).first();
+  const company = await db.prepare('SELECT id, status, valid_till, grace_days FROM companies WHERE id = ?').bind(companyId).first();
   if (!company) throw wrong;
   const user = await db.prepare('SELECT * FROM users WHERE company_id = ? AND username = ?').bind(companyId, username).first();
   if (!user) {
@@ -80,6 +81,9 @@ export async function login(db, companyId, username, password, ip) {
     ]);
     throw wrong;
   }
+  // Only after the password is right, so the licence state is not told to strangers.
+  const licence = licenceOf(company);
+  try { assertNotBlocked(licence); } catch (e) { await fail('licence ' + licence.state, user.id); throw e; }
 
   const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
   const expires = addMinutes(now, MAX_HOURS * 60);
@@ -90,7 +94,7 @@ export async function login(db, companyId, username, password, ip) {
     db.prepare('INSERT INTO sign_ins (id, company_id, username, user_id, ok, detail, ip) VALUES (?, ?, ?, ?, 1, NULL, ?)')
       .bind(crypto.randomUUID(), companyId, username, user.id, ip),
   ]);
-  return { token, expires_at: expires };
+  return { token, expires_at: expires, must_change: !!user.must_change, licence };
 }
 
 export async function logout(db, token) {
@@ -104,9 +108,9 @@ export async function authenticate(db, request) {
   if (!token) throw new HttpError(401, 'Please sign in.');
   const hash = await sha256Hex(token);
   const row = await db.prepare(
-    `SELECT s.last_seen, s.expires_at, u.id, u.company_id, u.name, u.username, u.active, u.person_id, u.branch_id,
-            r.id AS role_id, r.name AS role_name, r.perms_json
-       FROM sessions s JOIN users u ON u.id = s.user_id JOIN roles r ON r.id = u.role_id
+    `SELECT s.last_seen, s.expires_at, u.id, u.company_id, u.name, u.username, u.active, u.person_id, u.branch_id, u.must_change,
+            r.id AS role_id, r.name AS role_name, r.perms_json, c.status, c.valid_till, c.grace_days
+       FROM sessions s JOIN users u ON u.id = s.user_id JOIN roles r ON r.id = u.role_id JOIN companies c ON c.id = u.company_id
       WHERE s.token_hash = ?`
   ).bind(hash).first();
   const now = nowIso();
@@ -114,9 +118,13 @@ export async function authenticate(db, request) {
     if (row) await db.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(hash).run();
     throw new HttpError(401, 'Your session has ended. Please sign in again.');
   }
+  const licence = licenceOf(row);
+  assertNotBlocked(licence);
   // Touch the session at most once a minute to save writes.
   if (addMinutes(row.last_seen, 1) <= now) await db.prepare('UPDATE sessions SET last_seen = ? WHERE token_hash = ?').bind(now, hash).run();
   return {
+    licence,
+    mustChange: !!row.must_change,
     token,
     user: { id: row.id, name: row.name, username: row.username, person_id: row.person_id, branch_id: row.branch_id },
     companyId: row.company_id,
@@ -193,7 +201,7 @@ export const memberNoOf = (username) => {
 export async function memberLogin(db, companyId, username, password, ip) {
   const wrong = new HttpError(401, 'Wrong member number or password.');
   const no = memberNoOf(username);
-  const company = await db.prepare("SELECT id FROM companies WHERE id = ? AND status = 'Active'").bind(companyId).first();
+  const company = await db.prepare('SELECT id, status, valid_till, grace_days FROM companies WHERE id = ?').bind(companyId).first();
   if (!company || !no) throw wrong;
   const row = await db.prepare(
     `SELECT l.*, p.id AS pid FROM persons p JOIN member_logins l ON l.person_id = p.id
@@ -223,6 +231,8 @@ export async function memberLogin(db, companyId, username, password, ip) {
     ]);
     throw wrong;
   }
+  const licence = licenceOf(company);
+  try { assertNotBlocked(licence); } catch (e) { await note(0, 'member app: licence ' + licence.state).run(); throw e; }
   const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
   const expires = addMinutes(now, MEMBER_MAX_DAYS * 24 * 60);
   await db.batch([
@@ -246,8 +256,9 @@ export async function authenticateMember(db, request) {
   if (!token) throw new HttpError(401, 'Please sign in.');
   const hash = await sha256Hex(token);
   const row = await db.prepare(
-    `SELECT s.last_seen, s.expires_at, s.company_id, p.id, p.name, p.member_no, l.active, l.must_change
+    `SELECT s.last_seen, s.expires_at, s.company_id, p.id, p.name, p.member_no, l.active, l.must_change, c.status, c.valid_till, c.grace_days
        FROM member_sessions s JOIN persons p ON p.id = s.person_id JOIN member_logins l ON l.person_id = s.person_id
+       JOIN companies c ON c.id = s.company_id
       WHERE s.token_hash = ?`
   ).bind(hash).first();
   const now = nowIso();
@@ -255,6 +266,8 @@ export async function authenticateMember(db, request) {
     if (row) await db.prepare('DELETE FROM member_sessions WHERE token_hash = ?').bind(hash).run();
     throw new HttpError(401, 'Your session has ended. Please sign in again.');
   }
+  const licence = licenceOf(row);
+  assertNotBlocked(licence);
   if (addMinutes(row.last_seen, 1) <= now) await db.prepare('UPDATE member_sessions SET last_seen = ? WHERE token_hash = ?').bind(now, hash).run();
-  return { token, member: { id: row.id, name: row.name, member_no: row.member_no }, companyId: row.company_id, mustChange: !!row.must_change };
+  return { token, licence, member: { id: row.id, name: row.name, member_no: row.member_no }, companyId: row.company_id, mustChange: !!row.must_change };
 }

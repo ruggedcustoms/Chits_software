@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Rugged Customs Console</title>
+<style>
+/* The software provider's console: companies, licences, branding, admins. One column on a phone, wider on a computer. */
+:root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--mute:#5d6b78;--line:#dde3e9;--brand:#1f3a5f;--brand-ink:#fff;--soft:#e8eef6;--good:#16733a;--good-bg:#e3f4e9;--warn:#9a5a00;--warn-bg:#fdf0db;--bad:#b3261e;--bad-bg:#fbe9e7;--shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f141a;--card:#161d25;--ink:#e6edf3;--mute:#9aa8b5;--line:#28323d;--brand:#7fa7d9;--brand-ink:#0b1420;--soft:#1c2733;--good:#5fd38a;--good-bg:#12301f;--warn:#f0a43a;--warn-bg:#3a2b12;--bad:#f2837b;--bad-bg:#3d1d1b;--shadow:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f141a;--card:#161d25;--ink:#e6edf3;--mute:#9aa8b5;--line:#28323d;--brand:#7fa7d9;--brand-ink:#0b1420;--soft:#1c2733;--good:#5fd38a;--good-bg:#12301f;--warn:#f0a43a;--warn-bg:#3a2b12;--bad:#f2837b;--bad-bg:#3d1d1b;--shadow:none;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header b{font-size:1.05rem}
+header .who{margin-left:auto;color:var(--mute);font-size:.9rem}
+nav{display:flex;gap:4px;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{border:0;background:none;padding:8px 12px;border-radius:8px;color:var(--mute);font-weight:600;white-space:nowrap}
+nav button[aria-current="page"]{background:var(--soft);color:var(--brand)}
+main{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:1.3rem;margin:4px 0 12px}
+h2{font-size:1rem;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 14px}
+label{display:block;font-size:.82rem;color:var(--mute);font-weight:600}
+label input,label select{display:block;width:100%;margin-top:4px;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:var(--card)}
+.btn{border:0;border-radius:8px;padding:9px 14px;background:var(--brand);color:var(--brand-ink);font-weight:600}
+.btn.g{background:var(--soft);color:var(--brand)}
+.btn.d{background:var(--bad-bg);color:var(--bad)}
+.btn.sm{padding:6px 10px;font-size:.85rem}
+.btn[disabled]{opacity:.5;cursor:default}
+.muted{color:var(--mute)}
+.small{font-size:.85rem}
+.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.pill.good{background:var(--good-bg);color:var(--good)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.mute{background:var(--soft);color:var(--mute)}
+.msg{border-radius:10px;padding:10px 12px;margin-bottom:12px;font-weight:600}
+.msg.bad{background:var(--bad-bg);color:var(--bad)}.msg.good{background:var(--good-bg);color:var(--good)}
+.co{display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:start}
+.logo{width:72px;height:72px;border-radius:10px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden}
+.logo img{max-width:100%;max-height:100%}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0;font-size:.88rem}
+.stats b{font-variant-numeric:tabular-nums}
+.secret{font-family:ui-monospace,Menlo,monospace;font-size:1.05rem;letter-spacing:.06em;background:var(--soft);padding:8px 10px;border-radius:8px;overflow-wrap:anywhere}
+.give{border-left:4px solid var(--warn)}
+.give code,.link code{font-family:ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600}
+.scroll{overflow-x:auto}
+.login{max-width:400px;margin:8vh auto}
+#qr{background:#fff;padding:10px;display:inline-block;border-radius:8px}
+.swatch{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:middle;border:1px solid var(--line)}
+@media (max-width:560px){.co{grid-template-columns:1fr}.logo{width:64px;height:64px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+'use strict';
+const TK='rc-console-token';
+const store={get:k=>{try{return sessionStorage.getItem(k)||''}catch(e){return''}},set:(k,v)=>{try{v?sessionStorage.setItem(k,v):sessionStorage.removeItem(k)}catch(e){}}};
+const S={token:store.get(TK),me:null,mustChange:false,tab:'companies',companies:[],admins:[],audit:[],edit:null,give:null,msg:null,login:{step:'pw',u:'',p:'',secret:'',otpauth:''},busy:false};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dmy=d=>d?String(d).slice(0,10).split('-').reverse().join('-'):'';
+const when=t=>t?new Date(t).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}):'';
+const owner=()=>S.me&&S.me.role==='owner';
+const linkFor=(code,app)=>location.origin+'/apps/'+app+'.html?co='+encodeURIComponent(code);
+
+async function api(method,path,body){
+ const r=await fetch('/api'+path,{method,headers:Object.assign({'content-type':'application/json'},S.token?{authorization:'Bearer '+S.token}:{}),body:body?JSON.stringify(body):undefined});
+ let d={};try{d=await r.json()}catch(e){}
+ if(r.status===401&&path!=='/platform/login'){signedOut(d.error);throw new Error(d.error||'Please sign in.')}
+ if(!r.ok)throw new Error(d.error||('The server could not do this ('+r.status+').'));
+ return d}
+function say(t,k){S.msg=t?{t,k:k||'good'}:null;draw();scrollTo(0,0)}
+async function run(fn,okMsg){if(S.busy)return;S.busy=true;try{await fn();if(okMsg)S.msg={t:okMsg,k:'good'}}catch(e){S.msg={t:e.message,k:'bad'}}S.busy=false;draw();scrollTo(0,0)}
+function signedOut(m){S.token='';store.set(TK,'');S.me=null;S.login={step:'pw',u:S.login.u,p:'',secret:'',otpauth:''};S.msg=m?{t:m,k:'bad'}:null;draw()}
+
+/* ---------- sign in ---------- */
+async function signIn(){const L=S.login;if(L.step==='pw'){L.u=$('u').value.trim();L.p=$('p').value}
+ const code=$('c')?$('c').value.trim():'';
+ if(!L.u||!L.p)return say('Enter your user name and password.','bad');
+ await run(async()=>{const r=await api('POST','/platform/login',Object.assign({username:L.u,password:L.p},code?{code}:{}));
+  if(r.need==='setup'){L.step='setup';L.secret=r.secret;L.otpauth=r.otpauth;S.msg=null;return}
+  if(r.need==='code'){L.step='code';S.msg=null;return}
+  S.token=r.token;store.set(TK,r.token);S.me=r.admin;S.mustChange=r.must_change;L.p='';S.msg=null;if(!S.mustChange)await loadTab()})}
+function loginView(){const L=S.login;
+ const head=`<div class="login"><div class="card"><h1 style="margin-top:0">Rugged Customs console</h1><p class="muted small" style="margin-top:0">For the software provider only. Chit company staff sign in from their company's website.</p>${msgBox()}`;
+ if(L.step==='pw')return head+`<label>User name<input id="u" autocomplete="username" value="${esc(L.u)}" onkeydown="if(event.key==='Enter')$('p').focus()"></label><label style="margin-top:10px">Password<input id="p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')signIn()"></label><div class="row" style="margin-top:14px"><button class="btn" onclick="signIn()" ${S.busy?'disabled':''}>Next</button></div></div></div>`;
+ if(L.step==='setup')return head+`<h2>Set up your authenticator</h2><p class="small">Every sign-in needs a 6-digit code from an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or similar). Scan this code with the app, or type the key in it:</p><div id="qr"></div><p class="secret">${esc(L.secret.replace(/(.{4})/g,'$1 ').trim())}</p><label>6-digit code from the app<input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6" onkeydown="if(event.key==='Enter')signIn()"></label><div class="row" style="margin-top:14px"><button class="btn" onclick="signIn()" ${S.busy?'disabled':''}>Switch on and sign in</button><button class="btn g" onclick="S.login.step='pw';draw()">Back</button></div></div></div>`;
+ return head+`<label>6-digit code from your authenticator app<input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus onkeydown="if(event.key==='Enter')signIn()"></label><div class="row" style="margin-top:14px"><button class="btn" onclick="signIn()" ${S.busy?'disabled':''}>Sign in</button><button class="btn g" onclick="S.login.step='pw';draw()">Back</button></div><p class="muted small">Lost your phone? Ask the other owner admin to reset your authenticator.</p></div></div>`}
+const msgBox=()=>S.msg?`<div class="msg ${S.msg.k}" role="status">${esc(S.msg.t)}</div>`:'';
+
+/* ---------- own password ---------- */
+function pwCard(first){return`<div class="card" style="max-width:460px"><h2>${first?'Set your own password':'Change your password'}</h2>${first?'<p class="small">You signed in with a temporary password. Choose your own to continue.</p>':''}<label>Current password<input id="pw0" type="password" autocomplete="current-password"></label><label style="margin-top:10px">New password<input id="pw1" type="password" autocomplete="new-password"></label><label style="margin-top:10px">New password again<input id="pw2" type="password" autocomplete="new-password"></label><p class="muted small">At least 10 characters, with letters and numbers.</p><button class="btn" onclick="setPw()">Save password</button></div>`}
+async function setPw(){const a=$('pw1').value;if(a!==$('pw2').value)return say('The two new passwords do not match.','bad');
+ await run(async()=>{await api('POST','/platform/password',{current_password:$('pw0').value,new_password:a});S.mustChange=false;await loadTab()},'Password changed.')}
+
+/* ---------- companies ---------- */
+const LSTATE={active:['Active','good'],'read-only':['Expired: read-only','warn'],expired:['Expired: blocked','bad'],suspended:['Suspended','bad'],closed:['Closed','mute']};
+function companyCard(c){const l=LSTATE[c.licence.state]||['?','mute'],b=c.brand||{};
+ return`<div class="card"><div class="co"><div class="logo">${b.logo?`<img src="${esc(b.logo)}" alt="">`:'<span class="muted small">No logo</span>'}</div><div>
+ <div class="row" style="justify-content:space-between"><div><b style="font-size:1.05rem">${esc(c.name)}</b> <span class="muted small">code <b>${esc(c.code||'—')}</b></span></div><span class="pill ${l[1]}">${l[0]}</span></div>
+ <div class="muted small">${esc([c.owner_name,c.phone,c.email,c.city].filter(Boolean).join(' · '))}</div>
+ <div class="small" style="margin-top:4px">Plan <b>${esc(c.plan||'')}</b> · Valid till <b>${c.valid_till?dmy(c.valid_till):'no limit'}</b> · Read-only for <b>${c.grace_days}</b> days after expiry${c.licence.read_only_until?` (until ${dmy(c.licence.read_only_until)})`:''}</div>
+ <div class="stats"><span><b>${c.groups}</b> groups</span><span><b>${c.tickets}</b> tickets</span><span><b>${c.people}</b> people</span><span><b>${c.receipts_this_month}</b> receipts this month</span><span><b>${c.staff}</b> staff logins</span><span><b>${c.member_logins}</b> member app logins</span><span class="muted">Last sign-in ${c.last_sign_in?when(c.last_sign_in):'never'}</span></div>
+ ${c.code?`<div class="link small"><div>Staff sign-in: <code>${esc(linkFor(c.code,'office'))}</code> <button class="btn g sm" onclick="copy('${esc(linkFor(c.code,'office'))}')">Copy</button></div><div style="margin-top:4px">Member app: <code>${esc(linkFor(c.code,'member'))}</code> <button class="btn g sm" onclick="copy('${esc(linkFor(c.code,'member'))}')">Copy</button></div></div>`:'<div class="small" style="color:var(--warn)">Give this company a code so its website can link to the sign-in pages.</div>'}
+ <div class="row" style="margin-top:10px">${owner()?`<button class="btn sm" onclick="editCo('${c.id}')">Edit, licence, branding</button>`:''}<button class="btn g sm" onclick="resetOwner('${c.id}')">New owner password</button>${owner()?(c.status==='Suspended'?`<button class="btn g sm" onclick="setStatus('${c.id}','Active')">Activate</button>`:`<button class="btn d sm" onclick="setStatus('${c.id}','Suspended')">Suspend</button>`):''}</div>
+ </div></div></div>`}
+function giveBox(){const g=S.give;if(!g)return'';
+ const text=[g.title,'Sign in: '+linkFor(g.code,'office'),'Company code: '+g.code,'User name: '+g.username,'Temporary password: '+g.password,'You will be asked to set your own password at the first sign-in.'].join('\n');
+ return`<div class="card give"><h2>${esc(g.title)}</h2><p class="small">The password is shown only now. Give it to the company owner privately.</p><table><tr><td>Sign-in link</td><td><code>${esc(linkFor(g.code,'office'))}</code></td></tr><tr><td>User name</td><td><b>${esc(g.username)}</b></td></tr><tr><td>Temporary password</td><td><b style="font-size:1.15rem">${esc(g.password)}</b></td></tr></table><div class="row" style="margin-top:10px"><button class="btn" onclick="copy(${esc(JSON.stringify(text))})">Copy all</button><button class="btn g" onclick="S.give=null;draw()">Done</button></div></div>`}
+function companiesView(){const cs=S.companies;
+ return`<div class="row" style="justify-content:space-between"><h1>Companies</h1>${owner()&&!S.edit?`<button class="btn" onclick="editCo('')">New company</button>`:''}</div>${giveBox()}${S.edit?coForm():''}
+ ${cs.length?cs.map(companyCard).join(''):'<div class="card muted">No companies yet.</div>'}
+ <p class="muted small">This console shows counts and licence details only, never a company's members, receipts or accounts.</p>`}
+function editCo(id){S.edit=id?Object.assign({},S.companies.find(c=>c.id===id)):{id:'',name:'',code:'',owner_name:'',username:'owner',phone:'',email:'',city:'',state:'Karnataka',plan:'Standard',valid_till:'',grace_days:15,status:'Active',brand:{}};S.edit.brand=Object.assign({},S.edit.brand||{});S.msg=null;draw();scrollTo(0,0)}
+function coForm(){const c=S.edit,b=c.brand,f=(id,label,v,t)=>`<label>${label}<input id="${id}" ${t?`type="${t}"`:''} value="${esc(v==null?'':v)}"></label>`;
+ return`<div class="card"><h2>${c.id?'Edit '+esc(c.name):'New company'}</h2><div class="grid">
+ ${f('f_name','Company name *',c.name)}${f('f_code','Short code for links * (e.g. mrj)',c.code)}${f('f_owner','Owner name *',c.owner_name)}${c.id?'':f('f_user','Owner user name',c.username)}
+ ${f('f_phone','Phone',c.phone)}${f('f_email','Email',c.email,'email')}${f('f_city','City',c.city)}${f('f_state','State',c.state)}
+ ${f('f_plan','Plan',c.plan)}${f('f_valid','Licence valid till (blank = no limit)',c.valid_till,'date')}${f('f_grace','Read-only days after expiry',c.grace_days,'number')}
+ ${c.id?`<label>Status<select id="f_status">${['Active','Suspended','Closed'].map(s=>`<option ${c.status===s?'selected':''}>${s}</option>`).join('')}</select></label>`:''}
+ </div><h2 style="margin-top:16px">Branding on the sign-in pages</h2><div class="grid">
+ ${f('f_disp','Name shown (blank = company name)',b.display_name)}${f('f_web','Company website',b.website,'url')}
+ <label>Main colour<input id="f_color" type="color" value="${esc(b.color||'#1f3a5f')}"></label><label>Second colour<input id="f_accent" type="color" value="${esc(b.accent||'#f7993f')}"></label>
+ <label>Logo (PNG or JPEG)<input id="f_logo" type="file" accept="image/png,image/jpeg,image/webp" onchange="pickLogo(this)"></label>
+ <div><div class="muted small" style="font-weight:600">Preview</div><div class="logo" style="width:120px;height:80px;margin-top:4px" id="f_prev">${b.logo?`<img src="${esc(b.logo)}" alt="">`:'<span class="muted small">No logo</span>'}</div>${b.logo?`<button class="btn g sm" style="margin-top:6px" onclick="S.edit.brand.logo=null;$('f_prev').innerHTML='<span class=&quot;muted small&quot;>No logo</span>'">Remove logo</button>`:''}</div>
+ </div><div class="row" style="margin-top:16px"><button class="btn" onclick="saveCo()" ${S.busy?'disabled':''}>${c.id?'Save changes':'Create company'}</button><button class="btn g" onclick="S.edit=null;draw()">Cancel</button></div>
+ ${c.id?'':'<p class="muted small">Creating the company sets up its roles, accounts, main branch and an owner login with a temporary password.</p>'}</div>`}
+// The logo is shrunk to at most 360 x 200 so sign-in pages load fast.
+function pickLogo(inp){const file=inp.files&&inp.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,360/im.width,200/im.height),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
+ let url=cv.toDataURL('image/png');if(url.length>300000)url=cv.toDataURL('image/jpeg',.85);S.edit.brand.logo=url;$('f_prev').innerHTML=`<img src="${url}" alt="">`};im.onerror=()=>say('That file is not an image this browser can read.','bad');im.src=rd.result};rd.readAsDataURL(file)}
+async function saveCo(){const c=S.edit,v=id=>$(id)?$(id).value.trim():'';
+ const body={name:v('f_name'),code:v('f_code').toLowerCase(),owner_name:v('f_owner'),phone:v('f_phone'),email:v('f_email'),city:v('f_city'),state:v('f_state'),plan:v('f_plan'),valid_till:v('f_valid')||null,grace_days:+v('f_grace'),
+  brand:{display_name:v('f_disp')||null,website:v('f_web')||null,color:v('f_color'),accent:v('f_accent'),logo:c.brand.logo||null}};
+ if(!c.id)body.username=v('f_user')||'owner';else body.status=v('f_status');
+ await run(async()=>{if(c.id){await api('PATCH','/platform/companies/'+c.id,body)}else{const r=await api('POST','/platform/companies',body);S.give={title:'Owner login for '+body.name,code:r.code,username:r.username,password:r.password}}S.edit=null;await loadTab()},c.id?'Saved.':'Company created.')}
+async function setStatus(id,st){const c=S.companies.find(x=>x.id===id);if(st==='Suspended'&&!confirm('Suspend '+c.name+'? Its staff and members cannot sign in until you activate it again.'))return;
+ await run(async()=>{await api('PATCH','/platform/companies/'+id,{status:st});await loadTab()},st==='Suspended'?c.name+' is suspended.':c.name+' is active again.')}
+async function resetOwner(id){const c=S.companies.find(x=>x.id===id);if(!confirm('Give the owner of '+c.name+' a new temporary password? Their old password stops working at once.'))return;
+ await run(async()=>{const r=await api('POST','/platform/companies/'+id+'/reset-owner');S.give={title:'New owner password for '+c.name,code:c.code||c.id,username:r.username,password:r.password}},null)}
+function copy(t){const done=()=>say('Copied.');try{navigator.clipboard.writeText(t).then(done,()=>prompt('Copy this:',t))}catch(e){prompt('Copy this:',t)}}
+
+/* ---------- admins ---------- */
+function adminsView(){const as=S.admins;
+ return`<h1>Console admins</h1>${S.give&&S.give.admin?`<div class="card give"><h2>${esc(S.give.title)}</h2><p class="small">Shown only now. At the first sign-in they set their own password and their authenticator app.</p><table><tr><td>Console</td><td><code>${esc(location.origin+'/apps/admin.html')}</code></td></tr><tr><td>User name</td><td><b>${esc(S.give.username)}</b></td></tr><tr><td>Temporary password</td><td><b style="font-size:1.15rem">${esc(S.give.password)}</b></td></tr></table><button class="btn g" style="margin-top:10px" onclick="S.give=null;draw()">Done</button></div>`:''}
+ <div class="card scroll"><table><thead><tr><th>Name</th><th>User name</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>${as.map(a=>`<tr><td>${esc(a.name)}</td><td>${esc(a.username)}</td><td>${a.role==='owner'?'Owner':'Support'}</td><td>${!a.active?'<span class="pill bad">Off</span>':a.locked?'<span class="pill bad">Locked</span>':!a.totp_enabled?'<span class="pill warn">Not set up yet</span>':'<span class="pill good">Active</span>'}</td><td>${a.last_sign_in?when(a.last_sign_in):'never'}</td>
+ <td>${a.id===S.me.id?'<span class="muted small">You</span>':`<div class="row"><button class="btn g sm" onclick="admAct('${a.id}',{reset_password:true},'New temporary password')">New password</button><button class="btn g sm" onclick="admAct('${a.id}',{reset_2fa:true},'Authenticator reset')">Reset authenticator</button>${a.locked?`<button class="btn g sm" onclick="admAct('${a.id}',{unlock:true},'Unlocked')">Unlock</button>`:''}<button class="btn ${a.active?'d':'g'} sm" onclick="admAct('${a.id}',{active:${!a.active}},'${a.active?'Switched off':'Switched on'}')">${a.active?'Switch off':'Switch on'}</button></div>`}</td></tr>`).join('')}</tbody></table></div>
+ <div class="card"><h2>Add an admin</h2><div class="grid"><label>Name<input id="a_name"></label><label>User name<input id="a_user" autocomplete="off"></label><label>Role<select id="a_role"><option value="support">Support: sees companies, resets owner passwords</option><option value="owner">Owner: everything</option></select></label></div><button class="btn" style="margin-top:12px" onclick="addAdmin()">Add</button></div>`}
+async function addAdmin(){const name=$('a_name').value.trim(),username=$('a_user').value.trim(),role=$('a_role').value;
+ await run(async()=>{const r=await api('POST','/platform/admins',{name,username,role});S.give={admin:1,title:'Login for '+name,username:r.username,password:r.password};await loadTab()},'Admin added.')}
+async function admAct(id,body,done){const a=S.admins.find(x=>x.id===id);if(!confirm(done+': '+a.name+'?'))return;
+ await run(async()=>{const r=await api('PATCH','/platform/admins/'+id,body);if(r.password)S.give={admin:1,title:'New password for '+a.name,username:a.username,password:r.password};await loadTab()},done+'.')}
+
+/* ---------- audit ---------- */
+function auditView(){return`<h1>Console activity</h1><div class="card scroll"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Company</th><th>Details</th></tr></thead><tbody>${S.audit.map(x=>`<tr><td>${when(x.at)}</td><td>${esc(x.admin||'')}</td><td>${esc(x.action)}</td><td>${esc(x.company||'')}</td><td>${esc(x.summary)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Nothing yet.</td></tr>'}</tbody></table></div>`}
+
+/* ---------- shell ---------- */
+async function loadTab(){if(S.tab==='companies')S.companies=await api('GET','/platform/companies');if(S.tab==='admins')S.admins=await api('GET','/platform/admins');if(S.tab==='audit')S.audit=await api('GET','/platform/audit')}
+async function go(tab){S.tab=tab;S.msg=null;S.give=null;S.edit=null;await run(loadTab)}
+async function signOut(){try{await api('POST','/platform/logout')}catch(e){}signedOut()}
+function draw(){const a=$('app');
+ if(!S.token||!S.me){a.innerHTML=loginView();const q=$('qr');if(q&&S.login.otpauth&&window.QRCode)new QRCode(q,{text:S.login.otpauth,width:180,height:180});const f=$('c')||$('u');if(f&&!f.value)f.focus();return}
+ const tabs=[['companies','Companies'],...(owner()?[['admins','Admins']]:[]),['audit','Activity'],['account','My password']];
+ const body=S.mustChange?pwCard(true):S.tab==='companies'?companiesView():S.tab==='admins'?adminsView():S.tab==='audit'?auditView():pwCard(false);
+ a.innerHTML=`<header><b>Rugged Customs console</b><span class="who">${esc(S.me.name)} · ${S.me.role==='owner'?'Owner':'Support'} <button class="btn g sm" onclick="signOut()">Sign out</button></span></header>${S.mustChange?'':`<nav aria-label="Console">${tabs.map(([k,l])=>`<button onclick="go('${k}')" ${S.tab===k?'aria-current="page"':''}>${l}</button>`).join('')}</nav>`}<main>${msgBox()}${body}</main>`}
+(async()=>{if(S.token){try{const r=await api('GET','/platform/me');S.me=r.admin;S.mustChange=r.must_change;if(!S.mustChange)await loadTab()}catch(e){}}draw()})();
+</script>
+</body>
+</html>

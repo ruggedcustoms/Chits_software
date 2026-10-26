@@ -1,8 +1,10 @@
 // First-time setup, sign in and out, and staff logins.
 
 import { bad, conflict, forbidden, json, newId, notFound, readBody, str, todayIst } from '../lib/http.js';
-import { DEFAULT_ROLES, checkPasswordRules, hashPassword, login, logout, requirePerm } from '../lib/auth.js';
-import { auditStatement, chartStatements } from '../lib/books.js';
+import { checkPasswordRules, hashPassword, login, logout, requirePerm, sha256Hex, verifyPassword } from '../lib/auth.js';
+import { auditStatement } from '../lib/books.js';
+import { cleanCode, companyStatements } from '../lib/company.js';
+import { licenceMessage } from '../lib/licence.js';
 
 // Creates a company with its roles, chart of accounts and owner login.
 // Needs the SETUP_KEY secret (set with `wrangler secret put SETUP_KEY`), so the public cannot create companies.
@@ -17,36 +19,43 @@ async function setup({ request, env }) {
   if (pwErr) throw bad(pwErr);
 
   const db = env.DB;
-  const companyId = newId();
-  const branchId = newId();
-  const userId = newId();
-  const roles = DEFAULT_ROLES.map((r) => ({ ...r, id: newId() }));
-  const ctx = { companyId, user: { id: userId } };
-  await db.batch([
-    db.prepare('INSERT INTO companies (id, name, owner_name, phone, email, city, state) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(companyId, companyName, adminName, str(b, 'phone'), str(b, 'email'), str(b, 'city'), str(b, 'state')),
-    db.prepare('INSERT INTO branches (id, company_id, name) VALUES (?, ?, ?)').bind(branchId, companyId, 'Main branch'),
-    ...roles.map((r) => db.prepare('INSERT INTO roles (id, company_id, name, is_system, perms_json) VALUES (?, ?, ?, ?, ?)')
-      .bind(r.id, companyId, r.name, r.is_system || 0, JSON.stringify(r.perms))),
-    ...chartStatements(db, companyId),
-    db.prepare('INSERT INTO users (id, company_id, role_id, name, username, password_hash) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(userId, companyId, roles[0].id, adminName, username, await hashPassword(b.password)),
-    auditStatement(db, ctx, 'create', 'companies', companyId, `Company ${companyName} set up with owner login ${username}`),
-  ]);
+  const { stmts, companyId, branchId, userId } = await companyStatements(db, {
+    name: companyName, owner_name: adminName, username, password: b.password, code: cleanCode(b.code),
+    phone: str(b, 'phone'), email: str(b, 'email'), city: str(b, 'city'), state: str(b, 'state'),
+  });
+  await db.batch(stmts);
   return json({ company_id: companyId, branch_id: branchId, owner_user_id: userId, created_on: todayIst() }, 201);
+}
+
+// The company a sign-in is for: its short code (from the link on the company's website) or its id.
+// With only one company in the database, neither is needed.
+export async function companyIdFrom(db, b) {
+  const given = str(b, 'company_code') || str(b, 'company_id');
+  if (given) {
+    const row = await db.prepare('SELECT id FROM companies WHERE code = ? OR id = ?').bind(given.toLowerCase(), given).first();
+    if (!row) throw bad('Company code not found. Use the sign-in link on your company\'s website.');
+    return row.id;
+  }
+  const { results } = await db.prepare('SELECT id FROM companies LIMIT 2').all();
+  if (results.length !== 1) throw bad('Enter the company code.');
+  return results[0].id;
+}
+
+// Name, logo and colours for a company's sign-in page. Public: nothing private is in it.
+async function brand({ env, query }) {
+  const co = (query.get('co') || '').trim();
+  if (!co) throw bad('Give the company code.');
+  const row = await env.DB.prepare('SELECT id, code, name, brand_json FROM companies WHERE code = ? OR id = ?').bind(co.toLowerCase(), co).first();
+  if (!row) throw notFound('Company');
+  const b = JSON.parse(row.brand_json || '{}');
+  return json({ code: row.code || row.id, name: b.display_name || row.name, logo: b.logo || null, color: b.color || null, accent: b.accent || null, website: b.website || null });
 }
 
 async function signIn({ request, env }) {
   const b = await readBody(request);
   const username = str(b, 'username', { required: true, label: 'user name' });
   if (typeof b.password !== 'string' || !b.password) throw bad('Enter the password.');
-  let companyId = str(b, 'company_id');
-  if (!companyId) {
-    // With only one company in the database, the company need not be given.
-    const { results } = await env.DB.prepare('SELECT id FROM companies LIMIT 2').all();
-    if (results.length !== 1) throw bad('Enter the company code.');
-    companyId = results[0].id;
-  }
+  const companyId = await companyIdFrom(env.DB, b);
   const ip = request.headers.get('cf-connecting-ip');
   return json(await login(env.DB, companyId, username, b.password, ip));
 }
@@ -57,8 +66,26 @@ async function signOut({ env, ctx }) {
 }
 
 async function me({ env, ctx }) {
-  const company = await env.DB.prepare('SELECT id, name, member_prefix FROM companies WHERE id = ?').bind(ctx.companyId).first();
-  return json({ user: ctx.user, role: ctx.role, perms: ctx.perms, company });
+  const company = await env.DB.prepare('SELECT id, code, name, member_prefix FROM companies WHERE id = ?').bind(ctx.companyId).first();
+  return json({ user: ctx.user, role: ctx.role, perms: ctx.perms, company, must_change: ctx.mustChange, licence: { ...ctx.licence, message: licenceMessage(ctx.licence) } });
+}
+
+// A staff member changes their own password (also how a temporary password is replaced).
+async function changePassword({ request, env, ctx }) {
+  const b = await readBody(request);
+  const db = env.DB;
+  const user = await db.prepare('SELECT password_hash FROM users WHERE id = ?').bind(ctx.user.id).first();
+  if (typeof b.current_password !== 'string' || !(await verifyPassword(b.current_password, user.password_hash))) throw bad('Your current password is wrong.');
+  const pwErr = checkPasswordRules(b.new_password);
+  if (pwErr) throw bad(pwErr);
+  if (b.new_password === b.current_password) throw bad('Choose a new password, different from the current one.');
+  await db.batch([
+    db.prepare('UPDATE users SET password_hash = ?, must_change = 0 WHERE id = ?').bind(await hashPassword(b.new_password), ctx.user.id),
+    // Other computers signed in with the old password are signed out.
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').bind(ctx.user.id, await sha256Hex(ctx.token)),
+    auditStatement(db, ctx, 'update', 'users', ctx.user.id, `Login ${ctx.user.username}: password changed by the user`),
+  ]);
+  return json({ ok: true });
 }
 
 // ---- staff ----
@@ -132,7 +159,8 @@ async function updateUser({ request, env, ctx, params }) {
   if (b.password != null) {
     const pwErr = checkPasswordRules(b.password);
     if (pwErr) throw bad(pwErr);
-    sets.push('password_hash = ?'); vals.push(await hashPassword(b.password)); changes.push('password reset');
+    // A password set by someone else is temporary: the user must choose their own at the next sign-in.
+    sets.push('password_hash = ?', 'must_change = ?'); vals.push(await hashPassword(b.password), user.id === ctx.user.id ? 0 : 1); changes.push('password reset');
   }
   if (b.unlock) { sets.push('failed_attempts = 0', 'locked_until = NULL'); changes.push('unlocked'); }
   if (!sets.length) throw bad('Nothing to change.');
@@ -158,6 +186,8 @@ export const authRoutes = [
   ['POST', '/api/auth/login', signIn, { public: true }],
   ['POST', '/api/auth/logout', signOut],
   ['GET', '/api/auth/me', me],
+  ['POST', '/api/auth/password', changePassword],
+  ['GET', '/api/brand', brand, { public: true }],
   ['GET', '/api/users', listUsers],
   ['POST', '/api/users', createUser],
   ['PATCH', '/api/users/:id', updateUser],

@@ -130,7 +130,13 @@ const LV={on:false,token:tget(),err:'',busy:false,must:false,cur:'',u:'',ok:fals
 /* the company: from the link the office sends (?co=...), remembered on this phone */
 const CK='cm-member-co';
 const coGet=()=>{try{return localStorage.getItem(CK)||''}catch(e){return''}},coSet=v=>{try{v?localStorage.setItem(CK,v):localStorage.removeItem(CK)}catch(e){}};
-try{const q=new URLSearchParams(location.search).get('co');if(q)coSet(q.trim())}catch(e){}
+/* a session belongs to the company it signed in to; a link for another company starts a new sign-in */
+const TCK='cm-member-token-co';
+try{const q=(new URLSearchParams(location.search).get('co')||'').trim();if(q){coSet(q);let tc='';try{tc=localStorage.getItem(TCK)||''}catch(e){}if(tc.toLowerCase()!==q.toLowerCase()){LV.token='';tset('');try{localStorage.removeItem(TCK)}catch(e){}}}}catch(e){}
+/* the company's name and logo for the sign-in screens */
+let BR=null;
+(async()=>{const co=coGet();if(!co)return;try{const r=await fetch('/api/brand?co='+encodeURIComponent(co));if(r.ok){BR=await r.json();if(!st.user)draw()}}catch(e){}})();
+const brandHead=()=>BR?`${BR.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${esc(BR.logo)}" alt="" style="max-width:100%;max-height:110px"></div>`:''}<h1 style="text-align:center;font-size:1.25rem">${esc(BR.name)}</h1><p class="muted" style="text-align:center;margin:2px 0 10px">${t('appName')}</p>`:`<div class="logo">C</div><h1>${t('appName')}</h1>`;
 async function mApi(method,path,body){const r=await fetch('/api'+path,{method,headers:Object.assign({'content-type':'application/json'},LV.token?{authorization:'Bearer '+LV.token}:{}),body:body?JSON.stringify(body):undefined});
  let d={};try{d=await r.json()}catch(e){}
  if(!r.ok){const e=new Error(d.error||('The server could not do this ('+r.status+').'));e.status=r.status;throw e}return d}
@@ -140,12 +146,12 @@ function liveStart(){LV.loading=true;LV.err='';draw();liveLoad().then(()=>{LV.lo
 async function signIn(){const u=((document.getElementById('lg_u')||{}).value||'').trim(),p=(document.getElementById('lg_p')||{}).value||'',ce=document.getElementById('lg_c');if(ce)coSet(ce.value.trim());LV.u=u;
  if(!u||!p){LV.err=t('needUP');return draw()}
  LV.busy=true;LV.err='';draw();
- try{const co=coGet(),r=await mApi('POST','/member/login',Object.assign({username:u,password:p},co?{company_id:co}:{}));LV.token=r.token;tset(r.token);LV.needCo=false;if(r.must_change){LV.must=true;LV.cur=p}else{await liveLoad();st.tab='home'}}catch(e){LV.err=e.message;if(/company code/i.test(e.message))LV.needCo=true}
+ try{const co=coGet(),r=await mApi('POST','/member/login',Object.assign({username:u,password:p},co?{company_id:co}:{}));LV.token=r.token;tset(r.token);try{localStorage.setItem(TCK,co||'')}catch(e){}LV.needCo=false;if(r.must_change){LV.must=true;LV.cur=p}else{await liveLoad();st.tab='home'}}catch(e){LV.err=e.message;if(/company code/i.test(e.message))LV.needCo=true}
  LV.busy=false;draw()}
 async function signOut(){if(LV.token){try{await mApi('POST','/member/logout')}catch(e){}}
  LV.token='';tset('');LV.on=false;LV.must=false;LV.cur='';LV.err='';DATA=DEMO;st.user=false;st.demo=false;st.tab='home';draw()}
 function pwForm(withCur){return`${LV.err?`<div class="err">${esc(LV.err)}</div>`:''}${withCur?`<label for="pw0">${t('curPw')}</label><input id="pw0" type="password" autocomplete="current-password">`:''}<label for="pw1">${t('newPw')}</label><input id="pw1" type="password" autocomplete="new-password"><label for="pw2">${t('newPw2')}</label><input id="pw2" type="password" autocomplete="new-password"><div class="muted" style="font-size:.82rem;margin-top:6px">${t('pwRule')}</div><button class="btn block" style="margin-top:16px" ${LV.busy?'disabled':''} onclick="setPw(${withCur?1:0})">${t('savePw')}</button>`}
-function pwView(){return`<div class="login"><div class="logo">C</div><h1>${t('setPw')}</h1><p class="muted" style="margin:0 0 6px">${t('setPwSub')}</p>${pwForm(false)}<button class="btn ghost block" style="margin-top:8px" onclick="signOut()">${t('logout')}</button></div>`}
+function pwView(){return`<div class="login">${BR&&BR.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${esc(BR.logo)}" alt="" style="max-width:100%;max-height:80px"></div>`:'<div class="logo">C</div>'}<h1>${t('setPw')}</h1><p class="muted" style="margin:0 0 6px">${t('setPwSub')}</p>${pwForm(false)}<button class="btn ghost block" style="margin-top:8px" onclick="signOut()">${t('logout')}</button></div>`}
 function chpwView(){return LV.ok?`<div class="ok">${t('pwDone')}</div>`:`<div class="card">${pwForm(true)}</div>`}
 async function setPw(withCur){const v=id=>(document.getElementById(id)||{}).value||'',cur=withCur?v('pw0'):LV.cur,a=v('pw1'),b=v('pw2');
  if(withCur&&!cur){LV.err=t('curPw');return draw()}if(a.length<6){LV.err=t('pwShort');return draw()}if(a!==b){LV.err=t('pwSame');return draw()}
@@ -180,8 +186,8 @@ function receiptsList(){const out=[];let no=2050;DATA.chits.forEach(c=>c.rows.fi
  out.sort((a,b)=>a.date.localeCompare(b.date)||a.k.localeCompare(b.k));out.forEach(o=>o.no=++no);return out.reverse()}
 
 /* ---------- Views ---------- */
-function loginView(){if(LV.loading)return`<div class="login"><div class="logo">C</div><div class="empty">${t('loading')}</div></div>`;
- return`<div class="login"><div class="logo">C</div><h1>${t('appName')}</h1><p class="muted" style="margin:0 0 14px">${t('hi')}! ${t('loginNote')}</p>${LV.err?`<div class="err">${esc(LV.err)}</div>`:''}
+function loginView(){if(LV.loading)return`<div class="login">${brandHead()}<div class="empty">${t('loading')}</div></div>`;
+ return`<div class="login">${brandHead()}<p class="muted" style="margin:0 0 14px">${t('hi')}! ${t('loginNote')}</p>${LV.err?`<div class="err">${esc(LV.err)}</div>`:''}
  <label for="lg_u">${t('memNo')}</label><input id="lg_u" autocomplete="username" autocapitalize="characters" spellcheck="false" placeholder="M00084" value="${esc(LV.u)}" onkeydown="if(event.key==='Enter')document.getElementById('lg_p').focus()">
  <label for="lg_p">${t('pwd')}</label><input id="lg_p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')signIn()">
  ${LV.needCo?`<label for="lg_c">${t('coCode')}</label><input id="lg_c" autocomplete="off" spellcheck="false" value="${esc(coGet())}">`:''}

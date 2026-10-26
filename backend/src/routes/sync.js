@@ -3,6 +3,7 @@
 import { bad, forbidden, json, readBody } from '../lib/http.js';
 import { can, ownTicketsOnly, requirePerm } from '../lib/auth.js';
 import { auditStatement } from '../lib/books.js';
+import { licenceMessage } from '../lib/licence.js';
 
 const parse = (s) => {
   try { return JSON.parse(s || '{}'); } catch { return {}; }
@@ -32,7 +33,7 @@ async function sync({ env, ctx }) {
   for (const x of insts.results) (instBy.get(x.receipt_id) || instBy.set(x.receipt_id, []).get(x.receipt_id)).push(x.installment_no);
   const withExtra = (rows) => rows.map((r) => ({ ...r, extra: parse(r.extra_json), extra_json: undefined }));
   return json({
-    me: { user: ctx.user, role: ctx.role, perms: ctx.perms },
+    me: { user: ctx.user, role: ctx.role, perms: ctx.perms, licence: { ...ctx.licence, message: licenceMessage(ctx.licence) } },
     company: { id: co.id, name: co.name, member_prefix: co.member_prefix, settings: parse(co.settings_json) },
     users: users.results,
     groups: withExtra(groups.results),

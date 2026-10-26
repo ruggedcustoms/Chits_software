@@ -12,6 +12,9 @@ D1 is for development and testing. Before real member data goes in, decide wheth
 - **Books kept as you go**: every auction, receipt and prize payment saves its own balanced voucher in the same step, so the trial balance always matches the records. A cancelled receipt or payment stays on record with its voucher marked cancelled.
 - **Audit trail**: every create, change and cancel records who did it, when, and the old and new values.
 - **Member app**: the office issues each member a login (the member number and a 6-digit temporary password, changed at the first sign-in). A member sees only their own tickets, receipts, auctions and prize money. Member sessions last up to 30 days (15 days without use); five wrong passwords lock the login for 15 minutes. Member and staff tokens do not work on each other's routes.
+- **Software provider console** (Rugged Customs, `/apps/admin.html`): sign-in needs a password and a 6-digit code from an authenticator app; sessions end after 30 minutes without use or 8 hours. The owner admin creates companies (each with a short code for website links, an owner login with a temporary password, plan, licence date and branding) and manages other admins; a support admin sees companies and usage and can give a company owner a new temporary password. The console never sees a company's members, receipts or accounts. Everything it does is in its own activity log.
+- **Licences**: a suspended or closed company cannot sign in. After its licence date it can look but not change anything for its read-only days (7 to 15, set per company), then it is blocked until renewed.
+- **Company sign-in links**: `/apps/office.html?co=<code>` and `/apps/member.html?co=<code>` open that company's own sign-in page with its logo and name. A session belongs to its company; a link for another company asks to sign in again.
 - **Reports**: account copy, outstanding and defaulters, collection register, auction chart, prize payments, trial balance, day book.
 
 Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and percentages in **basis points** (5% is `500`).
@@ -35,8 +38,26 @@ Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and perc
 | `GET /api/sync`, `PATCH /api/settings` | Everything the office screens need in one request; the company's shared settings |
 | `GET/POST /api/member-logins`, `POST /api/member-logins/bulk`, `PATCH/DELETE /api/member-logins/:id` | Member app logins: list, issue or reset (returns the temporary password once), issue to every enrolled member without one, switch off or unlock, remove |
 | `POST /api/member/login`, `POST /api/member/logout`, `POST /api/member/password`, `GET /api/member/home` | The member app: sign in, sign out, change password, and the member's own chits, installments, auctions, receipts and prize money (in rupees) |
+| `GET /api/brand?co=<code>` | Name, logo and colours for a company's sign-in page (no sign-in) |
+| `POST /api/auth/password` | A staff member sets their own password (needed first after a temporary one) |
+| `POST /api/platform/setup` | Create a console owner admin. Needs the `x-setup-key` header |
+| `POST /api/platform/login`, `/logout`, `GET /api/platform/me`, `POST /api/platform/password` | Console sign-in with password and authenticator code |
+| `GET/POST /api/platform/companies`, `PATCH /api/platform/companies/:id`, `POST /api/platform/companies/:id/reset-owner` | Companies, licences, branding; a new temporary owner password |
+| `GET/POST /api/platform/admins`, `PATCH /api/platform/admins/:id`, `GET /api/platform/audit` | Console admins and the console's activity log |
 | `PATCH /api/receipts/:id`, `/api/auctions/:id`, `/api/prize-payments/:id` | Change only the extra details (print count, SMS sent), never an amount |
 | `DELETE /api/persons/:id`, `/api/groups/:id`, `/api/enrollments/:id`, `PATCH /api/enrollments/:id` | Delete only what nothing depends on; change a ticket's agents and nominee |
+
+## First console admin
+
+Once, after the database has migration 0005:
+
+```sh
+curl -X POST https://chits-software.vercel.app/api/platform/setup \
+  -H "x-setup-key: <from setup-key.local.txt>" -H "content-type: application/json" \
+  -d '{"name":"Your name","username":"your-user-name","password":"<10+ characters, letters and numbers>"}'
+```
+
+Then open `/apps/admin.html`, sign in, and scan the code shown with an authenticator app. Further admins (such as a support person) are added from the console.
 
 ## Testing
 
@@ -44,7 +65,7 @@ Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and perc
 npm test                    # calculations against the worked example
 ```
 
-`scripts/scenario.mjs` runs a whole group through the API and checks every report, the accounts, the audit trail and the member app: 106 checks. It creates a new test company each time it runs.
+`scripts/scenario.mjs` runs a whole group through the API and checks every report, the accounts, the audit trail, the member app, the provider console and licences: 136 checks. It creates a new test company each time it runs.
 
 ```sh
 # on your computer
@@ -95,5 +116,6 @@ npm run db:migrate:remote     # then apply it to the cloud database
 | Agents | `agent_commission_rules` |
 | Accounts | `ledger_accounts`, `bank_accounts`, `vouchers`, `voucher_lines` |
 | Audit | `audit_log` |
+| Software provider | `platform_admins`, `platform_sessions`, `platform_audit` |
 
 Field-by-field comments are in `migrations/`.

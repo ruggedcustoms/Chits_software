@@ -6,6 +6,7 @@ import { checkMemberPassword, hashPassword, memberLogin, memberLogout, requirePe
 import { auditStatement } from '../lib/books.js';
 import { monthsLate } from '../lib/calc.js';
 import { ledgerFor, loadGroupState, memberCode } from '../lib/state.js';
+import { companyIdFrom } from './auth.js';
 
 const parse = (s) => {
   try { return JSON.parse(s || '{}'); } catch { return {}; }
@@ -128,12 +129,7 @@ async function signIn({ request, env }) {
   const b = await readBody(request);
   const username = str(b, 'username', { required: true, label: 'member number' });
   if (typeof b.password !== 'string' || !b.password) throw bad('Enter the password.');
-  let companyId = str(b, 'company_id');
-  if (!companyId) {
-    const { results } = await env.DB.prepare('SELECT id FROM companies LIMIT 2').all();
-    if (results.length !== 1) throw bad('Enter the company code.');
-    companyId = results[0].id;
-  }
+  const companyId = await companyIdFrom(env.DB, b);
   return json(await memberLogin(env.DB, companyId, username, b.password, request.headers.get('cf-connecting-ip')));
 }
 
