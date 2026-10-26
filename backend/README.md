@@ -44,6 +44,7 @@ Money is sent and returned in **whole paise** (Rs 21,250 is `2125000`), and perc
 | `POST /api/platform/login`, `/logout`, `GET /api/platform/me`, `POST /api/platform/password` | Console sign-in with password and authenticator code |
 | `GET/POST /api/platform/companies`, `PATCH /api/platform/companies/:id`, `POST /api/platform/companies/:id/reset-owner` | Companies, licences, branding; a new temporary owner password |
 | `GET/POST /api/platform/admins`, `PATCH /api/platform/admins/:id`, `GET /api/platform/audit` | Console admins and the console's activity log |
+| `GET /api/platform/usage` | Space each company uses (stored size of all its records, by area) and its share of the whole database, for sharing hosting charges. Reads every record, so the console runs it only when asked |
 | `PATCH /api/receipts/:id`, `/api/auctions/:id`, `/api/prize-payments/:id` | Change only the extra details (print count, SMS sent), never an amount |
 | `DELETE /api/persons/:id`, `/api/groups/:id`, `/api/enrollments/:id`, `PATCH /api/enrollments/:id` | Delete only what nothing depends on; change a ticket's agents and nominee |
 
@@ -65,7 +66,7 @@ Then open `/apps/admin.html`, sign in, and scan the code shown with an authentic
 npm test                    # calculations against the worked example
 ```
 
-`scripts/scenario.mjs` runs a whole group through the API and checks every report, the accounts, the audit trail, the member app, the provider console and licences: 136 checks. It creates a new test company each time it runs.
+`scripts/scenario.mjs` runs a whole group through the API and checks every report, the accounts, the audit trail, the member app, the provider console, licences and space used: 140 checks. It creates a new test company each time it runs.
 
 ```sh
 # on your computer

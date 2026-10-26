@@ -54,6 +54,14 @@ th{color:var(--mute);font-weight:600}
 .scroll{overflow-x:auto}
 .login{max-width:400px;margin:8vh auto}
 #qr{background:#fff;padding:10px;display:inline-block;border-radius:8px}
+.bars{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--soft);min-width:120px}
+.bars i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem;color:var(--mute);margin:6px 0 10px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile b{display:block;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .swatch{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:middle;border:1px solid var(--line)}
 @media (max-width:560px){.co{grid-template-columns:1fr}.logo{width:64px;height:64px}}
 </style>
@@ -65,7 +73,7 @@ th{color:var(--mute);font-weight:600}
 'use strict';
 const TK='rc-console-token';
 const store={get:k=>{try{return sessionStorage.getItem(k)||''}catch(e){return''}},set:(k,v)=>{try{v?sessionStorage.setItem(k,v):sessionStorage.removeItem(k)}catch(e){}}};
-const S={token:store.get(TK),me:null,mustChange:false,tab:'companies',companies:[],admins:[],audit:[],edit:null,give:null,msg:null,login:{step:'pw',u:'',p:'',secret:'',otpauth:''},busy:false};
+const S={token:store.get(TK),me:null,mustChange:false,tab:'companies',companies:[],admins:[],audit:[],usage:null,edit:null,give:null,msg:null,login:{step:'pw',u:'',p:'',secret:'',otpauth:''},busy:false};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dmy=d=>d?String(d).slice(0,10).split('-').reverse().join('-'):'';
@@ -160,17 +168,32 @@ async function addAdmin(){const name=$('a_name').value.trim(),username=$('a_user
 async function admAct(id,body,done){const a=S.admins.find(x=>x.id===id);if(!confirm(done+': '+a.name+'?'))return;
  await run(async()=>{const r=await api('PATCH','/platform/admins/'+id,body);if(r.password)S.give={admin:1,title:'New password for '+a.name,username:a.username,password:r.password};await loadTab()},done+'.')}
 
+/* ---------- space used ---------- */
+const AREA_COL=['#2f6fb0','#3f9a6e','#c9822b','#8b5cc4','#c4495d','#6b7a89','#2aa3a3'];
+const size=b=>b==null?'—':b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':b<1073741824?(b/1048576).toFixed(2)+' MB':(b/1073741824).toFixed(2)+' GB';
+async function measure(){await run(async()=>{S.usage=await api('GET','/platform/usage')},null)}
+function usageView(){const u=S.usage;
+ const head=`<div class="row" style="justify-content:space-between"><h1>Space used</h1><button class="btn" onclick="measure()" ${S.busy?'disabled':''}>${u?'Measure again':'Measure now'}</button></div>`;
+ if(!u)return head+`<div class="card"><p>Works out how much of the database each company uses, to share the hosting and maintenance charges fairly. It reads every record, so it runs only when you press the button.</p></div>`;
+ const legend=`<div class="legend">${u.areas.map((a,i)=>`<span><i class="swatch" style="background:${AREA_COL[i]}"></i>${esc(a)}</span>`).join('')}</div>`;
+ return head+`<div class="tiles"><div class="tile"><span class="muted small">Whole database</span><b>${size(u.database_bytes)}</b><span class="muted small">as reported by Cloudflare</span></div><div class="tile"><span class="muted small">All companies' data</span><b>${size(u.company_data_bytes)}</b><span class="muted small">the rest is indexes and the console's own records</span></div><div class="tile"><span class="muted small">Measured</span><b style="font-size:1rem">${when(u.measured_at)}</b></div></div>
+ <div class="card scroll"><h2>By company</h2>${legend}<table><thead><tr><th>Company</th><th class="num">Data</th><th class="num">Share</th><th class="num">Share of whole database</th><th class="num">Records</th><th>Where the space goes</th></tr></thead><tbody>
+ ${u.companies.map(c=>`<tr><td><b>${esc(c.name)}</b>${c.code?` <span class="muted small">${esc(c.code)}</span>`:''}${c.status!=='Active'?` <span class="pill mute">${esc(c.status)}</span>`:''}</td><td class="num">${size(c.bytes)}</td><td class="num"><b>${(c.share*100).toFixed(1)}%</b></td><td class="num">${size(c.database_share_bytes)}</td><td class="num">${c.rows.toLocaleString('en-IN')}</td>
+ <td><div class="bars" title="${esc(u.areas.map(a=>a+': '+size((c.areas[a]||{}).bytes||0)).join('\n'))}">${u.areas.map((a,i)=>{const b=(c.areas[a]||{}).bytes||0;return b&&c.bytes?`<i style="width:${(b/c.bytes*100).toFixed(2)}%;background:${AREA_COL[i]}"></i>`:''}).join('')}</div></td></tr>`).join('')}
+ </tbody></table></div>
+ <div class="card"><h2>Sharing the charges</h2><p class="small">To split a hosting or maintenance bill by space, charge each company its <b>Share</b> of the bill. For example, a bill of ₹1,000 with a company at 25% means ₹250 for that company. Space is one fair basis; you may also count staff logins, tickets or receipts each month (shown on the Companies tab).</p><p class="muted small">Sizes are the stored data of each record, including logos and photos, plus a small allowance per record. Indexes and free space are spread by share.</p></div>`}
+
 /* ---------- audit ---------- */
 function auditView(){return`<h1>Console activity</h1><div class="card scroll"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Company</th><th>Details</th></tr></thead><tbody>${S.audit.map(x=>`<tr><td>${when(x.at)}</td><td>${esc(x.admin||'')}</td><td>${esc(x.action)}</td><td>${esc(x.company||'')}</td><td>${esc(x.summary)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Nothing yet.</td></tr>'}</tbody></table></div>`}
 
 /* ---------- shell ---------- */
 async function loadTab(){if(S.tab==='companies')S.companies=await api('GET','/platform/companies');if(S.tab==='admins')S.admins=await api('GET','/platform/admins');if(S.tab==='audit')S.audit=await api('GET','/platform/audit')}
-async function go(tab){S.tab=tab;S.msg=null;S.give=null;S.edit=null;await run(loadTab)}
+async function go(tab){S.tab=tab;S.msg=null;S.give=null;S.edit=null;if(tab==='usage'){draw();return}await run(loadTab)}
 async function signOut(){try{await api('POST','/platform/logout')}catch(e){}signedOut()}
 function draw(){const a=$('app');
  if(!S.token||!S.me){a.innerHTML=loginView();const q=$('qr');if(q&&S.login.otpauth&&window.QRCode)new QRCode(q,{text:S.login.otpauth,width:180,height:180});const f=$('c')||$('u');if(f&&!f.value)f.focus();return}
- const tabs=[['companies','Companies'],...(owner()?[['admins','Admins']]:[]),['audit','Activity'],['account','My password']];
- const body=S.mustChange?pwCard(true):S.tab==='companies'?companiesView():S.tab==='admins'?adminsView():S.tab==='audit'?auditView():pwCard(false);
+ const tabs=[['companies','Companies'],['usage','Space used'],...(owner()?[['admins','Admins']]:[]),['audit','Activity'],['account','My password']];
+ const body=S.mustChange?pwCard(true):S.tab==='companies'?companiesView():S.tab==='admins'?adminsView():S.tab==='audit'?auditView():S.tab==='usage'?usageView():pwCard(false);
  a.innerHTML=`<header><b>Rugged Customs console</b><span class="who">${esc(S.me.name)} · ${S.me.role==='owner'?'Owner':'Support'} <button class="btn g sm" onclick="signOut()">Sign out</button></span></header>${S.mustChange?'':`<nav aria-label="Console">${tabs.map(([k,l])=>`<button onclick="go('${k}')" ${S.tab===k?'aria-current="page"':''}>${l}</button>`).join('')}</nav>`}<main>${msgBox()}${body}</main>`}
 (async()=>{if(S.token){try{const r=await api('GET','/platform/me');S.me=r.admin;S.mustChange=r.must_change;if(!S.mustChange)await loadTab()}catch(e){}}draw()})();
 </script>

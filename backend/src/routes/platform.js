@@ -269,6 +269,60 @@ async function auditLog({ env, query }) {
   return json(results);
 }
 
+// ---- space used per company ----
+// Adds up the stored size of every row each company owns (all columns, so logos, photos and notes count),
+// grouped into areas, with each company's share of all company data. Index and page overhead is spread by share.
+// It reads every row, so it runs only when asked.
+const AREAS = [
+  ['Members', ['persons', ['person_addresses', 'person_id', 'persons'], 'member_logins']],
+  ['Groups and tickets', ['chit_groups', ['group_deposits', 'group_id', 'chit_groups'], 'enrollments', 'ticket_transfers', 'member_removals', 'agent_commission_rules']],
+  ['Auctions and prizes', ['auctions', ['auction_bids', 'auction_id', 'auctions'], 'bid_advances', 'prize_payments']],
+  ['Collections', ['receipts', ['receipt_installments', 'receipt_id', 'receipts'], 'future_receipts', ['future_receipt_adjustments', 'future_receipt_id', 'future_receipts'], 'post_dated_cheques', 'cash_denominations', 'follow_up_calls']],
+  ['Accounts', ['ledger_accounts', 'bank_accounts', 'vouchers', ['voucher_lines', 'voucher_id', 'vouchers']]],
+  ['Logins and history', ['users', 'roles', 'branches', 'sign_ins', 'sessions', 'member_sessions', 'audit_log', 'lookup_values', 'counters']],
+  ['Settings and logo', [['companies']]],
+];
+const ROW_OVERHEAD = 8;
+
+async function usage({ env }) {
+  const db = env.DB;
+  const specs = AREAS.flatMap(([area, ts]) => ts.map((t) => (typeof t === 'string' ? { area, table: t } : { area, table: t[0], fk: t[1], parent: t[2] })));
+  const infos = await db.batch(specs.map((x) => db.prepare(`PRAGMA table_info(${x.table})`)));
+  const queries = specs.map((x, i) => {
+    const size = infos[i].results.map((c) => `COALESCE(LENGTH(CAST(x."${c.name}" AS BLOB)), 0)`).join(' + ') + ` + ${ROW_OVERHEAD}`;
+    if (x.table === 'companies') return db.prepare(`SELECT x.id AS c, COUNT(*) AS n, SUM(${size}) AS b FROM companies x GROUP BY x.id`);
+    if (x.parent) return db.prepare(`SELECT p.company_id AS c, COUNT(*) AS n, SUM(${size}) AS b FROM ${x.table} x JOIN ${x.parent} p ON p.id = x.${x.fk} GROUP BY p.company_id`);
+    return db.prepare(`SELECT x.company_id AS c, COUNT(*) AS n, SUM(${size}) AS b FROM ${x.table} x GROUP BY x.company_id`);
+  });
+  const results = await db.batch(queries);
+  const by = new Map();
+  results.forEach((r, i) => {
+    for (const row of r.results) {
+      if (!row.c) continue;
+      const u = by.get(row.c) || by.set(row.c, { bytes: 0, rows: 0, areas: {} }).get(row.c);
+      u.bytes += row.b || 0;
+      u.rows += row.n || 0;
+      const a = u.areas[specs[i].area] || (u.areas[specs[i].area] = { bytes: 0, rows: 0 });
+      a.bytes += row.b || 0;
+      a.rows += row.n || 0;
+    }
+  });
+  const { results: cos } = await db.prepare('SELECT id, code, name, status FROM companies ORDER BY name').all();
+  const total = [...by.values()].reduce((t, u) => t + u.bytes, 0);
+  const dbBytes = results[0].meta && results[0].meta.size_after != null ? results[0].meta.size_after : null;
+  return json({
+    measured_at: nowIso(),
+    database_bytes: dbBytes,
+    company_data_bytes: total,
+    areas: AREAS.map(([a]) => a),
+    companies: cos.map((c) => {
+      const u = by.get(c.id) || { bytes: 0, rows: 0, areas: {} };
+      const share = total ? u.bytes / total : 0;
+      return { ...c, bytes: u.bytes, rows: u.rows, share, database_share_bytes: dbBytes != null ? Math.round(dbBytes * share) : null, areas: u.areas };
+    }).sort((a, b) => b.bytes - a.bytes),
+  });
+}
+
 const P = { platform: true };
 export const platformRoutes = [
   ['POST', '/api/platform/setup', setup, { public: true }],
@@ -284,4 +338,5 @@ export const platformRoutes = [
   ['POST', '/api/platform/admins', ready(createAdmin), P],
   ['PATCH', '/api/platform/admins/:id', ready(updateAdmin), P],
   ['GET', '/api/platform/audit', ready(auditLog), P],
+  ['GET', '/api/platform/usage', ready(usage), P],
 ];

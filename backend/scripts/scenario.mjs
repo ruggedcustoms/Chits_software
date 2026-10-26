@@ -370,6 +370,14 @@ eq('the reset password is temporary', ow2.must_change, true);
 await ok('POST', '/api/auth/password', { current_password: rs1.password, new_password: ownerPw }, ow2.token);
 const O2 = ow2.token;
 
+// space used per company
+const use = await ok('GET', '/api/platform/usage', null, sTok);
+const uc = use.companies.find((c) => c.code === code), um = use.companies.find((c) => c.id === co.company_id);
+check('space used: every company measured, shares add up to 100%', Math.abs(use.companies.reduce((t, c) => t + c.share, 0) - 1) < 1e-9 && !!uc && uc.bytes > 0, JSON.stringify(uc || {}).slice(0, 160));
+check('space used: the logo counts under settings', uc.areas['Settings and logo'].bytes > 0, JSON.stringify(uc.areas));
+check('space used: the company with a whole group of records uses more', um.bytes > uc.bytes && um.areas.Collections.rows > 0, `(${um.bytes} vs ${uc.bytes})`);
+eq('a company owner cannot see space used', (await call('GET', '/api/platform/usage', null, owner)).status, 401);
+
 // licences
 const ist = (days) => new Date(Date.now() + 5.5 * 3600e3 + days * 864e5).toISOString().slice(0, 10);
 await ok('PATCH', `/api/platform/companies/${made.company_id}`, { valid_till: ist(-1), grace_days: 10 }, A);
