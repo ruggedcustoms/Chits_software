@@ -472,9 +472,15 @@
       + (lastCo && b ? '' : '<label class="f">Company code <small>(in the sign-in link from your company\'s website)</small><input id="ol_c" value="' + esc(lastCo) + '" autocomplete="off"></label>')
       + '<div class="row" style="margin-top:12px"><button class="btn" id="ol_go" onclick="doLogin()" style="width:100%;justify-content:center">Sign in</button></div>'
       + '<p class="muted" style="margin:14px 0 0">Forgot your password? Ask your owner to reset it.</p>'
-      + (b ? '' : '<p class="muted" style="margin:8px 0 0"><a href="#" onclick="cmSetMode(\'local\');return false">Use this browser\'s own data instead</a> (the earlier prototype, not shared)</p>')
+      + (!b || hasLocalData() ? '<p class="muted" style="margin:8px 0 0"><a href="#" onclick="cmSetMode(\'local\');return false">Use this browser\'s own data instead</a> (the earlier prototype, not shared)</p>' : '')
       + '<p class="muted" style="margin:10px 0 0;font-size:12px">Software by Rugged Customs</p>'
       + '</div></div>';
+  }
+
+  // Data typed in "this browser only" mode stays reachable from any sign-in page of this browser.
+  function hasLocalData() {
+    try { for (let i = 0; i < localStorage.length; i++) if (/^chit-manager-/.test(localStorage.key(i))) return true; } catch (e) { /* storage blocked */ }
+    return false;
   }
 
   // A temporary password (from the owner or the software provider) must be replaced before anything else.
