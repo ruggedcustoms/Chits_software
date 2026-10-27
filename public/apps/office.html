@@ -3388,7 +3388,14 @@ function imEngine(){
   if(rw)return'Auction '+need+' of '+g.name+' (row '+rw.rn+') could not be imported, so auction '+k+' cannot go in after it. Fix row '+rw.rn+' first; this and the later auctions will then go in.';
   const nw=neverWin(g);
   return'Auction '+need+' of '+g.name+' is missing from the Auctions sheet, so auction '+k+' and the ones after it cannot go in. Add a row for auction '+need+' (date, winner ticket, bid amount) from the old software.'+(nw.length?' Ticket'+(nw.length>1?'s ':' ')+nw.join(', ')+(nw.length>1?' never win in the file; one of them':' never wins in the file and')+' probably won it.':'')};
- const aucH=r=>{const o=r.o,w=[],gr=grp(o);if(!gr.g)return['err',gr.e];const g=gr.g,t=tkt(g,o.ticket);if(!t)return['err','Winner ticket must be a whole number from 1 to '+g.n];
+ const aucH=r=>{const o=r.o,w=[],gr=grp(o);if(!gr.g)return['err',gr.e];const g=gr.g;let t=tkt(g,o.ticket);
+  /* winner ticket 0: in the old software the auction went to a vacant ticket (a member who cancelled), which the company took over.
+     It goes to a company ticket of the group that has not won yet, preferring one that came from a cancelled member. */
+  if(!t&&String(o.ticket).trim()!==''&&imNum(o.ticket)===0){const used=new Set(S.auctions.filter(a=>a.gid===g.id).map(a=>a.ticket));
+   const co=S.enrolls.filter(e=>e.gid===g.id&&e.pid==='CO'&&!used.has(e.ticket)).sort((a,b)=>(b.cancelledFrom?1:0)-(a.cancelledFrom?1:0)||a.ticket-b.ticket)[0];
+   if(!co)return['err','Winner ticket is 0: in the old software this auction went to a vacant ticket (a member who cancelled). '+g.name+' has no company ticket that has not won yet. In Transactions > Member changes > Member removal, cancel that member\'s ticket with "After cancelling, the ticket: Goes to the company", then upload again.'];
+   t=co.ticket;w.push('Winner ticket 0 in the file (a vacant ticket): the auction went to company ticket '+t+(co.cancelledFrom?', which the company took over from a cancelled member':'')+'.')}
+  if(!t)return['err','Winner ticket must be a whole number from 1 to '+g.n+' (or 0 for a vacant ticket the company took over)'];
   const date=pdate(o.date);if(!date)return['err','Auction date is missing or not valid ("'+o.date+'")'];
   const kx0=low(o.kind),compK=/comp|decid|none/.test(kx0);let done=acnt.get(g.id)||0;const k=o.no===''?done+1:imNum(o.no);
   let bid=imNum(o.bid);const noBid=!(bid>0);
