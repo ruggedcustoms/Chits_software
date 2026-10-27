@@ -3382,6 +3382,12 @@ function imEngine(){
  /* one auction period earlier: a month for monthly groups (same day, or the month's last day) */
  const prevPer=(g,d)=>{if(!d)return'';const[y,m,dd]=d.split('-').map(Number);if(!g.atype||g.atype==='Monthly'){const last=new Date(y,m-1,0).getDate();return iso(new Date(y,m-2,Math.min(dd,last)))}
   return iso(new Date(y,m-1,dd-({Weekly:7,Fortnightly:14,Daily:1}[g.atype]||7)))};
+ /* an auction that cannot go in because an earlier one is not in: say whether that one is missing from the file
+    (and which tickets never win, one of which probably won it) or is in the file but was refused */
+ const aucGap=(g,need,k)=>{const rw=rowsBy.auctions.find(x=>gkey(x.o.group)===gkey(g.name)&&String(+imNum(x.o.no))===String(need));
+  if(rw)return'Auction '+need+' of '+g.name+' (row '+rw.rn+') could not be imported, so auction '+k+' cannot go in after it. Fix row '+rw.rn+' first; this and the later auctions will then go in.';
+  const nw=neverWin(g);
+  return'Auction '+need+' of '+g.name+' is missing from the Auctions sheet, so auction '+k+' and the ones after it cannot go in. Add a row for auction '+need+' (date, winner ticket, bid amount) from the old software.'+(nw.length?' Ticket'+(nw.length>1?'s ':' ')+nw.join(', ')+(nw.length>1?' never win in the file; one of them':' never wins in the file and')+' probably won it.':'')};
  const aucH=r=>{const o=r.o,w=[],gr=grp(o);if(!gr.g)return['err',gr.e];const g=gr.g,t=tkt(g,o.ticket);if(!t)return['err','Winner ticket must be a whole number from 1 to '+g.n];
   const date=pdate(o.date);if(!date)return['err','Auction date is missing or not valid ("'+o.date+'")'];
   const kx0=low(o.kind),compK=/comp|decid|none/.test(kx0);let done=acnt.get(g.id)||0;const k=o.no===''?done+1:imNum(o.no);
@@ -3398,7 +3404,7 @@ function imEngine(){
    const due=pdate(o.due),x=aucH({rn:r.rn,loc:r.loc,o:Object.assign({},o,{no:'1',ticket:String(co),bid:'0',kind:'Company decided',date:prevPer(g,date),due:due?prevPer(g,due):''})});
    if(x[0]!=='ok')return['err','Auction 1 of '+g.name+' is not in the file and could not be added for the company ticket: '+x[1]];
    w.push('Auction 1 of '+g.name+' was not in the file, so it was added as the company\'s month: ticket '+co+', '+dmy(prevPer(g,date))+'.');done=1}
-  if(k!==done+1)return['err',done===0&&!rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&String(+imNum(x.o.no))==='1')?'Auctions 1 to '+(k-1)+' of '+g.name+' are not in the file (auction 1 can be added automatically for the company, but not the others), so its auctions cannot start at no. '+k+'. Export the auction list from the start of the group (in the old software choose all years in Date Range, not Current Year) and upload again.':'Auction no. '+k+' is out of order. Auction '+(done+1)+' of '+g.name+' must come first.'];
+  if(k!==done+1)return['err',done===0&&!rowsBy.auctions.some(x=>gkey(x.o.group)===gkey(g.name)&&String(+imNum(x.o.no))==='1')?'Auctions 1 to '+(k-1)+' of '+g.name+' are not in the file (auction 1 can be added automatically for the company, but not the others), so its auctions cannot start at no. '+k+'. Export the auction list from the start of the group (in the old software choose all years in Date Range, not Current Year) and upload again.':aucGap(g,done+1,k)];
   if(ex){const nw=neverWin(g),rw=fileWins(g).find(x=>x.no===ex.no);
    return['err','Ticket '+t+' has already won auction '+ex.no+(rw?' (row '+rw.rn+')':'')+'. A ticket wins only once, so one of these two rows has the wrong Winner ticket.'+(nw.length?' No auction in the file is won by ticket'+(nw.length>1?'s ':' ')+nw.join(', ')+'. Should one of them be '+(nw.length>1?'one of these':nw[0])+'?':'')]}
   const e=enr.get(g.id+'|'+t);if(!e)return['err','Ticket '+t+' is not enrolled in '+g.name+'. Enrol it first.'];const coW=e.pid==='CO';
