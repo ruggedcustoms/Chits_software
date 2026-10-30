@@ -3336,7 +3336,14 @@ function imEngine(){
   let mv=null;if(o.mno){const d=o.mno.replace(/\D/g,'');if(!d)return['err','Member no. "'+o.mno+'" has no digits'];mv=+d}
   const link=(p,why)=>{if(o.oldCode){if(!p.oldCode)p.oldCode=o.oldCode;else if(low(p.oldCode)!==low(o.oldCode)&&!(p.oldAlt||[]).some(c=>low(c)===low(o.oldCode)))(p.oldAlt=p.oldAlt||[]).push(o.oldCode);idx(p)}
    return['skip',why+' ('+p.name+', '+mno(p)+(o.oldCode&&low(o.oldCode)!==low(p.oldCode)?'; old code '+o.oldCode+' kept with this member':'')+')']};
-  if(o.oldCode&&byOld.get(low(o.oldCode)))return link(byOld.get(low(o.oldCode)),'Old code already imported');
+  /* the old software gave some codes twice (e.g. once per branch): when the code's member in the app is plainly
+     another person (no shared name word, another mobile), add this one as a new member without the code */
+  let clash=null;const om=o.mobile.replace(/\D/g,'').slice(-10);
+  if(o.oldCode&&byOld.get(low(o.oldCode))){const q=byOld.get(low(o.oldCode)),qm=String(pmob(q)).replace(/\D/g,'').slice(-10),ws=low(o.name).split(/[^a-z]+/);
+   if(nKey(q.name)===nKey(o.name)||tKey(q.name)===tKey(o.name)||low(q.name).split(/[^a-z]+/).some(x=>x.length>=3&&ws.includes(x))||(om.length===10&&om===qm))return link(q,'Old code already imported');
+   clash=q;const sm=(byName.get(low(o.name))||[]).find(p=>{const pm=String(pmob(p)).replace(/\D/g,'').slice(-10);return om.length!==10||pm.length!==10||pm===om});
+   if(sm)return['skip','Already imported ('+sm.name+', '+mno(sm)+')'];
+   w.push('Old code '+o.oldCode+' already belongs to '+q.name+' ('+mno(q)+'), a different person, so '+o.name+' was added as a new member without that old code. Their enrollments are found by name.')}
   let fileNo='';if(mv){const ex0=byOld.get(low(String(mv)));if(ex0&&low(ex0.name)===low(o.name)&&!byMno.get(mv))return link(ex0,'Already imported (file no. '+mv+')')}
   if(mv&&byMno.get(mv)){const p=byMno.get(mv);if(low(p.name)===low(o.name))return link(p,'Member no. already exists');const ex1=byOld.get(low(String(mv)));if(ex1&&low(ex1.name)===low(o.name))return link(ex1,'Already imported (file no. '+mv+')');fileNo=String(mv);w.push('Member no. '+mv+' was already used by '+p.name+'. A new number is given and the file number '+mv+' is kept as Old code.');mv=null}
   const pan=o.pan.toUpperCase().replace(/\s/g,'');
@@ -3354,7 +3361,7 @@ function imEngine(){
   if(o.bankName)newOpt('bank',o.bankName);const br=o.branch||'Main branch';newOpt('branch',br);
   const rs=low(o.roles),roles=['member'];ROLES.forEach(([k])=>{if(k!=='member'&&rs.includes(k))roles.push(k)});
   const p=Object.assign(imDefs(PSPEC),{id:uid(),branch:br,title:ti,name:o.name,relType:rt,relName:o.relName,gender:ge,dob:dob||'',entryDate:ent||today(),occupation:oc||(o.occupation?'Other':'Employee'),occDetail:oc?'':o.occupation,
-   pan,aadhaar4:aad,bankName:o.bankName,bankAcc:o.bankAcc,ifsc:o.ifsc.toUpperCase(),res_addr:o.address,res_city:o.city,res_district:o.district,res_state:o.state,res_pin:o.pin,res_mobile:mob||o.mobile,res_phone:o.mobile2,res_email:o.email,roles,oldCode:o.oldCode||fileNo});
+   pan,aadhaar4:aad,bankName:o.bankName,bankAcc:o.bankAcc,ifsc:o.ifsc.toUpperCase(),res_addr:o.address,res_city:o.city,res_district:o.district,res_state:o.state,res_pin:o.pin,res_mobile:mob||o.mobile,res_phone:o.mobile2,res_email:o.email,roles,oldCode:clash?fileNo:(o.oldCode||fileNo)});
   p.mno=mv||++mx;mx=Math.max(mx,p.mno);S.persons.push(p);idx(p);return['ok','',w]};
  /* enrolments */
  const grp=(o)=>{const g=gmap.get(gkey(o.group));return g?{g}:{e:'Group "'+o.group+'" not found. Add it in the Groups sheet or create it in the app first.'}};
