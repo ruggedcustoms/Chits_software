@@ -202,10 +202,30 @@ const RMODES=['Cash','Cheque','D.D.','RTGS/NEFT','UPI'].concat(RADJ);
 const rModeOpts=cur=>(cur&&!RMODES.includes(cur)?RMODES.concat([cur]):RMODES).map(x=>`<option${x===cur?' selected':''}>${esc(x)}</option>`).join('');
 const isAdjMode=m=>RADJ.includes(m)||m==='Future receipt adjustment';
 const adjAcct=m=>m==='B.P.Adj.'?'ac2002':m==='Bid Adv.'?'ac1005':m==='Agent Commission'?'ac3006':'ac2006';
-function load(){let d=null;try{const r=localStorage.getItem(KEY);if(r)d=JSON.parse(r)}catch(e){}
+/* compact storage: LZW over UTF-16 code units, packed 15 bits per character (code units 32..32799, never surrogates) */
+const lzPack=s=>{const root=new Map,out=[];let next=3,acc=0,nb=0,prev=null;
+ const put=(v,n)=>{for(let i=0;i<n;i++){acc=(acc<<1)|((v>>i)&1);if(++nb===15){out.push(acc+32);acc=0;nb=0}}},W=()=>Math.max(2,(next-1).toString(2).length);
+ for(let i=0;i<s.length;){let node=root.get(s.charCodeAt(i)),j=i+1;const first=s.charCodeAt(i);
+  if(!node){put(first<256?0:1,W());put(first,first<256?8:16);node={c:next++,k:new Map};root.set(first,node)}
+  else{while(j<s.length){const nx=node.k.get(s.charCodeAt(j));if(!nx)break;node=nx;j++}put(node.c,W())}
+  if(prev){if(!prev.k.has(first))prev.k.set(first,{c:next,k:new Map});next++}prev=node;i=j}
+ put(2,W());if(nb)put(0,15-nb);let r='';for(let i=0;i<out.length;i+=8192)r+=String.fromCharCode.apply(null,out.slice(i,i+8192));return r};
+const lzUnpack=z=>{const d=['','',''],parts=[];let p=0,bit=14,w='';
+ const get=n=>{let v=0;for(let i=0;i<n;i++){if(p>=z.length)throw new Error('truncated');v|=(((z.charCodeAt(p)-32)>>bit)&1)<<i;if(--bit<0){bit=14;p++}}return v},W=()=>Math.max(2,(d.length-1).toString(2).length);
+ for(;;){const k=get(W());let e;if(k===2)break;if(k<2){e=String.fromCharCode(get(k?16:8));d.push(e)}else{e=d[k];if(e===undefined)throw new Error('bad code')}
+  if(w)d.push(w+e[0]);parts.push(e);w=e}return parts.join('')};
+/* the browser keeps about 5 million characters per site; data is saved packed (marked by \u0001), and older copies saved as
+   plain JSON still load. A save that fails, or data changed by another tab, is shown on screen and never passed over. */
+const readStore=k=>{const r=localStorage.getItem(k);return r?JSON.parse(r[0]==='\u0001'?lzUnpack(r.slice(1)):r):null};
+let storeStale=false;
+function storeBar(msg){let b=document.getElementById('store-bar');if(!msg){if(b)b.remove();return}if(!b){b=document.createElement('div');b.id='store-bar';b.setAttribute('role','alert');b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:9999;background:#b42318;color:#fff;padding:12px 16px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3)';document.body.appendChild(b)}b.innerHTML=msg}
+window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue!==e.oldValue){storeStale=true;storeBar('This company\'s data was changed in another tab or window. Changes made here are no longer saved, so they cannot overwrite it. <button class="btn sm" onclick="location.reload()">Reload this page</button>')}});
+function load(){let d=null;try{d=readStore(KEY)}catch(e){}
  if(!d&&KEY==='chit-manager-v2'){try{const o=localStorage.getItem('chit-manager-v1');if(o)d=migrate(JSON.parse(o))}catch(e){}}
  return norm(d)}
-function save(){JC=null;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){JC=null;if(storeStale)return;
+ try{localStorage.setItem(KEY,'\u0001'+lzPack(JSON.stringify(S)));if(document.getElementById('store-bar'))storeBar('')}
+ catch(e){storeBar('Your last change could NOT be saved: '+(/quota/i.test(e.name+e.message)?'this browser\'s storage for the app is full':esc(e.message||'the browser refused'))+'. Do not reload or close this page. Copy a backup now (Utilities, Backup and restore) and contact support.')}}
 function log(a){let by='';try{by=ST&&ST.user?ST.user.user:''}catch(e){}S.log.push({t:new Date().toISOString(),a,by});if(S.log.length>3000)S.log.shift()}
 let S=norm();
 let ui={page:'dash',sub:null,id:null},F={rep:{id:'register',gid:'',from:today().slice(0,8)+'01',to:today(),status:'all',ticket:'',onlyDef:true,sort:'group'}},flash=null,ask_=null,lastRep=null;
@@ -3648,7 +3668,7 @@ const PLANS=['Trial','Standard','Premium'];
 const hashPass=s=>{let h=2166136261;const t='chit|'+s;for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return String(h)};
 const coBlock=c=>c.status==='Suspended'?'suspended':(c.validTill&&c.validTill<today()?'expired':'');
 const suOk=()=>!REG.pass||SU.unlocked;
-function coStats(c){let d=null;try{d=c.id===REG.current?S:JSON.parse(localStorage.getItem(c.key)||'null')}catch(e){}
+function coStats(c){let d=null;try{d=c.id===REG.current?S:readStore(c.key)}catch(e){}
  return d?{g:(d.groups||[]).length,m:(d.persons||[]).length,t:(d.enrolls||[]).filter(e=>e.pid!=='CO').length,r:(d.receipts||[]).length}:{g:0,m:0,t:0,r:0}}
 function resetUi(){Object.keys(F).forEach(k=>delete F[k]);F.rep={id:'register',gid:'',from:today().slice(0,8)+'01',to:today(),status:'all',ticket:'',onlyDef:true,sort:'group'};lastRep=null;Object.keys(imgs).forEach(k=>delete imgs[k]);IM={sheets:[],res:null,err:'',done:null,undo:null,onlyErr:true}}
 function openCo(id,su){const c=REG.companies.find(x=>x.id===id);if(!c)return;save();REG.current=id;regSave();KEY=c.key;S=load();initS(c);SU.on=!!su;ST.user=null;resetUi();ui={page:'dash',sub:null,id:null};flash=null;ask_=null;render();scrollTo(0,0)}
@@ -3671,7 +3691,7 @@ function coSave(){const v=i=>$(i).value.trim(),name=v('co_name');if(!name)return
  try{localStorage.setItem(key,JSON.stringify(norm({company:name})))}catch(e){return err('The browser has no space left to create another company.')}
  REG.companies.push(Object.assign({id,key,status:'Active',created:today()},o));regSave();note('Company "'+name+'" created. Press Open to enter it.')}
 function coToggle(id){const c=REG.companies.find(x=>x.id===id);c.status=c.status==='Suspended'?'Active':'Suspended';regSave();note(c.name+(c.status==='Suspended'?' is suspended. Its users cannot sign in.':' is active again.'))}
-function coBackup(id){const c=REG.companies.find(x=>x.id===id);let t;try{t=id===REG.current?JSON.stringify(S):localStorage.getItem(c.key)}catch(e){}if(!t)return note('Nothing to copy.','bad');copyText(t,'Backup of '+c.name+' copied.')}
+function coBackup(id){const c=REG.companies.find(x=>x.id===id);let t;try{t=id===REG.current?JSON.stringify(S):JSON.stringify(readStore(c.key))}catch(e){}if(!t)return note('Nothing to copy.','bad');copyText(t,'Backup of '+c.name+' copied.')}
 function coDel(id){const c=REG.companies.find(x=>x.id===id);if(id===REG.current)return note('Open another company first. The company that is open cannot be deleted.','bad');
  askConfirm('Permanently delete "'+c.name+'" and ALL its members, groups and receipts? Copy its backup first. This cannot be undone.',()=>{try{localStorage.removeItem(c.key)}catch(e){}REG.companies=REG.companies.filter(x=>x.id!==id);regSave();note('Company deleted.')})}
 function pageSuper(){
