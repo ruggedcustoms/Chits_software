@@ -276,7 +276,9 @@ function ledger(g,t){
  return{e,rows,totalDue,totalPaid,balance:Math.round((totalDue-totalPaid)*100)/100,advance:Math.round(poolLeft*100)/100,penAccrued:pen,penPaid,penDue:Math.max(0,Math.round((pen-penPaid)*100)/100),penRows,enrolDue:Math.max(0,num(g.enrolFee)-enrolPaid),ps:wonNo!=null,wonNo}}
 function tstat(g,t){const e=enrollOf(g.id,t);if(!e)return['Vacant','mute'];if(e.pid==='CO')return['Company','mute'];return wonAuction(g.id,t)?['PS','ps']:['NPS','nps']}
 const pill=(t,c)=>`<span class="pill ${c||''}">${esc(t)}</span>`;
-function gstatus(g){const n=auctionsOf(g.id).length;if(g.closed)return['Closed','mute'];if(n>=num(g.n))return['Completed','good'];if(n>0)return['Running','nps'];return g.start>today()?['Not started','mute']:['Open for enrolment','warn']}
+function gstatus(g){const n=auctionsOf(g.id).length;if(g.closed)return['Closed','mute'];if(n>=num(g.n))return['Completed','good'];if(n>0)return['Running','nps'];if(g.start>today())return['Not started','mute'];
+ /* no auction yet: still enrolling only while tickets are free; a full group whose start is past is waiting for (or missing) its auctions */
+ const e=enrollsOf(g.id).length;if(e<num(g.n))return['Open for enrolment ('+e+' of '+num(g.n)+' tickets)','warn'];return['No auctions recorded','bad']}
 const allEnrolled=g=>enrollsOf(g.id).length>=num(g.n);
 
 /* ---------- ui plumbing ---------- */
