@@ -1181,6 +1181,7 @@ const sumP=(a,f)=>payOf(a).reduce((s,x)=>s+((f==='amount'&&x.dis)?0:num(x[f])),0
 function paddr(p){return p?[p.res_door,p.res_street,p.res_addr,p.res_city,p.res_district,p.res_state,p.res_pin].filter(Boolean).join(', '):''}
 function pagePayable(){if(ui.sub==='voucher'){const a=S.auctions.find(x=>x.id===ui.id);if(a)return voucherPage(a)}
  if(ui.sub==='list')return payList();
+ if(ui.sub==='edit'){const x=S.payouts.find(z=>z.id===ui.id);if(x)return payEdit(x)}
  if(F.payG&&!G(F.payG))F.payG='';
  const g=G(F.payG),won=g?auctionsOf(g.id).filter(x=>!coWon(x)):[];if(F.payT&&!won.some(a=>String(a.ticket)===String(F.payT)))F.payT='';
  const a=won.find(x=>String(x.ticket)===String(F.payT)),e=a?(enrollOf(g.id,a.ticket)||{}):{},pr=a?P(e.pid):null;
@@ -1229,7 +1230,7 @@ function savePay(){const g=G(F.payG),a=g&&auctionsOf(g.id).find(x=>String(x.tick
  aprFlag('payout',S.payouts[S.payouts.length-1],amt+aj+av);log('Bid payment '+S.bpSeries+' '+S.seq.b+': '+inr(amt)+' for auction '+a.no+' of '+g.name+', ticket '+a.ticket);save();note('Saved as voucher '+S.bpSeries+' '+S.seq.b+'.')}
 function payList(){const rows=S.payouts.slice().sort((a,b)=>(b.vno||0)-(a.vno||0)||b.date.localeCompare(a.date)).map(x=>{const a=S.auctions.find(y=>y.id===x.aid);return a?{x,a,g:G(a.gid)||{}}:null}).filter(Boolean);
  return`<h1>Bid payments</h1><p class="sub">All prize payments made.</p><div class="card"><div class="row"><button class="btn" onclick="go('payable')">New bid payment</button></div>
- ${rows.length?tbl(['Voucher','Date','Group','Ticket','Mode','A/c','Paid','Adjusted',''],rows.map(({x,a,g})=>`<tr>${td(x.vno?esc(x.series||'BPY')+' '+x.vno:'-')}${td(dmy(x.date))}${td(esc(g.name||''))}${td(a.ticket)}${td(esc(x.mode))}${td(esc(x.acct||''))}${td(inr(x.amount),1)}${td(inr(num(x.adjBP)+num(x.adjAdv)),1)}<td><button class="btn g sm" onclick="go('payable','voucher','${a.id}')">Voucher</button> <button class="btn d sm" onclick="delPayout('${x.id}')">Delete</button></td></tr>`),[6,7]):'<div class="empty">No bid payments yet.</div>'}</div>`}
+ ${rows.length?tbl(['Voucher','Date','Group','Ticket','Mode','A/c','Paid','Adjusted',''],rows.map(({x,a,g})=>`<tr>${td(x.vno?esc(x.series||'BPY')+' '+x.vno:'-')}${td(dmy(x.date))}${td(esc(g.name||''))}${td(a.ticket)}${td(esc(x.mode))}${td(esc(x.acct||''))}${td(inr(x.amount),1)}${td(inr(num(x.adjBP)+num(x.adjAdv)),1)}<td><button class="btn g sm" onclick="go('payable','voucher','${a.id}')">Voucher</button> <button class="btn g sm" onclick="go('payable','edit','${x.id}')">Edit</button> <button class="btn d sm" onclick="delPayout('${x.id}')">Delete</button></td></tr>`),[6,7]):'<div class="empty">No bid payments yet.</div>'}</div>`}
 /* ---------- member removal and refund ---------- */
 const cnFig=(g,t,v)=>{const L=ledger(g,t),paid=L?L.totalPaid:0;let comm=0;if(v.ctype==='pctChit')comm=g.amount*num(v.cval)/100;else if(v.ctype==='pctPaid')comm=paid*num(v.cval)/100;else comm=num(v.cval);
  comm=Math.round(comm);const ded=comm+num(v.chg)+num(v.oth);return{L,paid,comm,ded,refund:Math.max(0,paid-ded),over:ded>paid}};
@@ -2155,6 +2156,31 @@ function delReceipt(id){const r=S.receipts.find(x=>x.id===id);if(!r)return;{cons
   S.receipts=S.receipts.filter(x=>x.id!==id);log('Deleted receipt '+r.no+' ('+inr(r.amount)+')');save();note('Receipt '+r.no+' deleted.')})}
 function fDelete(id){const f=S.future.find(x=>x.id===id);if(!f)return;if((f.adj||[]).length)return note('This future receipt has been adjusted against installments. Delete or cancel those adjustments first.','bad');
  askConfirm('Delete future receipt F'+f.no+' for '+inr(f.amount)+' permanently? It cannot be brought back.',()=>{S.future=S.future.filter(x=>x.id!==id);log('Deleted future receipt F'+f.no);save();note('Future receipt deleted.')})}
+/* correct a saved bid payment: date, mode, bank, cheque / UTR, paid to, narration and amount (within the prize).
+   Adjustments against bid payable and bid advance are left as they were; delete and re-enter to change those. */
+function payEdit(x){const a=S.auctions.find(y=>y.id===x.aid)||{},g=G(a.gid)||{},e=enrollOf(a.gid,a.ticket)||{},others=S.payouts.filter(z=>z.aid===a.id&&z!==x&&!z.dis).reduce((s,z)=>s+num(z.amount)+num(z.adjBP)+num(z.adjAdv),0),room=netOf(a)-others-num(x.adjBP)-num(x.adjAdv);
+ const who=jointOf(e).length?[pnj(e)].concat([e.pid].concat(jointOf(e)).map(pname)):[];if(x.paidTo&&who.length&&!who.includes(x.paidTo))who.push(x.paidTo);
+ return`<h1>Edit bid payment ${esc((x.series||'BPY')+' '+(x.vno||''))}</h1><p class="sub">${esc(g.name||'')}, auction ${a.no}, ticket ${a.ticket}: ${esc(pnt(e))}. Net prize ${inr(netOf(a))}; other payments ${inr(others)}.</p><div id="err" class="err" hidden></div>
+ <div class="card"><div class="fg">
+ <label class="f">Payment date *<input type="date" id="pe_d" value="${esc(x.date)}"></label>
+ <label class="f">Payment mode *<select id="pe_m" onchange="$('pe_cdw').hidden=this.value!=='Cheque';$('pe_cnl').textContent=this.value==='Cheque'?'Cheque number *':'UTR / reference number *'">${PAYMODES.concat(PAYMODES.includes(x.mode)?[]:[x.mode]).map(m=>`<option ${m===x.mode?'selected':''}>${esc(m)}</option>`).join('')}</select></label>
+ <label class="f w2">Bank A/C *<select id="pe_ac">${S.bankAccts.some(b=>b.id===x.acctId)?'':'<option value="">Not chosen</option>'}${S.bankAccts.map(b=>`<option value="${b.id}" ${b.id===x.acctId?'selected':''}>${esc(bLabel(b))}</option>`).join('')}</select></label>
+ <label class="f"><span id="pe_cnl">${x.mode==='Cheque'?'Cheque number *':'UTR / reference number *'}</span><input id="pe_cn" value="${esc(x.ref||'')}"></label>
+ <label class="f" id="pe_cdw" ${x.mode==='Cheque'?'':'hidden'}>Cheque date<input type="date" id="pe_cd" value="${esc(x.chqDate||'')}"></label>
+ ${who.length?`<label class="f w2">Paid to<select id="pe_to">${who.map(w=>`<option ${w===x.paidTo?'selected':''}>${esc(w)}</option>`).join('')}</select></label>`:`<label class="f w2">Paid to<input id="pe_to" value="${esc(x.paidTo||pnj(e))}"></label>`}
+ <label class="f">Amount paid (₹) *<input type="number" id="pe_a" value="${num(x.amount)}"></label>
+ <label class="f w3">Narration<textarea id="pe_n" rows="2">${esc(x.narration||'')}</textarea></label></div>
+ <p class="muted">The most this payment can be is ${inr(room)} (the net prize less the other payments${num(x.adjBP)+num(x.adjAdv)?' and this voucher\'s adjustments':''}).</p>
+ <div class="row"><button class="btn" onclick="payEditSave('${x.id}')">Save changes</button><button class="btn g" onclick="go('payable','list')">Cancel</button></div></div>`}
+function payEditSave(id){const x=S.payouts.find(z=>z.id===id);if(!x)return;const a=S.auctions.find(y=>y.id===x.aid)||{};
+ const d=$('pe_d').value,m=$('pe_m').value,ac=$('pe_ac').value,ref=$('pe_cn').value.trim(),amt=num($('pe_a').value);
+ if(!d)return err('Enter the payment date.');for(const dd of [x.date,d]){const lm=lockMsg(dd);if(lm)return err(lm)}
+ if(!ac)return err('Choose the bank account.');if(!ref)return err(m==='Cheque'?'Enter the cheque number.':'Enter the UTR or reference number.');if(!(amt>0))return err('Enter the amount paid.');
+ const others=S.payouts.filter(z=>z.aid===a.id&&z!==x&&!z.dis).reduce((s,z)=>s+num(z.amount)+num(z.adjBP)+num(z.adjAdv),0),room=netOf(a)-others-num(x.adjBP)-num(x.adjAdv);
+ if(amt>room+0.5)return err('This is more than the prize allows: at most '+inr(room)+'.');
+ const was=dmy(x.date)+', '+x.mode+', '+(x.ref||'-')+', '+inr(x.amount);
+ Object.assign(x,{date:d,mode:m,acctId:ac,acct:bLabel(S.bankAccts.find(b=>b.id===ac)||{}),ref,chqDate:m==='Cheque'?$('pe_cd').value:'',paidTo:$('pe_to').value.trim(),narration:$('pe_n').value.trim(),amount:amt});
+ log('Edited bid payment '+(x.series||'BPY')+' '+(x.vno||'')+': was '+was+'; now '+dmy(x.date)+', '+x.mode+', '+x.ref+', '+inr(x.amount));save();go('payable','list');note('Bid payment saved.')}
 function delPayout(id){const x=S.payouts.find(z=>z.id===id);if(!x)return;
  askConfirm('Delete this bid payment of '+inr(x.amount)+' dated '+dmy(x.date)+' permanently? The prize balance of that auction will go back up by the same amount.',()=>{S.payouts=S.payouts.filter(z=>z.id!==id);log('Deleted bid payment '+inr(x.amount));save();note('Bid payment deleted.')})}
 function cancelReceipt(id){const r=S.receipts.find(x=>x.id===id);{const lm=lockMsg(r.date);if(lm)return note(lm,'bad')}askConfirm('Cancel receipt '+r.no+' for '+inr(r.amount)+'? It stays in the records marked as cancelled.',()=>{r.cancel=true;aprFlag('rcancel',r,num(r.amount));if(r.pdc){const q=S.pdcs.find(z=>z.id===r.pdc);if(q){q.status='Pending';q.rid=''}}if(r.fut){const f=S.future.find(x=>x.id===r.fut);if(f)f.adj=(f.adj||[]).filter(a=>a.rid!==r.id)}log('Cancelled receipt '+r.no);save();note('Receipt '+r.no+' cancelled.')})}
