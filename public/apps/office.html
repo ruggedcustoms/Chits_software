@@ -314,7 +314,7 @@ function copyText(t,msg){
 
 /* ---------- form engine ---------- */
 const T=(k,l,type,o)=>Object.assign({k,l,type:type||'text'},o||{});
-const OPT=(a,v)=>{if(typeof a==='string'){const l=M(a.slice(2)).slice();if(v&&!l.includes(v))l.push(v);a=l}return a.map(x=>Array.isArray(x)?x:[x,x])};
+const OPT=(a,v)=>{if(typeof a==='function')a=a();if(typeof a==='string'){const l=M(a.slice(2)).slice();if(v&&!l.includes(v))l.push(v);a=l}return a.map(x=>Array.isArray(x)?x:[x,x])};
 function fld(f,v){
  const id='f_'+f.k,w=f.w?' w'+f.w:'',lab=esc(f.l)+(f.req?' *':'');
  if(v==null||v==='')v=f.def==null?'':f.def;
@@ -364,7 +364,8 @@ const GSEC=[
 ['FDR / DD information',[
  T('fdrNo','FDR / DD number'),T('fdrDate','FDR / DD date','date'),T('fdrPeriod','Months / weeks / days',{hint:'For example 36 months, 52 weeks or 400 days. A plain number means months.'}),T('fdrType','FDR type','select',{opts:['Simple','Compound'],def:'Simple'}),
  T('fdrAmt','FDR / DD amount (₹)','number'),T('fdrRate','Rate of interest per year (%)','number'),T('fdrMatAmt','Maturity amount (₹)','number',{hint:'Worked out from the amount, rate and period. Compound is counted quarterly.'}),T('fdrMatDate','Maturity / end date','date'),
- T('fdrBank','Bank name','select',{opts:'m:bank',blank:1}),T('fdrBranch','Bank branch')]]];
+ T('fdrBank','Bank name','select',{opts:'m:bank',blank:1}),T('fdrBranch','Bank branch'),
+ T('fdrPaidFrom','Paid from (our bank account)','select',{opts:()=>{const d=S.bankAccts.find(b=>b.def);return(d?[d,...S.bankAccts.filter(b=>b!==d)]:S.bankAccts).map(b=>['bk:'+b.id,bLabel(b)])},hint:'When the group is saved, the FDR is put in the FD register and booked as a bank payment from this account.'}),T('fdrVno','Old voucher no. (if any)','text',{ph:'BP-26/…'})]]];
 const addr=(p,label,extra)=>[label,[T(p+'_door','Door no.'),T(p+'_street','Street name'),T(p+'_addr','Address',  'text',{w:2}),T(p+'_city','City'),T(p+'_district','District'),T(p+'_state','State'),T(p+'_country','Country',  'text',{def:'India'}),T(p+'_pin','Pin code'),T(p+'_phone','Phone','tel'),T(p+'_mobile','Mobile','tel',{req:p==='res'}),...(p==='off'?[T('off_fax','Fax','tel')]:[T(p+'_email','Email','email')])]];
 const PSEC=[
 ['Person and contact information',[
@@ -853,7 +854,7 @@ function groupDetail(g){
  ['Commencement',dmy(g.start)],['Termination',dmy(g.term)],['Enrolment fee',inr(g.enrolFee)],['Company tickets',g.coTickets],['Commission',g.commPct+'% ('+inr(commAmt(g))+')'],['GST on commission',num(g.gstPct)+'%'],
  ['Maximum bid',g.maxPct+'% ('+inr(g.amount*g.maxPct/100)+')'],['Late fee NPS / PS',(S.penNPS==null?1.2:S.penNPS)+'% / '+(S.penPS==null?1.5:S.penPS)+'% per month'],['Dividend',g.divMode==='next'?'From next month':'Same month'],['Prized subscribers pay',g.psPays==='full'?'Full installment':'Installment less dividend'],
  ['Auction method',{both:'Bidding and lottery',bid:'Bidding only',lottery:'Lottery only',none:'No auction'}[g.aMethod||'both']],['No auction in first',noAuc(g)?noAuc(g)+' month'+(noAuc(g)>1?'s':''):'None'],['Lottery discount',num(g.lotPct)+'%'],['Registration at',g.regAt],
- ['FDR / DD',[g.fdrNo,g.fdrAmt?inr(g.fdrAmt):'',g.fdrRate?g.fdrRate+'%':'',g.fdrMatDate?'ends '+dmy(g.fdrMatDate):''].filter(Boolean).join(', ')]];
+ ['FDR / DD',[g.fdrNo,g.fdrAmt?inr(g.fdrAmt):'',g.fdrRate?g.fdrRate+'%':'',g.fdrMatDate?'ends '+dmy(g.fdrMatDate):'',(()=>{if(!(num(g.fdrAmt)>0))return'';const f=fdOfG(g);if(!f)return'not in the FD register yet';const v=(S.vouchers||[]).find(x=>x.fd===f.id&&x.kind==='bankpay');return f.status==='Closed'?'withdrawn'+(f.closed?' on '+dmy(f.closed):''):v?'booked as '+v.no+(v.oldNo?' (old '+v.oldNo+')':''):booksFrom()&&g.fdrDate<booksFrom()?'in the opening balance':'not booked yet'})()].filter(Boolean).join(', ')]];
  const tk=[];for(let t=1;t<=g.n;t++){const e=enrollOf(g.id,t),s=tstat(g,t),w=wonAuction(g.id,t);
   tk.push(`<tr>${td(t)}${td(e?esc(pnt(e)):'<span class="muted">Not enrolled</span>')}${td(e&&e.pid!=='CO'?esc(pmob(P(e.pid))):'')}${td(pill(s[0],s[1]))}${td(w?'Auction '+w.no:'')}</tr>`)}
  return`<div class="row" style="justify-content:space-between;align-items:center"><div><h1>${esc(g.name)}</h1><p class="sub" style="margin:0">${inr(g.amount)} chit, ${g.n} installments of ${inr(chitInst(g))} ${pill(st[0],st[1])}</p></div>
@@ -879,6 +880,8 @@ function saveGroup(){
  const old=ui.id?G(ui.id):null;
  if(!Number.isInteger(o.n)||o.n<2)return err('Number of installments must be a whole number, 2 or more.');
  if(o.maxPct>100)return err('Maximum bid ceiling cannot be above 100%.');
+ if(num(o.fdrAmt)>0&&!o.fdrDate)return err('Enter the FDR / DD date, so the FDR can be booked in Accounts.');
+ {const fm=fdGrpCheck(o,old);if(fm)return err(fm)}
  const co=parseTickets(o.coTickets,o.n);if(co===null)return err('Company ticket numbers must be whole numbers from 1 to '+o.n+', separated by commas.');
  if(old){if(S.enrolls.some(e=>e.gid===old.id&&e.ticket>o.n))return err('Some tickets above '+o.n+' are already enrolled.');
   if(auctionsOf(old.id).length&&(o.amount!=old.amount||o.n!=old.n||o.commPct!=old.commPct||o.psPays!=old.psPays||o.roundDiv!=old.roundDiv))return err('Auctions have started, so chit amount, installments, commission, what prized subscribers pay and rounding cannot be changed.');
@@ -887,7 +890,8 @@ function saveGroup(){
 function finishGroup(o,old,co){const g=old||{id:uid()},dm0=old&&old.divMode;Object.assign(g,o);if(!old)S.groups.push(g);
  S.enrolls=S.enrolls.filter(e=>!(e.gid===g.id&&e.pid==='CO'&&!co.includes(e.ticket)));
  co.forEach(t=>{if(!enrollOf(g.id,t))S.enrolls.push({id:uid(),gid:g.id,ticket:t,pid:'CO',date:today()})});
- log((old?'Edited':'Created')+' group '+g.name+(old&&dm0!==o.divMode?', dividend now applies '+(o.divMode==='next'?'from the next month':'in the same month'):''));save();ui={page:'groups',sub:'detail',id:g.id};note('Group saved.');scrollTo(0,0)}
+ const fdm=fdGrpSync(g);
+ log((old?'Edited':'Created')+' group '+g.name+(fdm?', '+fdm:'')+(old&&dm0!==o.divMode?', dividend now applies '+(o.divMode==='next'?'from the next month':'in the same month'):''));save();ui={page:'groups',sub:'detail',id:g.id};note('Group saved.'+(fdm?' FDR '+fdm+'.':''));scrollTo(0,0)}
 function delGroup(id){const g=G(id);
  if(auctionsOf(id).length||S.receipts.some(r=>r.gid===id)){const na=S.auctions.filter(a=>a.gid===id).length,nr=S.receipts.filter(r=>r.gid===id).length;
   return askConfirm('The group "'+g.name+'" has '+na+' auction'+(na===1?'':'s')+' and '+nr+' receipt'+(nr===1?'':'s')+'. Delete the group together with ALL its auctions, prize payments, receipts and enrolments? This cannot be undone. Use it to remove a wrongly imported group so you can import it again. Take a backup first if you are not sure.',()=>{
@@ -2876,6 +2880,24 @@ function pageFdReg(){S.fds=S.fds||[];const F_=S.fds,act=F_.filter(f=>f.status!==
  ${F_.length?tbl(['FD no.','Bank','Principal','Rate %','Start','Maturity','Interest earned','Posted','Status',''],F_.slice().sort((a,b)=>a.maturity.localeCompare(b.maturity)).map(f=>{const cl=f.status==='Closed',dueS=!cl&&f.maturity<=addDays(today(),30);return`<tr>${td(esc(f.no)+(f.gid&&G(f.gid)?'<div class="muted">'+esc(G(f.gid).name)+'</div>':''))}${td(esc(f.bank)+(f.purpose?'<div class="muted">'+esc(f.purpose)+'</div>':''))}${td(inr(f.amount),1)}${td(f.rate,1)}${td(dmy(f.from))}${td(dmy(f.maturity))}${td(inr(fdAcc(f)),1)}${td(inr(f.posted||0),1)}${td(cl?pill('Closed '+dmy(f.closed),'mute'):f.maturity<=today()?pill('Matured','warn'):dueS?pill('Maturing soon','warn'):pill('Running','good'))}<td>${cl?'':`<button class="btn sm" onclick="F.fdClose='${f.id}';render();setTimeout(()=>{const e=$('fdCloseCard');e&&e.scrollIntoView({block:'start'})},50)">Close</button> `}<button class="btn d sm" onclick="fdDel('${f.id}')">Delete</button></td></tr>`}),[2,3,6,7]):'<div class="empty">No FDs yet.</div>'}</div>`}
 /* the security FDR of each chit group, entered with the group: bring those not yet in the register; those dated from the
    books start are also posted as bank payments (the earlier ones are in the opening balances) */
+/* A group's FDR is booked when the group is saved: it goes into the FD register, and when dated from the books start it is posted as a bank payment (Dr Fixed Deposit Chit A/c, Cr the bank). Saving again keeps the register entry and the voucher in step with the group. */
+const fdOfG=g=>(S.fds||[]).find(x=>x.gid===g.id)||(g.fdrNo?(S.fds||[]).find(x=>!x.gid&&low(x.no)===low(g.fdrNo)):null);
+function fdGrpVch(f,g,fdA){const L=S.vouchers||[];let v=L.find(x=>x.fd===f.id&&x.kind==='bankpay');if(v)return v;
+ v=L.find(x=>!x.fd&&((g.fdrVno&&low(x.oldNo||'')===low(g.fdrVno))||(x.date===f.from&&x.lines.some(l=>l.a===fdA&&Math.abs(l.dr-f.amount)<0.01))));if(v){v.fd=f.id;(f.vs=f.vs||[]).includes(v.id)||f.vs.push(v.id)}return v||null}
+function fdGrpCheck(o,old){if(!(num(o.fdrAmt)>0&&o.fdrDate))return'';const bf=booksFrom();if(bf&&o.fdrDate<bf)return'';
+ const f=old&&fdOfG(old);if(f&&f.status==='Closed')return'';if(!acNeed('Fixed Deposit Chit A/c'))return'The account Fixed Deposit Chit A/c is missing, so the FDR cannot be booked.';
+ const v=f&&(S.vouchers||[]).find(x=>x.fd===f.id&&x.kind==='bankpay');if(!v&&!o.fdrPaidFrom)return'Choose the bank account the FDR was paid from (FDR / DD information). Add a bank account in Bank accounts first if there is none.';
+ return lockMsg(o.fdrDate)||(v?lockMsg(v.date):'')}
+function fdGrpSync(g){if(!(num(g.fdrAmt)>0&&g.fdrDate))return'';S.fds=S.fds||[];const bf=booksFrom(),fdA=acNeed('Fixed Deposit Chit A/c'),amt=num(g.fdrAmt);
+ let f=fdOfG(g),msg='';const vals={no:g.fdrNo||'FDR '+g.name,bank:g.fdrBank||'',amount:amt,rate:num(g.fdrRate),from:g.fdrDate,maturity:fdrEnd(g)||g.fdrDate,type:g.fdrType==='Compound'?'Cumulative':'Simple',gid:g.id};
+ if(!f){f=Object.assign({id:uid(),purpose:'Security deposit for '+g.name,status:'Running',closed:'',posted:0,vs:[]},vals);S.fds.push(f);msg='added to the FD register'}
+ else if(f.status==='Closed')return'';else Object.assign(f,vals);
+ if((bf&&g.fdrDate<bf)||!fdA)return msg?msg+' (in the opening balance, so not posted)':'';
+ const narr='Security deposit for '+g.name+', FDR '+f.no,lines=bk=>[{a:fdA,dr:amt},{a:bk,cr:amt}];let v=fdGrpVch(f,g,fdA);
+ if(!v){if(!g.fdrPaidFrom)return msg;v=mkVch('bankpay',g.fdrDate,lines(g.fdrPaidFrom),narr,{fd:f.id,oldNo:g.fdrVno||'',party:f.bank,ref:f.no,mode:'Others'});(f.vs=f.vs||[]).push(v.id);return'booked as '+v.no+' ('+inr(amt)+')'}
+ if(v.kind!=='bankpay'||v.lines.length!==2)return msg;const bl=v.lines.find(l=>l.a!==fdA),bk=g.fdrPaidFrom||(bl&&bl.a);
+ const same=v.date===g.fdrDate&&v.lines.some(l=>l.a===fdA&&Math.abs(l.dr-amt)<0.01)&&bl&&bl.a===bk&&(!g.fdrVno||v.oldNo===g.fdrVno);if(same)return msg;
+ Object.assign(v,{date:g.fdrDate,lines:lines(bk),ref:f.no,party:f.bank});if(g.fdrVno)v.oldNo=g.fdrVno;return'voucher '+v.no+' updated ('+inr(amt)+')'}
 const fdGrpNew=()=>S.groups.filter(g=>num(g.fdrAmt)>0&&g.fdrDate&&!(S.fds||[]).some(f=>f.gid===g.id||(g.fdrNo&&String(f.no).toLowerCase()===String(g.fdrNo).toLowerCase()))).sort((a,b)=>a.fdrDate.localeCompare(b.fdrDate));
 function fdGrpCard(){const L=fdGrpNew(),miss=S.groups.filter(g=>num(g.fdrAmt)>0&&!g.fdrDate).length,bf=booksFrom();if(!L.length)return miss?`<div class="note">${miss} group${miss>1?'s have':' has'} an FDR amount but no FDR date. Add the date in the group to bring it into the register.</div>`:'';
  return`<div class="card" style="border:2px solid var(--brand,#0f766e)"><h2 style="margin-top:0">FDRs entered in chit groups: ${L.length} not in this register yet</h2><p class="muted">Each group's security FDR (from the group's FDR / DD details). Ticked ones dated ${bf?'from '+dmy(bf):''} are also posted to Accounts as a bank payment (Debit Fixed Deposit Chit A/c, credit the bank); earlier ones are already in your opening balances, so they only go into the register.${miss?' '+miss+' more group'+(miss>1?'s have':' has')+' an FDR amount but no date.':''}</p>
