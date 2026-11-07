@@ -3701,7 +3701,7 @@ function imEngine(){
   S.payouts.push({id:uid(),aid:a.id,date,mode,amount:amt,adjBP:0,adjAdv:0,advUse:[],ref:o.ref,chqDate:'',acctId:b?b.id:'',acct:b?bLabel(b):'',payBranch:g.branch||'',paidTo:o.paidTo||(e.pid?pnj(e):''),narration:o.narr,series:S.bpSeries||'BPY',vno:++S.seq.b,oldNo:o.oldNo});
   pk.add(nat);if(key)pk.add(key);return['ok','',w]};
  /* receipts */
- const rk=new Set;S.receipts.forEach(x=>{if(x.oldNo)rk.add(x.gid+'|#'+low(x.oldNo));rk.add([x.gid,x.ticket,x.date,x.amount,x.mode].join('|'))});
+ const rk=new Set,rkT=new Map;S.receipts.forEach(x=>{if(x.oldNo){rk.add(x.gid+'|'+x.ticket+'|#'+low(x.oldNo));const q=x.gid+'|#'+low(x.oldNo);rkT.set(q,(rkT.get(q)||[]).concat(x.ticket))}rk.add([x.gid,x.ticket,x.date,x.amount,x.mode].join('|'))});
  const rcH=r=>{const o=r.o,w=[],gr=grp(o);if(!gr.g)return['err',gr.e];const g=gr.g,t=tkt(g,o.ticket);if(!t)return['err','Ticket no. must be a whole number from 1 to '+g.n];
   const e=enr.get(g.id+'|'+t);if(!e)return['err','Ticket '+t+' is not enrolled in '+g.name];if(e.pid==='CO')return['err','Ticket '+t+' is a company ticket'];
   const date=pdate(o.date);if(!date)return['err','Receipt date is missing or not valid ("'+o.date+'")'];
@@ -3710,14 +3710,15 @@ function imEngine(){
   if(amount-pen-ef-oth<0)return['err','Penalty, fee and charges add up to more than the amount received'];
   let mode=pickOpt(M('mode'),o.mode)||(o.mode?o.mode:'Cash');if(o.mode&&!pickOpt(M('mode'),o.mode))w.push('Payment mode "'+o.mode+'" is not in your list; kept as typed');
   const insts=[];if(o.insts&&IM.useIns){let bad=false;o.insts.split(/[,;\s]+/).filter(Boolean).forEach(x=>{const m=x.match(/^(\d+)(?:-(\d+))?$/);if(!m){bad=true;return}for(let i=+m[1];i<=+(m[2]||m[1])&&i<=g.n;i++)if(!insts.includes(i))insts.push(i)});if(bad)w.push('Installments paid not understood; oldest dues will be cleared first')}
-  const nat=[g.id,t,date,amount,mode].join('|'),ok_=o.oldNo?g.id+'|#'+low(o.oldNo):nat;
-  if(rk.has(ok_))return['skip','Already imported'+(o.oldNo?' (old receipt no. '+o.oldNo+')':'')];
+  const nat=[g.id,t,date,amount,mode].join('|'),ok_=o.oldNo?g.id+'|'+t+'|#'+low(o.oldNo):nat;
+  if(rk.has(ok_))return['skip','Already imported'+(o.oldNo?' (old receipt no. '+o.oldNo+', ticket '+t+')':'')];
+  if(o.oldNo){const q=g.id+'|#'+low(o.oldNo),ot=(rkT.get(q)||[]).filter(x=>x!=t);if(ot.length)w.push('Old receipt no. '+o.oldNo+' is also on ticket '+ot.join(', ')+' of '+g.name+' (one receipt for several tickets), so it is added for ticket '+t+' too')}
   if(!o.oldNo&&rk.has(nat))return['skip','Same group, ticket, date, amount and mode already exists. If it is a genuine second payment, give it a different Old receipt no.'];
   const ag=o.agent?findP(o.agent):{};if(o.agent&&!ag.p)w.push('Collected by "'+o.agent+'" not found, left blank');
   if(date>today())w.push('Receipt date is in the future');
   const cq=/cheque|dd/i.test(mode);
   S.receipts.push({id:uid(),no:++S.seq.r,date,mode,gid:g.id,ticket:t,pid:e.pid,tr:cq?'':o.chqNo,trDate:'',agent:ag.p?ag.p.id:'',amount,penalty:pen,enrolFee:ef,bankCharge:0,otherCharge:oth,reason:o.reason,chq:{no:cq?o.chqNo:'',bank:o.bank,date:cq?date:'',place:''},cancel:false,insts,oldNo:o.oldNo});
-  rk.add(ok_);rk.add(nat);return['ok','',w]};
+  rk.add(ok_);rk.add(nat);if(o.oldNo){const q=g.id+'|#'+low(o.oldNo);rkT.set(q,(rkT.get(q)||[]).concat(t))}return['ok','',w]};
   /* vouchers: several rows with the same voucher no. make one voucher */
  const acFind=s=>{s=String(s||'').trim();if(!s)return null;const l=low(s);if(l==='cash'||l==='cash in hand'||l==='cash a/c')return A.cash;
   const all=acAll(),a=all.find(x=>x.id.indexOf('bk:')!==0&&(low(x.code)===l||low(x.name)===l));if(a)return a.id;
