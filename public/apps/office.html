@@ -2865,7 +2865,7 @@ function pageFdReg(){S.fds=S.fds||[];const F_=S.fds,act=F_.filter(f=>f.status!==
  <div class="card"><h2>Add an FD</h2><div class="fg"><label class="f">FD / receipt no. *<input id="fd_n"></label><label class="f">Bank *<input id="fd_b"></label><label class="f">Amount (₹) *<input type="number" id="fd_a" min="0" step="0.01"></label><label class="f">Interest % per year *<input type="number" id="fd_r" step="0.01"></label><label class="f">Start date *<input type="date" id="fd_f"></label><label class="f">Maturity date *<input type="date" id="fd_m"></label><label class="f">Interest<select id="fd_t"><option value="Cumulative">Cumulative (added every quarter)</option><option value="Simple">Simple (paid out)</option></select></label><label class="f">Purpose<input id="fd_p" placeholder="e.g. security with Registrar"></label></div>
   <label class="chk" style="display:flex;gap:8px;margin-top:8px"><input type="checkbox" id="fd_post"><span>This is a new FD made today. Also post the entry (Debit Fixed Deposit, Credit the bank). Leave unticked for FDs already in your opening balances.</span></label><div class="row" style="margin-top:8px"><label class="f" style="max-width:260px">Paid from (only if ticked)<select id="fd_pm">${payOpts(S.bankAccts[0]?'bk:'+S.bankAccts[0].id:A.cash)}</select></label></div><div class="row" style="margin-top:8px"><button class="btn" onclick="fdSave()">Save FD</button></div></div>
  <div class="card"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">FDs (${F_.length})</h2><button class="btn" onclick="fdPostInt()">Post interest earned to Accounts</button></div>
- ${F_.length?tbl(['FD no.','Bank','Principal','Rate %','Start','Maturity','Interest earned','Posted','Status',''],F_.slice().sort((a,b)=>a.maturity.localeCompare(b.maturity)).map(f=>{const cl=f.status==='Closed',dueS=!cl&&f.maturity<=addDays(today(),30);return`<tr>${td(esc(f.no))}${td(esc(f.bank)+(f.purpose?'<div class="muted">'+esc(f.purpose)+'</div>':''))}${td(inr(f.amount),1)}${td(f.rate,1)}${td(dmy(f.from))}${td(dmy(f.maturity))}${td(inr(fdAcc(f)),1)}${td(inr(f.posted||0),1)}${td(cl?pill('Closed '+dmy(f.closed),'mute'):f.maturity<=today()?pill('Matured','warn'):dueS?pill('Maturing soon','warn'):pill('Running','good'))}<td>${cl?'':`<button class="btn sm" onclick="F.fdClose='${f.id}';render();setTimeout(()=>{const e=$('fdCloseCard');e&&e.scrollIntoView({block:'start'})},50)">Close</button> `}<button class="btn d sm" onclick="fdDel('${f.id}')">Delete</button></td></tr>`}),[2,3,6,7]):'<div class="empty">No FDs yet.</div>'}</div>`}
+ ${F_.length?tbl(['FD no.','Bank','Principal','Rate %','Start','Maturity','Interest earned','Posted','Status',''],F_.slice().sort((a,b)=>a.maturity.localeCompare(b.maturity)).map(f=>{const cl=f.status==='Closed',dueS=!cl&&f.maturity<=addDays(today(),30);return`<tr>${td(esc(f.no)+(f.gid&&G(f.gid)?'<div class="muted">'+esc(G(f.gid).name)+'</div>':''))}${td(esc(f.bank)+(f.purpose?'<div class="muted">'+esc(f.purpose)+'</div>':''))}${td(inr(f.amount),1)}${td(f.rate,1)}${td(dmy(f.from))}${td(dmy(f.maturity))}${td(inr(fdAcc(f)),1)}${td(inr(f.posted||0),1)}${td(cl?pill('Closed '+dmy(f.closed),'mute'):f.maturity<=today()?pill('Matured','warn'):dueS?pill('Maturing soon','warn'):pill('Running','good'))}<td>${cl?'':`<button class="btn sm" onclick="F.fdClose='${f.id}';render();setTimeout(()=>{const e=$('fdCloseCard');e&&e.scrollIntoView({block:'start'})},50)">Close</button> `}<button class="btn d sm" onclick="fdDel('${f.id}')">Delete</button></td></tr>`}),[2,3,6,7]):'<div class="empty">No FDs yet.</div>'}</div>`}
 function fdSave(){const e=m=>{const x=$('err');x.textContent=m;x.hidden=false;x.scrollIntoView({block:'center'})},f={id:uid(),no:ge_('fd_n').trim(),bank:ge_('fd_b').trim(),amount:num(ge_('fd_a')),rate:num(ge_('fd_r')),from:ge_('fd_f'),maturity:ge_('fd_m'),type:ge_('fd_t'),purpose:ge_('fd_p').trim(),status:'Running',posted:0};
  if(!f.no||!f.bank)return e('Enter the FD number and the bank.');if(!(f.amount>0))return e('Enter the amount.');if(!(f.rate>0))return e('Enter the interest rate.');if(!f.from||!f.maturity)return e('Enter the start and maturity dates.');if(f.maturity<=f.from)return e('Maturity must be after the start date.');
  if($('fd_post').checked){const fdA=acNeed('Fixed Deposit Chit A/c');if(!fdA)return e('The account Fixed Deposit Chit A/c is missing.');const lm=lockMsg(f.from);if(lm)return e(lm);const v=mkJV(f.from,[{a:fdA,dr:f.amount},{a:ge_('fd_pm'),cr:f.amount}],'FD '+f.no+' with '+f.bank,{fd:f.id});f.vs=[v.id]}
@@ -3277,8 +3277,8 @@ function mDel(k,i){const v=M(k)[i],u=mUsed(k,v);if(u)return note('"'+v+'" is use
  askConfirm('Delete "'+v+'" from the list?',()=>{S.masters[k]=M(k).filter((_,j)=>j!==i);log('Master '+k+': deleted '+v);save();note('Deleted.')})}
 
 /* ---------- bulk import ---------- */
-const IMT=['groups','members','enrolls','auctions','receipts','payouts','banks','ledgers','vouchers'];
-const IML={groups:'Groups',members:'Members',enrolls:'Enrollments',auctions:'Auctions',receipts:'Receipts',payouts:'Prize payments',banks:'Bank accounts',ledgers:'Account balances',vouchers:'Vouchers'};
+const IMT=['groups','members','enrolls','auctions','receipts','payouts','banks','ledgers','vouchers','fds'];
+const IML={groups:'Groups',members:'Members',enrolls:'Enrollments',auctions:'Auctions',receipts:'Receipts',payouts:'Prize payments',banks:'Bank accounts',ledgers:'Account balances',vouchers:'Vouchers',fds:'Fixed deposits'};
 const imn=s=>String(s==null?'':s).toLowerCase().replace(/%/g,'pct').replace(/[^a-z0-9]/g,'');
 /* [key, heading, required, other accepted headings] */
 const IMS={
@@ -3293,6 +3293,10 @@ const IMS={
  payouts:[['group','Group name',1,['group','chit','chitname','groupno','chitno']],['auctionNo','Auction no',0,['auctionno','acnno','acno','aucno','auctionnumber','no','month','installmentno','instno']],['ticket','Winner ticket',0,['winnerticket','ticket','ticketno','tkt','tktno','prizedticket','winner']],['date','Payment date',1,['date','paiddate','voucherdate']],['amount','Amount paid',1,['amount','paidamount','prizepaid','netamount']],['mode','Payment mode',0,['mode','paymode','paymentmode']],['ref','Cheque / UTR no',0,['chequeno','utr','utrno','refno','reference','chqno']],['bank','Our bank account',0,['bankaccount','bankacno','bankacctno','paidfrom','bank']],['paidTo','Paid to',0,['payee','name']],['oldNo','Old voucher no',0,['voucherno','vno','oldvoucherno']],['narr','Narration',0,['narration','remarks','note']]],
  banks:[['bank','Bank name',1,['bank','name']],['branch','Branch',1,['bankbranch']],['acctNo','Account number',1,['accountno','acno','accno','accountnumber','acctno']],['ifsc','IFSC',0,['ifsccode']],['opening','Opening balance',0,['openingbal','balance','obal','openbal']]],
  ledgers:[['code','Account code',0,['code','ledgercode','acode','accode']],['name','Account name',1,['account','ledger','ledgername','accountname','particulars','name']],['group','Group',1,['accountgroup','type','accounttype','category','nature']],['sub','Sub-group',0,['subgroup','subcategory']],['opening','Opening balance',0,['openingbal','balance','obal','openbal','amount']],['drcr','Dr or Cr',0,['drcr','debitcredit','side','baltype','dc']],['date','As on date',0,['asondate','openingdate','date']]],
+ fds:[['no','FD no',1,['fdno','fdrno','fdnumber','fdrnumber','depositno']],['group','Group name',0,['group','chit','chitname','groupno','chitno']],['bank','FD bank',1,['bank','bankname','fdbank']],['amount','Amount',1,['principal','fdamount','fdramount','depositamount']],
+  ['rate','Interest %',0,['rate','interestrate','roi','rateofinterest']],['from','Start date',1,['fddate','fdrdate','depositdate','opendate','fromdate','date']],['maturity','Maturity date',0,['maturity','matdate','maturitydt','todate']],['type','Interest type',0,['interesttype','fdtype','fdrtype']],
+  ['closed','Closed on',0,['closeddate','withdrawndate','releasedate','closedon','withdrawnon']],['recd','Amount received',0,['received','proceeds','maturityamount','amountwithdrawn','closingamount']],['acct','Our bank account',0,['ourbank','companybank','paidfrom','receivedin']],
+  ['vno','Old voucher no',0,['voucherno','vchno','paymentvoucher']],['cvno','Closing voucher no',0,['closingvoucher','withdrawvoucher','receiptvoucher']],['purpose','Narration',0,['purpose','narration','remarks']]],
  vouchers:[['vno','Voucher no',1,['voucherno','vchno','entryno','journalno']],['date','Date',1,['voucherdate','vchdate','entrydate']],['type','Voucher type',0,['type','vouchertype','vchtype','kind']],['account','Account',1,['ledger','ledgername','accountname','particulars','head','accounthead']],['debit','Debit',0,['dr','debitamount','debitamt']],['credit','Credit',0,['cr','creditamount','creditamt']],['narr','Narration',0,['narration','remarks','note']],['party','Party',0,['paidto','receivedfrom','payee']],['ref','Cheque / UTR no',0,['chequeno','utr','utrno','refno','reference','chqno']]]
 };
 let IM={sheets:[],res:null,err:'',done:null,undo:null,onlyErr:true,pick:{}};
@@ -3366,10 +3370,10 @@ function imMap(hdr,spec){const h=hdr.map(imn),idx={},used=new Set();
  return{idx,missing:spec.filter(s=>s[2]&&idx[s[0]]==null).map(s=>s[1]),found:Object.keys(idx).length}}
 function imGuess(name,hdr){const n=imn(name);
  if(/instruction|readme|help|note/.test(n))return'';
- if(/voucher|journal|daybook/.test(n))return'vouchers';if(/payout|prize|bidpay|bidpayment/.test(n))return'payouts';if(/ledger|chartof|openingbal|accountbal|trial/.test(n))return'ledgers';if(/bank/.test(n))return'banks';
+ if(/^fds?$|^fdrs?$|fixeddep|fdregister|fdrregister|fddetail/.test(n))return'fds';if(/voucher|journal|daybook/.test(n))return'vouchers';if(/payout|prize|bidpay|bidpayment/.test(n))return'payouts';if(/ledger|chartof|openingbal|accountbal|trial/.test(n))return'ledgers';if(/bank/.test(n))return'banks';
  if(/enrol/.test(n))return'enrolls';if(/auction/.test(n))return'auctions';if(/receipt|collection/.test(n))return'receipts';
  if(/member|customer|subscriber|client/.test(n))return'members';if(/group|chit/.test(n))return'groups';
- let best='',bs=0;['receipts','payouts','vouchers','auctions','enrolls','groups','members','ledgers','banks'].forEach(t=>{const m=imMap(hdr,IMS[t]);if(!m.missing.length&&m.found>bs){bs=m.found;best=t}});return best}
+ let best='',bs=0;['receipts','payouts','vouchers','auctions','enrolls','groups','members','ledgers','banks','fds'].forEach(t=>{const m=imMap(hdr,IMS[t]);if(!m.missing.length&&m.found>bs){bs=m.found;best=t}});return best}
 function imSheet(file,name,rows){rows=rows.filter(r=>r.cells.some(c=>String(c==null?'':c).trim()!==''));
  const hr=rows.shift()||{cells:[]},hdr=hr.cells.map(c=>String(c==null?'':c).trim());return{file,name,hdr,rows,type:imGuess(name,hdr)}}
 async function imLoad(inp){const fs=[...inp.files];IM.err='';IM.done=null;
@@ -3455,6 +3459,29 @@ function imEngine(){
 
  /* bank accounts and account balances */
  const bkFind=s=>{s=low(s);if(!s)return null;const a=S.bankAccts.find(b=>low(b.acctNo)===s||low(bLabel(b))===s)||S.bankAccts.find(b=>s.length>=4&&(low(b.acctNo).endsWith(s)||low(bLabel(b)).includes(s)));return a||null};
+ /* fixed deposits: every FD goes into the FD register. Only what happened from the books start is posted (FD made: bank
+    payment, FD debit; FD closed: bank deposit, FD credit and any interest), because the opening balances hold the rest.
+    A voucher number already brought in from the Vouchers sheet is not posted again. */
+ const mkV=(kind,date,lines,narr,extra)=>{const c=VK[kind];S.seq.vch=S.seq.vch||{};const n=S.seq.vch[kind]=(S.seq.vch[kind]||0)+1;S.vouchers=S.vouchers||[];const v=Object.assign({id:uid(),n,no:c.pre+' '+n,kind,type:c.type,date,lines:lines.map(l=>({a:l.a,dr:r2(l.dr||0),cr:r2(l.cr||0)})),narr:narr||''},extra||{});S.vouchers.push(v);return v};
+ const fdEv=[];
+ const fdH=r=>{const o=r.o,w=[];if(!o.no)return['err','FD no. is empty'];if(!o.bank)return['err','FD bank is empty'];
+  const amt=imNum(o.amount);if(!(amt>0))return['err','Amount must be a number above 0'];const from=pdate(o.from);if(!from)return['err','Start date is missing or not valid ("'+o.from+'")'];
+  let mat=o.maturity===''?'':pdate(o.maturity);if(mat===null)return['err','Maturity date is not a valid date ("'+o.maturity+'")'];const cl=o.closed===''?'':pdate(o.closed);if(cl===null)return['err','Closed on is not a valid date ("'+o.closed+'")'];
+  if(cl&&cl<from)return['err','Closed on is before the start date'];
+  S.fds=S.fds||[];if(S.fds.some(x=>low(x.no)===low(o.no)&&x.from===from))return['skip','FD '+o.no+' of '+dmy(from)+' is already in the FD register'];
+  let g=null;if(o.group){g=gmap.get(gkey(o.group));if(!g)w.push('Group "'+o.group+'" not found, so the FD is kept without a group')}
+  const rate=o.rate===''?0:imNum(o.rate);if(isNaN(rate))return['err','Interest % must be a number'];if(!mat){mat=cl||from;w.push('No maturity date, so the '+(cl?'closing':'start')+' date is used')}
+  const bk=o.acct?S.bankAccts.find(b=>[b.acctNo,b.bank,bLabel(b)].some(x=>low(x)===low(o.acct))):(S.bankAccts.find(b=>b.def)||S.bankAccts[0]);if(o.acct&&!bk)return['err','Our bank account "'+o.acct+'" is not in Bank accounts. Give its account number.'];
+  const bf=booksFrom(),fdA=acNeed('Fixed Deposit Chit A/c'),incA=acNeed('Interest on Deposit'),seen=no=>no&&(S.vouchers||[]).some(v=>low(v.oldNo||'')===low(no)),post=d=>bf&&d&&d>=bf;
+  if((post(from)||post(cl))&&(!bk||!fdA||!incA))return['err',!bk?'Add the company bank account first (Bank accounts sheet or Masters)':'The accounts Fixed Deposit Chit A/c or Interest on Deposit are missing'];
+  const f={id:uid(),no:o.no,bank:o.bank,amount:amt,rate,from,maturity:mat,type:/simp|paid/i.test(o.type)?'Simple':'Cumulative',purpose:o.purpose||(g?'Security deposit for '+g.name:''),gid:g?g.id:'',status:cl?'Closed':'Running',closed:cl||'',posted:0,vs:[]};
+  const what=(g?' for '+g.name:'')+', FD '+o.no+' with '+o.bank;
+  if(post(from)){if(seen(o.vno))w.push('Voucher '+o.vno+' is already in the app (Vouchers sheet), so the new FD is not posted again');else fdEv.push({f,k:'bankpay',d:from,lines:[{a:fdA,dr:amt},{a:'bk:'+bk.id,cr:amt}],narr:o.purpose||'Security deposit'+what,x:{fd:f.id,oldNo:o.vno||'',party:o.bank,ref:o.no,mode:'Others'}})}
+  if(post(cl)){const rc=o.recd===''?amt:imNum(o.recd);if(!(rc>=0))return['err','Amount received must be a number'];const it=r2(rc-amt),lines=[{a:'bk:'+bk.id,dr:rc},{a:fdA,cr:amt}];if(it>0)lines.push({a:incA,cr:it});else if(it<0)lines.push({a:incA,dr:-it});
+   if(seen(o.cvno))w.push('Voucher '+o.cvno+' is already in the app (Vouchers sheet), so the FD closing is not posted again');else{fdEv.push({f,k:'bankdep',d:cl,lines,narr:'Withdrawal of FDR proceeds'+what,x:{fd:f.id,oldNo:o.cvno||'',party:o.bank,ref:o.no}});f.posted=Math.max(0,it)}}
+  if(!bf&&(from||cl))w.push('No books start date is set (Accounts), so no accounting entry was made for this FD');
+  if(g&&!g.fdrNo)Object.assign(g,{fdrNo:o.no,fdrDate:from,fdrAmt:amt,fdrRate:rate||'',fdrMatDate:mat,fdrBank:o.bank});
+  S.fds.push(f);return['ok','',w]};
  const bankH=r=>{const o=r.o;if(!o.bank)return['err','Bank name is empty'];if(!o.branch)return['err','Bank branch is empty'];if(!o.acctNo)return['err','Account number is empty'];
   const op=o.opening===''?0:imNum(o.opening);if(isNaN(op))return['err','Opening balance must be a number (negative if overdrawn)'];
   if(S.bankAccts.some(x=>low(x.acctNo)===low(o.acctNo)&&low(x.bank)===low(o.bank)))return['skip','Bank account already added'];
@@ -3673,6 +3700,8 @@ function imEngine(){
  run('auctions',aucH,(a,b)=>gs(a,b)||((imNum(a.o.no)||9999)-(imNum(b.o.no)||9999))||(dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0));
  run('payouts',payH,(a,b)=>dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0);
  run('receipts',rcH,(a,b)=>dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0);vcRun();
+ run('fds',fdH,(a,b)=>dk(a.o.from)<dk(b.o.from)?-1:dk(a.o.from)>dk(b.o.from)?1:0);
+ fdEv.sort((a,b)=>a.d.localeCompare(b.d)).forEach(e=>e.f.vs.push(mkV(e.k,e.d,e.lines,e.narr,e.x).id));
  S.seq.m=mx;return R}
 const imDry=()=>{const bak=S;S=JSON.parse(JSON.stringify(S));try{return imEngine()}finally{S=bak}};
 const imTotal=R=>Object.values(R.tabs).reduce((s,c)=>s+c.ok,0);
@@ -3725,6 +3754,7 @@ function imSampleData(){
   banks:[['State Bank of India','Salem Main','123456789012','SBIN0000123',250000],['Canara Bank','Salem Fairlands','987654321098','CNRB0000456',0]],
   ledgers:[['1001','Cash in hand','Assets','Cash',15000,'Dr',''],['2007','Capital and reserves','Liabilities','Capital',265000,'Cr',''],['4010','Telephone expenses','Expenses','Office costs',0,'Dr','']],
   payouts:[[g,1,'','2026-01-12',10000,'NEFT/RTGS','UTR777001','123456789012','Lakshmi Devi','V-9001','Part prize payment']],
+  fds:[['FDR-1001',g,'State Bank of India',100000,6.5,'2025-12-20','2028-12-20','Cumulative','','','123456789012','','','Security deposit for '+g]],
   vouchers:[['V-101','2026-01-10','Payment','Rent',12000,'','Office rent for January','Landlord',''],['V-101','2026-01-10','Payment','123456789012','',12000,'','','CHQ 000451'],['V-102','2026-01-15','Receipt','123456789012',500,'','Bank interest','',''],['V-102','2026-01-15','Receipt','FDR interest','',500,'','','']],
   receipts:[[g,1,'2026-01-07','R-1001','Cash','','',8500,0,0,0,'1','C006',''],[g,1,'2026-02-08','R-1002','UPI','UPI123456','',8700,0,0,0,'2','C006',''],[g,3,'2026-01-09','R-1003','Cheque','001245','State Bank of India',8500,0,0,0,'1','',''],[g,4,'2026-02-10','R-1004','NEFT/RTGS','UTR20260210','',17200,0,0,0,'1,2','',''],[g,6,'2026-01-12','R-1005','Cash','','',8600,0,100,0,'1','C006','Enrolment fee included']]};
  const ins=[['How to use this file'],[''],
@@ -3740,7 +3770,8 @@ function imSampleData(){
   ['10. Bank accounts: one row for each company bank account with its opening balance (negative if overdrawn). Import these before vouchers and payments.'],
   ['11. Account balances: your trial balance as on the day you start. Use the account code or name of an existing account (such as Cash in hand) to set its opening balance, or give a new name, group and code to add an account. Group is Assets, Liabilities (or Capital), Income or Expenses. Total debits must equal total credits; put any difference against Capital and reserves.'],
   ['12. Vouchers: one row for each line. Rows with the same Voucher no. make one voucher, and its debits must equal its credits. In Account write the account code or name, "Cash", or the bank account number. Type is Receipt, Payment, Contra or Journal.'],
-  ['13. Re-uploading the same file is safe. Everything already in the app (matched by old numbers, or by group, ticket, date and amount) is skipped.'],[''],['Required columns']];
+  ['13. Re-uploading the same file is safe. Everything already in the app (matched by old numbers, or by group, ticket, date and amount) is skipped.'],
+  ['14. Fixed deposits: one row for each FD, from the oldest. Give the Group name for a chit group security deposit. For an FD that was withdrawn or matured, fill Closed on and the Amount received. Every FD goes into the FD register; FDs made or closed from the books start date (Accounts) are also posted as bank payments and bank deposits from "Our bank account" (the account number, or the default bank), with your old voucher numbers. Earlier ones are in your opening balances, so they are not posted again.'],[''],['Required columns']];
  IMT.forEach(t=>ins.push([IML[t]+': '+IMS[t].filter(s=>s[2]).map(s=>s[1]).join(', ')]));
  return{instructions:ins,sheets:IMT.map(t=>({name:IML[t],head:imHdrs(t),rows:data[t]}))}}
 function buildBook(sheets){
