@@ -2111,6 +2111,7 @@ function rSelf(){const g=G(F.rcpGroup),t=+($('r_ticket')||{}).value,e=g&&enrollO
 function bpBal(gid,t,skip){const a=S.auctions.find(x=>x.gid===gid&&x.ticket==t&&!coWon(x));if(!a)return null;
  const paid=payOf(a).filter(x=>!x.dis&&x.id!=='rc:'+skip).reduce((q,x)=>q+num(x.amount)+num(x.adjBP)+num(x.adjAdv),0);return{a,bal:r2(netOf(a)-paid)}}
 function rMode(){const m=($('r_mode')||{}).value;const w=$('rself');
+ {const d=$('r_debit');if(d){let o=d.querySelector('option[value="__adj"]');if(isAdjMode(m)){if(!o){o=document.createElement('option');o.value='__adj';d.prepend(o)}o.textContent=(m==='B.P.Adj.'?'BID PAYABLE (from the prize of this ticket)':String((acOf(adjAcct(m))||{}).name||m).toUpperCase());d.value='__adj';d.disabled=true}else if(o){o.remove();d.disabled=false;d.value=''}}}
  if(w&&m==='B.P.Adj.'){const g=G(F.rcpGroup),t=($('r_ticket')||{}).value,b=g&&t?bpBal(g.id,t):null,L=g&&t?rLedger():null,due=L&&L.balance>0?L.balance:0;
   if(!g||!t)w.innerHTML='<p class="warn" style="margin:0">Choose the group and ticket to see the prize amount payable.</p>';
   else if(!b)w.innerHTML='<p class="warn" style="margin:0">Ticket '+esc(t)+' of '+esc(g.name)+' has not won an auction, so there is no prize to adjust from.</p>';
@@ -2118,7 +2119,7 @@ function rMode(){const m=($('r_mode')||{}).value;const w=$('rself');
    const am=$('r_amt');if(am&&!num(am.value)&&b.bal>0.5){am.value=r2(due>0?Math.min(due,b.bal):b.bal);if(typeof rSub==='function')rSub();if(typeof rAuto==='function')rAuto()}}}
  else if(w&&(m==='Adv.Rct.Adj'||m==='Bid Adv.'))w.innerHTML='<p class="warn" style="margin:0">Advance receipts are applied to installments automatically as each auction makes them due. Do not enter an adjusting receipt for the same money, or it will be counted twice. Use this mode only for a real new payment.</p>';else if(w&&w.querySelector('.warn,.note'))w.innerHTML='';const c=$('r_chq');if(c){const off=!m||m==='Cash'||isAdjMode(m);c.classList.toggle('off',off);c.querySelectorAll('input').forEach(i=>{i.disabled=off})}
  /* Debit To follows the mode when the mode changes: CASH for cash, the company's default bank for bank modes */
- const d=$('r_debit');if(d&&m!==rMode.last){rMode.last=m;if(!m||m==='Cash'||isAdjMode(m))d.value='';else if(defBank())d.value=defBank()}}
+ const d=$('r_debit');if(d&&m!==rMode.last){rMode.last=m;if(isAdjMode(m))d.value='__adj';else if(!m||m==='Cash')d.value='';else if(defBank())d.value=defBank()}}
 function rSub(){if($('r_cbal'))setTimeout(rBal,0);const ch=num($('r_pen').value)+num($('r_enr').value)+num($('r_bnk').value)+num($('r_oth').value)+num($('r_inc').value);if($('r_chg'))$('r_chg').value=Math.round(ch*100)/100;$('r_sub').value=Math.round((num($('r_amt').value)-ch)*100)/100}
 function saveReceipt(mode){const g=G(F.rcpGroup);if(!g)return err('Select the chit group.');const t=+$('r_ticket').value,e=enrollOf(g.id,t),amt=num($('r_amt').value);
  if(!e)return err('Choose a ticket.');if(!$('r_date').value)return err('Enter the receipt date.');{const lm=lockMsg($('r_date').value);if(lm)return err(lm)}if(amt<=0)return err('Enter the receipt amount.');
@@ -2127,7 +2128,7 @@ function saveReceipt(mode){const g=G(F.rcpGroup);if(!g)return err('Select the ch
  const r={id:uid(),no:++S.seq.r,date:$('r_date').value,mode:$('r_mode').value,gid:g.id,ticket:t,pid:e.pid,tr:[$('r_tr').value.trim(),($('r_trn')||{value:''}).value.trim()].filter(Boolean).join('/'),trDate:$('r_trd').value,agent:$('r_agent').value,amount:amt,penalty:num($('r_pen').value),enrolFee:num($('r_enr').value),bankCharge:num($('r_bnk').value),otherCharge:num($('r_oth').value),incCharge:num($('r_inc').value),by:ST.user?ST.user.name:'',reason:$('r_why').value,chq:{no:$('r_cno').value,bank:$('r_cbank').value,date:$('r_cdate').value,place:$('r_cplace').value,dep:$('r_cdep').value,amt:num($('r_camt').value),nonLocal:$('r_cnl').checked,same:$('r_csame').checked},cancel:false};
  const L0=ledger(g,t);
  r.insts=L0&&i1?L0.rows.filter(x=>x.no>=i1&&x.no<=i2).map(x=>x.no):[];
- Object.assign(r,{collAt:($('r_coll')||{}).value||'',branch:($('r_branch')||{}).value||'',debit:($('r_debit')||{}).value||'',incentive:num(($('r_incv')||{}).value),series:(($('r_ser')||{}).value||'').trim()});if($('r_coll'))F.rcpColl=$('r_coll').value;
+ Object.assign(r,{collAt:($('r_coll')||{}).value||'',branch:($('r_branch')||{}).value||'',debit:(($('r_debit')||{}).value||'').replace('__adj',''),incentive:num(($('r_incv')||{}).value),series:(($('r_ser')||{}).value||'').trim()});if($('r_coll'))F.rcpColl=$('r_coll').value;
  if(subOf(r)<0)return err('Penalty, fees and charges are more than the amount received.');
  S.receipts.push(r);log('Receipt '+r.no+': '+inr(amt)+' ticket '+t+' of '+g.name);save();
  if(!mode&&$('r_sms')&&$('r_sms').checked)mode='sms';
