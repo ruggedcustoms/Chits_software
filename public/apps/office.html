@@ -1262,15 +1262,15 @@ function taxShort(){const o=[];S.auctions.forEach(a=>{if(!a.ticket||coWon(a))ret
  const paid=ps.reduce((q,x)=>q+num(x.amount)+num(x.adjBP)+num(x.adjAdv),0),sh=r2(netOf(a)-paid);if(sh>0.5&&sh<=num(a.comm)*0.2+1)o.push({a,sh,paid,g:G(a.gid)||{}})});
  return o.sort((x,y)=>String(x.g.name).localeCompare(String(y.g.name))||x.a.no-y.a.no)}
 function taxShortPage(){const L=taxShort(),tot=L.reduce((q,x)=>q+x.sh,0);
- return`<h1>Prize short by service tax</h1><p class="sub">These prizes were paid in full in your old software after it took off service tax (or GST). The auctions came in with no tax, so the tax amount shows as prize money pending. Tick the ones to record the balance as the tax deducted from the prize.</p>
+ return`<h1>Prize short by service tax</h1><p class="sub">These prizes were paid in full in your old software after it took off service tax (or GST). The auctions came in with no tax, so the tax amount shows as prize money pending. Type the service tax for each one you have checked.</p>
  <div class="row"><button class="btn g" onclick="go('payable','list')">Back to bid payments</button></div>
- <div class="card">${L.length?`<p><b>${L.length} auction${L.length>1?'s':''}, ${inr(tot)}</b> <label class="chk" style="display:inline-flex;margin-left:12px"><input type="checkbox" checked onchange="document.querySelectorAll('.tx_t').forEach(c=>c.checked=this.checked)"> Tick all</label></p>
- ${tbl(['','Group','Auction','Ticket','Winner','Auction date','Commission','Net prize','Paid','Balance (tax)','% of commission'],L.slice(0,1000).map(x=>`<tr><td><input type="checkbox" class="tx_t" value="${x.a.id}" checked aria-label="Tick ${esc(x.g.name)} auction ${x.a.no}"></td>${td(esc(x.g.name))}${td(x.a.no)}${td(x.a.ticket)}${td(esc(pnj(enrollOf(x.a.gid,x.a.ticket)||{})))}${td(dmy(x.a.date))}${td(inr(x.a.comm),1)}${td(inr(netOf(x.a)),1)}${td(inr(x.paid),1)}${td(inr(x.sh),1)}${td(num(x.a.comm)?(Math.round(x.sh*10000/num(x.a.comm))/100)+'%':'',1)}</tr>`),[6,7,8,9,10])}
+ <div class="card">${L.length?`<p><b>${L.length} auction${L.length>1?'s':''}, ${inr(tot)}</b> </p><p class="muted">Check each in your old software and type the service tax deducted. Rows left blank are not changed.</p>
+ ${tbl(['Group','Auction','Ticket','Winner','Auction date','Commission','Net prize','Paid','Balance','% of commission','Service tax deducted (₹)'],L.slice(0,1000).map(x=>`<tr>${td(esc(x.g.name))}${td(x.a.no)}${td(x.a.ticket)}${td(esc(pnj(enrollOf(x.a.gid,x.a.ticket)||{})))}${td(dmy(x.a.date))}${td(inr(x.a.comm),1)}${td(inr(netOf(x.a)),1)}${td(inr(x.paid),1)}${td(inr(x.sh),1)}${td(num(x.a.comm)?(Math.round(x.sh*10000/num(x.a.comm))/100)+'%':'',1)}<td><input type="number" min="0" class="tx_v" data-id="${x.a.id}" style="max-width:110px" aria-label="Service tax, ${esc(x.g.name)} auction ${x.a.no}"></td></tr>`),[5,6,7,8,9])}
  ${L.length>1000?'<p class="muted">Showing the first 1000. Save these, and the rest will show.</p>':''}
- <div class="row" style="margin-top:8px"><button class="btn" onclick="taxShortSave()">Record the ticked balances as service tax deducted</button></div>`:'<div class="empty">No prize is short by a tax amount.</div>'}</div>`}
-function taxShortSave(){const ids=new Set([...document.querySelectorAll('.tx_t:checked')].map(c=>c.value)),L=taxShort().filter(x=>ids.has(x.a.id));if(!L.length)return note('Tick the auctions to record.','bad');
- for(const x of L){const lm=lockMsg(x.a.date);if(lm)return note(x.g.name+' auction '+x.a.no+': '+lm,'bad')}
- askConfirm('Record '+inr(L.reduce((q,x)=>q+x.sh,0))+' as service tax deducted from '+L.length+' prize'+(L.length>1?'s':'')+'? The net prize of each auction becomes what was paid, so they stop showing as pending.',()=>{
+ <div class="row" style="margin-top:8px"><button class="btn" onclick="taxShortSave()">Save the service tax entered</button></div>`:'<div class="empty">No prize is short by a tax amount.</div>'}</div>`}
+function taxShortSave(){const V={};document.querySelectorAll('.tx_v').forEach(i=>{if(i.value.trim()!=='')V[i.dataset.id]=num(i.value)});const L=taxShort().filter(x=>x.a.id in V).map(x=>Object.assign(x,{sh:V[x.a.id]}));if(!L.length)return note('Type the service tax for at least one auction.','bad');
+ for(const x of L){if(!(x.sh>0))return note(x.g.name+' auction '+x.a.no+': service tax must be above 0.','bad');if(x.sh>netOf(x.a)-x.paid+0.5)return note(x.g.name+' auction '+x.a.no+': '+inr(x.sh)+' is more than the balance '+inr(netOf(x.a)-x.paid)+'.','bad');const lm=lockMsg(x.a.date);if(lm)return note(x.g.name+' auction '+x.a.no+': '+lm,'bad')}
+ askConfirm('Record service tax deducted on '+L.length+' prize'+(L.length>1?'s':'')+' ('+inr(L.reduce((q,x)=>q+x.sh,0))+')? The net prize of each auction is reduced by the tax entered.',()=>{
   L.forEach(({a,sh})=>{const t=r2(num(a.gst)+sh);a.gst=t;a.gstPct=num(a.comm)?t*100/num(a.comm):0;a.netPrize=r2(num(a.prize)-t);a.taxOld=true});
   log('Recorded service tax deducted on '+L.length+' prizes ('+inr(L.reduce((q,x)=>q+x.sh,0))+')');save();note(L.length+' prize'+(L.length>1?'s':'')+' updated.')})}
 function payList(){if(F.plFrom==null){F.plFrom=today().slice(0,8)+'01';F.plTo=today()}const fr=F.plFrom,to=F.plTo,gq=F.plG||'',q=(F.plQ||'').trim().toLowerCase();
@@ -2224,6 +2224,7 @@ function payEdit(x){const a=S.auctions.find(y=>y.id===x.aid)||{},g=G(a.gid)||{},
  <label class="f" id="pe_cdw" ${x.mode==='Cheque'?'':'hidden'}>Cheque date<input type="date" id="pe_cd" value="${esc(x.chqDate||'')}"></label>
  ${who.length?`<label class="f w2">Paid to<select id="pe_to">${who.map(w=>`<option ${w===x.paidTo?'selected':''}>${esc(w)}</option>`).join('')}</select></label>`:`<label class="f w2">Paid to<input id="pe_to" value="${esc(x.paidTo||pnj(e))}"></label>`}
  <label class="f">Amount paid (₹) *<input type="number" id="pe_a" value="${num(x.amount)}"></label>
+ <label class="f">Service tax / GST deducted (₹)<input type="number" id="pe_tx" min="0" value="${num(a.gst)}"><small>Tax taken off this prize (for this auction). Prize ${inr(a.prize)} less this is the net prize.</small></label>
  <label class="f w3">Narration<textarea id="pe_n" rows="2">${esc(x.narration||'')}</textarea></label></div>
  <p class="muted">The most this payment can be is ${inr(room)} (the net prize less the other payments${num(x.adjBP)+num(x.adjAdv)?' and this voucher\'s adjustments':''}).</p>
  <div class="row"><button class="btn" onclick="payEditSave('${x.id}')">Save changes</button><button class="btn g" onclick="go('payable','list')">Cancel</button></div></div>`}
@@ -2231,8 +2232,10 @@ function payEditSave(id){const x=S.payouts.find(z=>z.id===id);if(!x)return;const
  const d=$('pe_d').value,m=$('pe_m').value,ac=$('pe_ac').value,ref=$('pe_cn').value.trim(),amt=num($('pe_a').value);
  if(!d)return err('Enter the payment date.');for(const dd of [x.date,d]){const lm=lockMsg(dd);if(lm)return err(lm)}
  if(!ac)return err('Choose the bank account.');if(!ref)return err(m==='Cheque'?'Enter the cheque number.':'Enter the UTR or reference number.');if(!(amt>0))return err('Enter the amount paid.');
- const others=S.payouts.filter(z=>z.aid===a.id&&z!==x&&!z.dis).reduce((s,z)=>s+num(z.amount)+num(z.adjBP)+num(z.adjAdv),0),room=netOf(a)-others-num(x.adjBP)-num(x.adjAdv);
+ const tx=$('pe_tx')?num($('pe_tx').value):num(a.gst);if(tx<0||tx>=num(a.prize))return err('Service tax must be 0 or more and less than the prize.');const txCh=Math.abs(tx-num(a.gst))>0.004;if(txCh){const lm=lockMsg(a.date);if(lm)return err(lm)}
+ const others=S.payouts.filter(z=>z.aid===a.id&&z!==x&&!z.dis).reduce((s,z)=>s+num(z.amount)+num(z.adjBP)+num(z.adjAdv),0),room=num(a.prize)-tx-others-num(x.adjBP)-num(x.adjAdv);
  if(amt>room+0.5)return err('This is more than the prize allows: at most '+inr(room)+'.');
+ if(txCh){const was0=num(a.gst);Object.assign(a,{gst:r2(tx),gstPct:num(a.comm)?tx*100/num(a.comm):0,netPrize:r2(num(a.prize)-tx),taxOld:true});log('Service tax of '+(G(a.gid)||{}).name+' auction '+a.no+' changed from '+inr(was0)+' to '+inr(tx))}
  const was=dmy(x.date)+', '+x.mode+', '+(x.ref||'-')+', '+inr(x.amount);
  Object.assign(x,{date:d,mode:m,acctId:ac,acct:bLabel(S.bankAccts.find(b=>b.id===ac)||{}),ref,chqDate:m==='Cheque'?$('pe_cd').value:'',paidTo:$('pe_to').value.trim(),narration:$('pe_n').value.trim(),amount:amt});
  log('Edited bid payment '+(x.series||'BPY')+' '+(x.vno||'')+': was '+was+'; now '+dmy(x.date)+', '+x.mode+', '+x.ref+', '+inr(x.amount));save();go('payable','list');note('Bid payment saved.')}
