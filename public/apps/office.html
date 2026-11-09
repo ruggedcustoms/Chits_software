@@ -1812,14 +1812,15 @@ const bvOpen=(gid,t)=>S.bidAdv.filter(x=>x.gid===gid&&x.ticket==t&&!x.dis).sort(
 const bvHeld=(gid,t)=>Math.max(0,Math.round(bvOpen(gid,t).reduce((s,x)=>s+num(x.amount)-bvUsed(x),0)*100)/100);
 function pageBidAdv(){if(ui.sub==='print'){const x=S.bidAdv.find(y=>y.id===ui.id);if(x)return bvPrint(x)}
  if(!S.groups.length)return`<h1>Bid advance entry</h1><div class="card empty"><p>Create a chit group first.</p></div>`;
- const g=G(F.bvG),el=g?enrollsOf(g.id).filter(e=>e.pid!=='CO'&&!wonAuction(g.id,e.ticket)):[],e=g&&F.bvT?el.find(x=>String(x.ticket)===String(F.bvT)):null,p=e?P(e.pid):null,L=e?ledger(g,e.ticket):null,acc=S.bankAccts,nxt=(S.seq.bv||0)+1,ser=S.bvSeries||'BPA';
+ const g=G(F.bvG),el=g?enrollsOf(g.id).filter(e=>e.pid!=='CO').sort((x,y)=>x.ticket-y.ticket):[],wa=e0=>g&&wonAuction(g.id,e0.ticket),e=g&&F.bvT?el.find(x=>String(x.ticket)===String(F.bvT)):null,p=e?P(e.pid):null,L=e?ledger(g,e.ticket):null,acc=S.bankAccts,nxt=(S.seq.bv||0)+1,ser=S.bvSeries||'BPA';
  let pu=0;if(L){for(const r of L.rows){if(r.due-r.paid<=0.005)pu=r.no;else break}}
  const held=e?bvHeld(g.id,e.ticket):0,tot=e?bvOpen(g.id,e.ticket).reduce((s,x)=>s+num(x.amount),0):0;
  const R=(l,v,b)=>`<div class="pr${b?' b':''}"><span>${l}</span><span>${v}</span></div>`;
  const list=S.bidAdv.slice().sort((a,b)=>b.vno-a.vno).slice(0,150);
  const form=`<div class="card"><h2 style="margin-top:0">Bid advance entry</h2><div id="err" class="err" hidden></div>${!acc.length?'<p class="warn">Add a bank account in Accounts first. Advances are paid through the bank.</p>':''}
  <div class="fg"><label class="f">Chit group *<select onchange="F.bvG=this.value;F.bvT='';render()">${gopts(F.bvG||'',0,1)}</select></label>
- <label class="f">Ticket no. *<select onchange="F.bvT=this.value;render()" ${g&&el.length?'':'disabled'}><option value="">Select ticket</option>${el.map(x=>`<option value="${x.ticket}" ${String(x.ticket)===String(F.bvT)?'selected':''}>${x.ticket}: ${esc(pnj(x))}</option>`).join('')}</select></label>
+ <label class="f">Ticket no. *<select onchange="F.bvT=this.value;render()" ${g&&el.length?'':'disabled'}><option value="">Select ticket</option>${el.map(x=>{const w=wa(x);return`<option value="${x.ticket}" ${String(x.ticket)===String(F.bvT)?'selected':''}>${x.ticket}: ${esc(pnj(x))}${w?' (won auction '+w.no+' on '+dmy(w.date)+')':''}</option>`}).join('')}</select></label>
+ ${e&&wa(e)?`<p class="warn w3" style="margin:0">Ticket ${e.ticket} won auction ${wa(e).no} on ${dmy(wa(e).date)}. Only an advance paid <b>before</b> that date can be entered here (an old advance). Then adjust it in that prize's bid payment.</p>`:''}
  <label class="f w2">Paid to<input id="bv_to" value="${esc(e?pnj(e):'')}"></label>
  <label class="f">Series<input id="bv_ser" value="${esc(ser)}"></label><label class="f">Voucher no.<input value="${nxt}" readonly></label><label class="f">Transaction date *<input type="date" id="bv_d" value="${today()}"></label>
  <label class="f w2">Bank account *<select id="bv_ac"><option value=""></option>${acc.map(b=>`<option value="${b.id}">${esc(bLabel(b))}</option>`).join('')}</select></label>
@@ -1835,8 +1836,8 @@ function pageBidAdv(){if(ui.sub==='print'){const x=S.bidAdv.find(y=>y.id===ui.id
  <div class="card"><h2>Advances paid</h2>${list.length?tbl(['Voucher','Date','Group','Ticket','Subscriber','Bank account','Mode','Number','Amount','Adjusted','Status',''],list.map(x=>{const u=bvUsed(x);return`<tr>${td(esc((x.vsr||'BPA')+' '+x.vno))}${td(dmy(x.date))}${td(esc((G(x.gid)||{}).name||''))}${td(x.ticket)}${td(esc(pnj(x)))}${td(esc(x.acct||''))}${td(esc(x.mode))}${td(esc(x.ref||''))}${td(inr(x.amount),1)}${td(inr(u),1)}${td(x.dis?pill('Dishonoured','bad'):u>=num(x.amount)-0.5?pill('Adjusted','good'):u>0?pill('Part adjusted','warn'):pill('Held','nps'))}
  <td style="min-width:150px"><button class="btn g sm" onclick="goBv('print','${x.id}')">Print</button> <button class="btn d sm" onclick="bvDel('${x.id}')">Delete</button></td></tr>`}),[8,9]):'<div class="empty">No advances yet.</div>'}</div>`}
 function bvMode(){const m=$('bv_m').value;$('bv_nl').textContent=m==='Cheque'?'Cheque number *':'UTR / reference number *';$('bv_cdw').style.display=m==='Cheque'?'':'none'}
-function bvSave(print){const g=G(F.bvG),e=g&&enrollOf(g.id,F.bvT);if(!e||e.pid==='CO')return err('Choose the group and ticket.');if(wonAuction(g.id,e.ticket))return err('This ticket has already won. Pay it from Bid payable.');
- const a=num($('bv_a').value),m=$('bv_m').value,d=$('bv_d').value;if(!d)return err('Enter the transaction date.');if(!$('bv_ac').value)return err('Choose the bank account.');if(!(a>0))return err('Enter the amount.');
+function bvSave(print){const g=G(F.bvG),e=g&&enrollOf(g.id,F.bvT);if(!e||e.pid==='CO')return err('Choose the group and ticket.');
+ const a=num($('bv_a').value),m=$('bv_m').value,d=$('bv_d').value;if(!d)return err('Enter the transaction date.');{const w=wonAuction(g.id,e.ticket);if(w&&d>=w.date)return err('Ticket '+e.ticket+' won auction '+w.no+' on '+dmy(w.date)+'. An advance on or after that date is a prize payment: pay it from Bid payable.')}{const lm=lockMsg(d);if(lm)return err(lm)}if(!$('bv_ac').value)return err('Choose the bank account.');if(!(a>0))return err('Enter the amount.');
  if(!$('bv_n').value.trim())return err(m==='Cheque'?'Enter the cheque number.':'Enter the UTR or reference number.');
  const b=S.bankAccts.find(z=>z.id===$('bv_ac').value);S.seq.bv=(S.seq.bv||0)+1;S.bvSeries=($('bv_ser').value||'BPA').trim()||'BPA';
  const x={id:uid(),vsr:S.bvSeries,vno:S.seq.bv,date:d,gid:g.id,ticket:e.ticket,pid:e.pid,paidTo:$('bv_to').value.trim(),mode:m,acctId:b.id,acct:bLabel(b),ref:$('bv_n').value.trim(),chqDate:m==='Cheque'?$('bv_cd').value:'',amount:a,inst:num($('bv_i').value),narr:$('bv_nar').value.trim(),by:ST.user?ST.user.name:''};
@@ -2241,6 +2242,7 @@ function payEdit(x){const a=S.auctions.find(y=>y.id===x.aid)||{},g=G(a.gid)||{},
  <label class="f" id="pe_cdw" ${x.mode==='Cheque'?'':'hidden'}>Cheque date<input type="date" id="pe_cd" value="${esc(x.chqDate||'')}"></label>
  ${who.length?`<label class="f w2">Paid to<select id="pe_to">${who.map(w=>`<option ${w===x.paidTo?'selected':''}>${esc(w)}</option>`).join('')}</select></label>`:`<label class="f w2">Paid to<input id="pe_to" value="${esc(x.paidTo||pnj(e))}"></label>`}
  <label class="f">Amount paid (₹) *<input type="number" id="pe_a" value="${num(x.amount)}"></label>
+ ${(()=>{const hv=bvHeld(a.gid,a.ticket)+num(x.adjAdv);return hv>0.004||num(x.adjAdv)?`<label class="f">Bid advance adjusted (₹)<input type="number" id="pe_adv" min="0" value="${num(x.adjAdv)}"><small>Advance paid to this ticket before it won: ${inr(hv)} can be adjusted here.</small></label>`:''})()}
  <label class="f">Service tax / GST deducted (₹)<input type="number" id="pe_tx" min="0" value="${num(a.gst)}"><small>Tax taken off this prize (for this auction). Prize ${inr(a.prize)} less this is the net prize.</small></label>
  <label class="f w3">Narration<textarea id="pe_n" rows="2">${esc(x.narration||'')}</textarea></label></div>
  <p class="muted">The most this payment can be is ${inr(room)} (the net prize less the other payments${num(x.adjBP)+num(x.adjAdv)?' and this voucher\'s adjustments':''}).</p>
@@ -2250,8 +2252,10 @@ function payEditSave(id){const x=S.payouts.find(z=>z.id===id);if(!x)return;const
  if(!d)return err('Enter the payment date.');for(const dd of [x.date,d]){const lm=lockMsg(dd);if(lm)return err(lm)}
  if(!ac)return err('Choose the bank account.');if(!ref)return err(m==='Cheque'?'Enter the cheque number.':'Enter the UTR or reference number.');if(!(amt>0))return err('Enter the amount paid.');
  const tx=$('pe_tx')?num($('pe_tx').value):num(a.gst);if(tx<0||tx>=num(a.prize))return err('Service tax must be 0 or more and less than the prize.');const txCh=Math.abs(tx-num(a.gst))>0.004;if(txCh){const lm=lockMsg(a.date);if(lm)return err(lm)}
- const others=payOf(a).filter(z=>z!==x&&!z.dis).reduce((s,z)=>s+num(z.amount)+num(z.adjBP)+num(z.adjAdv),0),room=num(a.prize)-tx-others-num(x.adjBP)-num(x.adjAdv);
- if(amt>room+0.5)return err('This is more than the prize allows: at most '+inr(room)+'.');
+ const av=$('pe_adv')?num($('pe_adv').value):num(x.adjAdv),avMax=bvHeld(a.gid,a.ticket)+num(x.adjAdv);if(av<0)return err('Bid advance adjusted cannot be negative.');if(av>avMax+0.5)return err('Only '+inr(avMax)+' of bid advance is held for this ticket.');
+ const others=payOf(a).filter(z=>z!==x&&!z.dis).reduce((s,z)=>s+num(z.amount)+num(z.adjBP)+num(z.adjAdv),0),room=num(a.prize)-tx-others-num(x.adjBP)-av;
+ if(amt>room+0.5)return err('This is more than the prize allows: at most '+inr(room)+(av?' (after the bid advance of '+inr(av)+')':'')+'.');
+ if(Math.abs(av-num(x.adjAdv))>0.004){const w0=num(x.adjAdv);x.advUse=[];let r_=av;const u=[];bvOpen(a.gid,a.ticket).forEach(b=>{const k=Math.min(r_,num(b.amount)-bvUsed(b));if(k>0.004){u.push({id:b.id,amt:k});r_-=k}});x.advUse=u;x.adjAdv=r2(av);log('Bid advance adjusted on '+(x.series||'BPY')+' '+(x.vno||'')+' changed from '+inr(w0)+' to '+inr(av))}
  if(txCh){const was0=num(a.gst);Object.assign(a,{gst:r2(tx),gstPct:num(a.comm)?tx*100/num(a.comm):0,netPrize:r2(num(a.prize)-tx),taxOld:true});log('Service tax of '+(G(a.gid)||{}).name+' auction '+a.no+' changed from '+inr(was0)+' to '+inr(tx))}
  const was=dmy(x.date)+', '+x.mode+', '+(x.ref||'-')+', '+inr(x.amount);
  Object.assign(x,{date:d,mode:m,acctId:ac,acct:bLabel(S.bankAccts.find(b=>b.id===ac)||{}),ref,chqDate:m==='Cheque'?$('pe_cd').value:'',paidTo:$('pe_to').value.trim(),narration:$('pe_n').value.trim(),amount:amt});
