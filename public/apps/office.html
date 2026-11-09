@@ -2118,6 +2118,8 @@ function rSelf(){const g=G(F.rcpGroup),t=+($('r_ticket')||{}).value,e=g&&enrollO
  $('rself').innerHTML='<span class="muted">All tickets of '+esc(pnt(e))+': </span>'+o.map(([x,y])=>`<button class="btn g sm" onclick="F.rcpGroup='${x.id}';F.rcpTicket='${y.ticket}';render()">${esc(x.name)} / ${y.ticket}</button>`).join(' ')}
 /* prize still payable to a ticket that has won: what a B.P.Adj. receipt can take from (skip = a receipt being edited) */
 /* prizes a B.P.Adj. receipt can be taken from: this ticket's own, then other tickets of the same member, then any other member's prize still payable (keep = always list that auction) */
+/* "BPAdjFrom:HC-1/10" for a B.P.Adj. receipt, from the prize it was taken from (the old software's remark) */
+function bpFromTxt(r){const sa=r.bpFrom&&S.auctions.find(x=>x.id===r.bpFrom);return'BPAdjFrom:'+(sa?(G(sa.gid)||{}).name+'/'+sa.ticket:(G(r.gid)||{}).name+'/'+r.ticket)}
 function bpSrcs(gid,t,skip,keep){const e=enrollOf(gid,t);if(!e)return[];const own=S.auctions.find(x=>x.gid===gid&&x.ticket==t&&!coWon(x)),pid=e.pid&&e.pid!=='CO'?e.pid:null;
  return S.auctions.filter(a=>!coWon(a)&&a.ticket).map(a=>{const b=bpBalA(a,skip),ep=enrollOf(a.gid,a.ticket)||{};b.k=a===own?0:pid&&ep.pid===pid?1:2;b.who=ep.pid?pnj(ep):'';return b}).filter(b=>b.k===0||b.bal>0.5||b.a.id===keep)
   .sort((x,y)=>x.k-y.k||String((G(x.a.gid)||{}).name).localeCompare(String((G(y.a.gid)||{}).name))||x.a.ticket-y.a.ticket)}
@@ -2294,7 +2296,7 @@ function acData(g,t){const L=ledger(g,t);if(!L)return null;const inst=chitInst(g
  byNo.forEach(r=>{let amt=subOf(r);const ps=[];(r.insts||[]).slice().sort((a,b)=>a-b).forEach(k=>{const row=rows.find(x=>x.no===k);if(!row)return;const x=Math.min(amt,row.due-row.paid);if(x>0){row.paid+=x;amt-=x;ps.push({no:k,amt:x})}});parts.set(r.id,{left:amt,ps})});
  byNo.forEach(r=>{const pt=parts.get(r.id);let amt=pt.left;for(const row of rows){if(amt<=0.005)break;const x=Math.min(amt,row.due-row.paid);if(x>0.005){row.paid+=x;amt-=x;pt.ps.push({no:row.no,amt:x})}}pt.adv=amt>0.005?amt:0});
  const lines=[];
- rs.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.no-b.no).forEach(r=>{const pt=parts.get(r.id),chg=num(r.penalty)+num(r.enrolFee)+num(r.bankCharge)+num(r.otherCharge)+num(r.incCharge),base={rid:r.id,date:r.date,rno:r.no,mode:r.mode,cno:(r.chq&&r.chq.no)||'',rem:(r.mode==='Cash'?'Cash':[(r.chq&&r.chq.bank)||'',r.chq&&r.chq.date?'dated '+dmy(r.chq.date):''].filter(Boolean).join(' '))+(r.chqSt&&r.chqSt.s==='Honoured'&&r.chqSt.date?' Ch Hn On: '+dmy(r.chqSt.date):'')};
+ rs.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.no-b.no).forEach(r=>{const pt=parts.get(r.id),chg=num(r.penalty)+num(r.enrolFee)+num(r.bankCharge)+num(r.otherCharge)+num(r.incCharge),base={rid:r.id,date:r.date,rno:r.no,mode:r.mode,cno:(r.chq&&r.chq.no)||'',rem:r.mode==='B.P.Adj.'?bpFromTxt(r):(r.mode==='Cash'?'Cash':[(r.chq&&r.chq.bank)||'',r.chq&&r.chq.date?'dated '+dmy(r.chq.date):''].filter(Boolean).join(' '))+(r.chqSt&&r.chqSt.s==='Honoured'&&r.chqSt.date?' Ch Hn On: '+dmy(r.chqSt.date):'')};
   const ps=pt.ps.slice().sort((a,b)=>a.no-b.no);
   /* Same layout as the old software: one row per installment. A receipt is written on the first installment it starts paying; the installments it also covers follow with 0. Money that only completes an earlier part-paid installment is added to the receipt's total. */
   ps.forEach(q=>{const row=rows.find(x=>x.no===q.no);row.cum+=q.amt;q.left=row.due-row.cum;q.first=!row.seen;row.seen=true;q.row=row});
