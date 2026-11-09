@@ -1208,6 +1208,7 @@ const sumP=(a,f)=>payOf(a).reduce((s,x)=>s+((f==='amount'&&x.dis)?0:num(x[f])),0
 function paddr(p){return p?[p.res_door,p.res_street,p.res_addr,p.res_city,p.res_district,p.res_state,p.res_pin].filter(Boolean).join(', '):''}
 function pagePayable(){if(ui.sub==='voucher'){const a=S.auctions.find(x=>x.id===ui.id);if(a)return voucherPage(a)}
  if(ui.sub==='list')return payList();
+ if(ui.sub==='tax')return taxShortPage();
  if(ui.sub==='edit'){const x=S.payouts.find(z=>z.id===ui.id);if(x)return payEdit(x)}
  if(F.payG&&!G(F.payG))F.payG='';
  const g=G(F.payG),won=g?auctionsOf(g.id).filter(x=>!coWon(x)):[];if(F.payT&&!won.some(a=>String(a.ticket)===String(F.payT)))F.payT='';
@@ -1255,11 +1256,29 @@ function savePay(){const g=G(F.payG),a=g&&auctionsOf(g.id).find(x=>String(x.tick
  S.seq.b=(S.seq.b||0)+1;S.bpSeries=($('bp_ser').value||'BPY').trim()||'BPY';
  S.payouts.push({id:uid(),aid:a.id,date:d,mode:m,amount:amt,adjBP:aj,adjAdv:av,advUse:(()=>{let r=av;const u=[];bvOpen(g.id,a.ticket).forEach(x=>{const k=Math.min(r,num(x.amount)-bvUsed(x));if(k>0.004){u.push({id:x.id,amt:k});r-=k}});return u})(),ref:$('bp_cn').value.trim(),chqDate:m==='Cheque'?$('bp_cd').value:'',acctId:$('bp_ac').value,acct:bLabel(S.bankAccts.find(b=>b.id===$('bp_ac').value)||{}),payBranch:$('bp_pb').value,paidTo:$('bp_to').value.trim(),narration:$('bp_n').value.trim(),series:S.bpSeries,vno:S.seq.b});
  aprFlag('payout',S.payouts[S.payouts.length-1],amt+aj+av);log('Bid payment '+S.bpSeries+' '+S.seq.b+': '+inr(amt)+' for auction '+a.no+' of '+g.name+', ticket '+a.ticket);save();note('Saved as voucher '+S.bpSeries+' '+S.seq.b+'.')}
+/* Prizes paid short by the service tax (or GST) the old software took off: the auction was imported with no tax, so the
+   balance looks unpaid. A short balance of at most 20% of the commission, on an auction that has payments, is that tax. */
+function taxShort(){const o=[];S.auctions.forEach(a=>{if(!a.ticket||coWon(a))return;const ps=S.payouts.filter(x=>x.aid===a.id&&!x.dis);if(!ps.length)return;
+ const paid=ps.reduce((q,x)=>q+num(x.amount)+num(x.adjBP)+num(x.adjAdv),0),sh=r2(netOf(a)-paid);if(sh>0.5&&sh<=num(a.comm)*0.2+1)o.push({a,sh,paid,g:G(a.gid)||{}})});
+ return o.sort((x,y)=>String(x.g.name).localeCompare(String(y.g.name))||x.a.no-y.a.no)}
+function taxShortPage(){const L=taxShort(),tot=L.reduce((q,x)=>q+x.sh,0);
+ return`<h1>Prize short by service tax</h1><p class="sub">These prizes were paid in full in your old software after it took off service tax (or GST). The auctions came in with no tax, so the tax amount shows as prize money pending. Tick the ones to record the balance as the tax deducted from the prize.</p>
+ <div class="row"><button class="btn g" onclick="go('payable','list')">Back to bid payments</button></div>
+ <div class="card">${L.length?`<p><b>${L.length} auction${L.length>1?'s':''}, ${inr(tot)}</b> <label class="chk" style="display:inline-flex;margin-left:12px"><input type="checkbox" checked onchange="document.querySelectorAll('.tx_t').forEach(c=>c.checked=this.checked)"> Tick all</label></p>
+ ${tbl(['','Group','Auction','Ticket','Winner','Auction date','Commission','Net prize','Paid','Balance (tax)','% of commission'],L.slice(0,1000).map(x=>`<tr><td><input type="checkbox" class="tx_t" value="${x.a.id}" checked aria-label="Tick ${esc(x.g.name)} auction ${x.a.no}"></td>${td(esc(x.g.name))}${td(x.a.no)}${td(x.a.ticket)}${td(esc(pnj(enrollOf(x.a.gid,x.a.ticket)||{})))}${td(dmy(x.a.date))}${td(inr(x.a.comm),1)}${td(inr(netOf(x.a)),1)}${td(inr(x.paid),1)}${td(inr(x.sh),1)}${td(num(x.a.comm)?(Math.round(x.sh*10000/num(x.a.comm))/100)+'%':'',1)}</tr>`),[6,7,8,9,10])}
+ ${L.length>1000?'<p class="muted">Showing the first 1000. Save these, and the rest will show.</p>':''}
+ <div class="row" style="margin-top:8px"><button class="btn" onclick="taxShortSave()">Record the ticked balances as service tax deducted</button></div>`:'<div class="empty">No prize is short by a tax amount.</div>'}</div>`}
+function taxShortSave(){const ids=new Set([...document.querySelectorAll('.tx_t:checked')].map(c=>c.value)),L=taxShort().filter(x=>ids.has(x.a.id));if(!L.length)return note('Tick the auctions to record.','bad');
+ for(const x of L){const lm=lockMsg(x.a.date);if(lm)return note(x.g.name+' auction '+x.a.no+': '+lm,'bad')}
+ askConfirm('Record '+inr(L.reduce((q,x)=>q+x.sh,0))+' as service tax deducted from '+L.length+' prize'+(L.length>1?'s':'')+'? The net prize of each auction becomes what was paid, so they stop showing as pending.',()=>{
+  L.forEach(({a,sh})=>{const t=r2(num(a.gst)+sh);a.gst=t;a.gstPct=num(a.comm)?t*100/num(a.comm):0;a.netPrize=r2(num(a.prize)-t);a.taxOld=true});
+  log('Recorded service tax deducted on '+L.length+' prizes ('+inr(L.reduce((q,x)=>q+x.sh,0))+')');save();note(L.length+' prize'+(L.length>1?'s':'')+' updated.')})}
 function payList(){if(F.plFrom==null){F.plFrom=today().slice(0,8)+'01';F.plTo=today()}const fr=F.plFrom,to=F.plTo,gq=F.plG||'',q=(F.plQ||'').trim().toLowerCase();
  const rows=S.payouts.filter(x=>(!fr||x.date>=fr)&&(!to||x.date<=to)).slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.vno||0)-(a.vno||0)).map(x=>{const a=S.auctions.find(y=>y.id===x.aid);return a?{x,a,g:G(a.gid)||{}}:null})
   .filter(r=>r&&(!gq||r.a.gid===gq)&&(!q||[(r.x.series||'BPY')+' '+(r.x.vno||''),r.x.ref,r.x.paidTo,r.g.name+' '+r.a.ticket,pnj(enrollOf(r.a.gid,r.a.ticket)||{})].join(' ').toLowerCase().includes(q)));
  const live=rows.filter(r=>!r.x.dis),tp=live.reduce((s,r)=>s+num(r.x.amount),0),ta=live.reduce((s,r)=>s+num(r.x.adjBP)+num(r.x.adjAdv),0),set=(k,v)=>`F.${k}=${v};render()`;
- return`<h1>Bid payments</h1><p class="sub">Prize payments made, for the dates you choose.</p><div class="card"><div class="row" style="align-items:end;flex-wrap:wrap">
+ const TS=taxShort();
+ return`<h1>Bid payments</h1><p class="sub">Prize payments made, for the dates you choose.</p>${TS.length?`<div class="card" style="border-left:4px solid var(--warn,#b45309);padding:10px 14px"><b>${TS.length} prize${TS.length>1?'s':''} paid short by about the service tax (${inr(TS.reduce((q,x)=>q+x.sh,0))}).</b> <button class="btn sm" onclick="go('payable','tax')">Check and record as tax</button></div>`:''}<div class="card"><div class="row" style="align-items:end;flex-wrap:wrap">
  <label class="f">From<input type="date" value="${esc(fr)}" onchange="${set('plFrom','this.value')}"></label><label class="f">To<input type="date" value="${esc(to)}" onchange="${set('plTo','this.value')}"></label>
  <label class="f">Group<select onchange="${set('plG','this.value')}"><option value="">All groups</option>${S.groups.map(g=>`<option value="${g.id}" ${g.id===gq?'selected':''}>${esc(g.name)}</option>`).join('')}</select></label>
  <label class="f">Find<input placeholder="Voucher, cheque, name or ticket" value="${esc(F.plQ||'')}" onchange="${set('plQ','this.value')}"></label>
@@ -4420,7 +4439,8 @@ function smLogPage(){const l=(S.smsLog||[]).slice().reverse();
 const bankIds=()=>acAll().filter(a=>a.id===A.bank||/^bk:/.test(a.id)).map(a=>a.id);
 function osAlerts(d){const out=[],ad=(n)=>iso(new Date(new Date(d).getTime()+n*864e5));
  S.groups.forEach(g=>{const k=auctionsOf(g.id).length+1;if(k>num(g.n)||!g.start)return;let dd='';try{dd=iso(schedDate(g,k))}catch(e){return}if(dd>=d&&dd<=ad(3))out.push({t:dd===d?'bad':'warn',x:'Auction '+k+' of '+g.name+(dd===d?' is today':' on '+dmy(dd)),go:"F.aucGroup='"+g.id+"';go('auctions')"})});
- S.auctions.forEach(a=>{if(!a.ticket)return;const g=G(a.gid),e=enrollOf(a.gid,a.ticket);if(!g||!e||coWon(a))return;const paid=S.payouts.filter(x=>x.aid===a.id).reduce((q,x)=>q+num(x.amount)+num(x.adjBP)+num(x.adjAdv),0);if(netOf(a)-paid>0.5&&a.date<=d){const lp=S.payouts.filter(x=>x.aid===a.id&&!x.dis).sort((p,q)=>String(p.date||'').localeCompare(String(q.date||''))).pop();out.push({t:'warn',x:'Prize money pending: '+g.name+' auction '+a.no+', '+pnj(e)+', '+inr(netOf(a)-paid)+(lp?' (paid '+inr(paid)+' so far)':''),go:lp?"go('payable','edit','"+lp.id+"')":"F.payG='"+g.id+"';F.payT='"+a.ticket+"';go('payable')"})}});
+ const TS=taxShort(),tsI=new Set(TS.map(x=>x.a.id));if(TS.length)out.push({t:'warn',x:TS.length+' prize'+(TS.length>1?'s':'')+' paid short by about the service tax ('+inr(TS.reduce((q,x)=>q+x.sh,0))+'): record it as tax deducted',go:"go('payable','tax')"});
+ S.auctions.forEach(a=>{if(!a.ticket||tsI.has(a.id))return;const g=G(a.gid),e=enrollOf(a.gid,a.ticket);if(!g||!e||coWon(a))return;const paid=S.payouts.filter(x=>x.aid===a.id).reduce((q,x)=>q+num(x.amount)+num(x.adjBP)+num(x.adjAdv),0);if(netOf(a)-paid>0.5&&a.date<=d){const lp=S.payouts.filter(x=>x.aid===a.id&&!x.dis).sort((p,q)=>String(p.date||'').localeCompare(String(q.date||''))).pop();out.push({t:'warn',x:'Prize money pending: '+g.name+' auction '+a.no+', '+pnj(e)+', '+inr(netOf(a)-paid)+(lp?' (paid '+inr(paid)+' so far)':''),go:lp?"go('payable','edit','"+lp.id+"')":"F.payG='"+g.id+"';F.payT='"+a.ticket+"';go('payable')"})}});
  const cq=cqItems();const oh=cq.filter(x=>cqSt(x)==='On hand'&&x.chq.date&&x.chq.date<=d&&!isAdjMode(x.o.mode||''));if(oh.length)out.push({t:'warn',x:oh.length+' received cheque'+(oh.length>1?'s':'')+' due to be deposited ('+inr(oh.reduce((q,x)=>q+x.amt,0))+')',go:"go('chqm')"});
  const bad=cq.filter(x=>cqBad(cqSt(x))&&((x.o.chqSt||{}).date||'')>=ad(-7));if(bad.length)out.push({t:'bad',x:bad.length+' cheque'+(bad.length>1?'s':'')+' dishonoured in the last 7 days',go:"go('chqm')"});
  const pd=pdDue();if(pd.length)out.push({t:'warn',x:pd.length+' post dated cheque'+(pd.length>1?'s':'')+' due to pass',go:"go('pdc')"});
