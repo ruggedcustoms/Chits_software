@@ -3732,10 +3732,14 @@ function imEngine(){
   const amount=imNum(o.amount),pen=imNum(o.penalty)||0,ef=imNum(o.enrolFee)||0,oth=imNum(o.other)||0;
   if(!(amount>0))return['err','Amount received must be a number above 0'];if([pen,ef,oth].some(isNaN))return['err','Penalty, enrolment fee or other charges has text in it'];
   if(amount-pen-ef-oth<0)return['err','Penalty, fee and charges add up to more than the amount received'];
-  let mode=pickOpt(M('mode'),o.mode)||(o.mode?o.mode:'Cash');if(o.mode&&!pickOpt(M('mode'),o.mode))w.push('Payment mode "'+o.mode+'" is not in your list; kept as typed');
+  const bpT=/\bb\.?\s*p\.?\s*adj|bid\s*pay\w*\s*adj|prize\s*adj/i;
+  let mode=pickOpt(M('mode').concat(RADJ),o.mode)||(bpT.test(o.mode||'')?'B.P.Adj.':'')||(o.mode?o.mode:'Cash');if(o.mode&&!pickOpt(M('mode').concat(RADJ),o.mode)&&mode!=='B.P.Adj.')w.push('Payment mode "'+o.mode+'" is not in your list; kept as typed');
+  if(mode!=='B.P.Adj.'&&bpT.test([o.reason,o.chqNo].join(' '))){w.push('Remarks say B.P. adjustment, so the receipt is booked as B.P.Adj. (from the prize), not '+mode);mode='B.P.Adj.'}
   const insts=[];if(o.insts&&IM.useIns){let bad=false;o.insts.split(/[,;\s]+/).filter(Boolean).forEach(x=>{const m=x.match(/^(\d+)(?:-(\d+))?$/);if(!m){bad=true;return}for(let i=+m[1];i<=+(m[2]||m[1])&&i<=g.n;i++)if(!insts.includes(i))insts.push(i)});if(bad)w.push('Installments paid not understood; oldest dues will be cleared first')}
   const nat=[g.id,t,date,amount,mode].join('|'),ok_=o.oldNo?g.id+'|'+t+'|#'+low(o.oldNo):nat;
-  if(rk.has(ok_))return['skip','Already imported'+(o.oldNo?' (old receipt no. '+o.oldNo+', ticket '+t+')':'')];
+  if(rk.has(ok_)){const ex=mode==='B.P.Adj.'&&o.oldNo&&S.receipts.find(x=>x.gid===g.id&&x.ticket==t&&low(x.oldNo||'')===low(o.oldNo)&&x.mode!=='B.P.Adj.');
+   if(ex&&!lockMsg(ex.date)){const was=ex.mode;ex.mode='B.P.Adj.';return['ok','',['Already imported as '+was+'; now changed to B.P.Adj. (paid from the prize, not received in '+was+')']]}
+   return['skip','Already imported'+(o.oldNo?' (old receipt no. '+o.oldNo+', ticket '+t+')':'')]}
   if(o.oldNo){const q=g.id+'|#'+low(o.oldNo),ot=(rkT.get(q)||[]).filter(x=>x!=t);if(ot.length)w.push('Old receipt no. '+o.oldNo+' is also on ticket '+ot.join(', ')+' of '+g.name+' (one receipt for several tickets), so it is added for ticket '+t+' too')}
   if(!o.oldNo&&rk.has(nat))return['skip','Same group, ticket, date, amount and mode already exists. If it is a genuine second payment, give it a different Old receipt no.'];
   const ag=o.agent?findP(o.agent):{};if(o.agent&&!ag.p)w.push('Collected by "'+o.agent+'" not found, left blank');
