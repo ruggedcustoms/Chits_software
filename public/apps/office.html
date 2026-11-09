@@ -1204,7 +1204,8 @@ function undoAuction(){const g=G(F.aucGroup),as=auctionsOf(g.id),a=as[as.length-
 
 /* ---------- bid payable ---------- */
 /* a receipt in "B.P.Adj." mode on the winning ticket is part of the prize, kept back for the ticket's dues: it counts as an adjustment of the prize (the receipt itself posts Dr prize payable) */
-const bpRcOf=a=>a&&a.ticket?S.receipts.filter(r=>r.gid===a.gid&&r.ticket==a.ticket&&r.mode==='B.P.Adj.'&&!r.cancel&&!r.dis&&(r.date||'')>=(a.date||'')).map(r=>({id:'rc:'+r.id,aid:a.id,date:r.date,amount:0,adjBP:num(r.amount),adjAdv:0,virt:true,series:'Receipt',vno:r.no,mode:'B.P.Adj.',ref:r.oldNo||''})):[];
+/* the old software took the tax on the prize as a B.P.Adj. receipt on the auction date; that receipt is the auction's tax (already off the net prize), so it is not counted again */
+const bpRcOf=a=>{if(!a||!a.ticket)return[];let tx=num(a.gst)>0.5;return S.receipts.filter(r=>r.gid===a.gid&&r.ticket==a.ticket&&r.mode==='B.P.Adj.'&&!r.cancel&&!r.dis&&(r.date||'')>=(a.date||'')).filter(r=>{if(tx&&r.date===a.date&&Math.abs(num(r.amount)-num(a.gst))<1){tx=false;return false}return true}).map(r=>({id:'rc:'+r.id,aid:a.id,date:r.date,amount:0,adjBP:num(r.amount),adjAdv:0,virt:true,series:'Receipt',vno:r.no,mode:'B.P.Adj.',ref:r.oldNo||''}))};
 const payOf=a=>S.payouts.filter(x=>x.aid===a.id).concat(bpRcOf(a));
 const sumP=(a,f)=>payOf(a).reduce((s,x)=>s+((f==='amount'&&x.dis)?0:num(x[f])),0);
 function paddr(p){return p?[p.res_door,p.res_street,p.res_addr,p.res_city,p.res_district,p.res_state,p.res_pin].filter(Boolean).join(', '):''}
