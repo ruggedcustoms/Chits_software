@@ -3959,7 +3959,7 @@ const suOk=()=>!REG.pass||SU.unlocked;
 function coStats(c){let d=null;try{d=c.id===REG.current?S:readStore(c.key)}catch(e){}
  return d?{g:(d.groups||[]).length,m:(d.persons||[]).length,t:(d.enrolls||[]).filter(e=>e.pid!=='CO').length,r:(d.receipts||[]).length}:{g:0,m:0,t:0,r:0}}
 function resetUi(){Object.keys(F).forEach(k=>delete F[k]);F.rep={id:'register',gid:'',from:today().slice(0,8)+'01',to:today(),status:'all',ticket:'',onlyDef:true,sort:'group'};lastRep=null;Object.keys(imgs).forEach(k=>delete imgs[k]);IM={sheets:[],res:null,err:'',done:null,undo:null,onlyErr:true}}
-function openCo(id,su){const c=REG.companies.find(x=>x.id===id);if(!c)return;save();REG.current=id;regSave();KEY=c.key;S=load();initS(c);SU.on=!!su;ST.user=null;resetUi();ui={page:'dash',sub:null,id:null};flash=null;ask_=null;render();scrollTo(0,0)}
+function openCo(id,su){const c=REG.companies.find(x=>x.id===id);if(!c)return;save();REG.current=id;regSave();KEY=c.key;S=load();initS(c);dataFixes();SU.on=!!su;ST.user=null;resetUi();ui={page:'dash',sub:null,id:null};flash=null;ask_=null;render();scrollTo(0,0)}
 function suLogin(){if(hashPass($('su_p').value)===REG.pass){SU.unlocked=true;render()}else err('That passcode is not correct.')}
 function suLock(){SU.unlocked=false;SU.on=false;render()}
 function suSetPass(){const a=$('su_n1').value,b=$('su_n2').value;if(a!==b)return note('The two passcodes do not match.','bad');if(a&&a.length<4)return note('Use at least 4 characters.','bad');
@@ -4791,6 +4791,15 @@ function bmuSet(){const u=ut().bu,ps=bmuPick(),f=u.field,v=($('bu_val')||{}).val
 function bmuTidyGo(){const u=ut().bu,ps=bmuPick().filter(p=>bmuTidy(p,u.tidy,true));askConfirm('Tidy up the details of '+ps.length+' member'+(ps.length===1?'':'s')+'? You can undo it straight afterwards.',()=>{u.undo=JSON.stringify(S);u.undoN=ps.length;ps.forEach(p=>bmuTidy(p,u.tidy,false));log('Bulk tidy up of '+ps.length+' members');save();note('Tidied up '+ps.length+' member'+(ps.length===1?'':'s')+'.')})}
 function bmuUndo(){const u=ut().bu;askConfirm('Undo the last bulk update? Anything entered since then is lost.',()=>{const w=u.undo;S=norm(JSON.parse(w));ut().bu={gid:'',ff:'',fv:'',field:'branch',val:'',tidy:{mob:true,pan:true,name:true,ifsc:true}};log('Undid the last bulk update');save();render();note('Bulk update undone.')})}
 
+/* one-time corrections asked for by the company, for a single wrong entry. Each runs once (S.fixes) and only when the data matches exactly. */
+let FIXMSG='';
+function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
+ if(!S.fixes.includes('jp6-33-deepashri')){const g=S.groups.find(x=>nm(x.name)==='jp-6'),e=g&&enrollOf(g.id,33),to=S.persons.filter(p=>nm(p.name)==='deepashri.p.s'),fr=e&&P(e.pid);
+  if(e&&to.length===1&&e.pid===to[0].id)S.fixes.push('jp6-33-deepashri');
+  else if(e&&fr&&nm(fr.name)==='ramesh.m'&&to.length===1){const old=e.pid,pid=to[0].id;let n=0;
+   ['receipts','bidAdv','future','pdcs','calls'].forEach(k=>(S[k]||[]).forEach(x=>{if(x.gid===g.id&&x.ticket==33&&x.pid===old){x.pid=pid;n++}}));
+   e.pid=pid;S.fixes.push('jp6-33-deepashri');log('Corrected JP-6 ticket 33: enrolled to '+pname(pid)+' instead of '+pname(old)+' by mistake; '+n+' records of the ticket moved');save();
+   FIXMSG='JP-6 ticket 33 corrected: now enrolled to '+pname(pid)+' (was '+pname(old)+' by mistake). '+n+' receipts and other records of this ticket moved to her.'}}}
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
 function parsePasteDate(t){t=String(t||'').trim();let m,d,mo,y;const MN=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -4804,7 +4813,7 @@ document.addEventListener('paste',e=>{const el=e.target;if(!el||el.tagName!=='IN
  const txt=(e.clipboardData||window.clipboardData).getData('text'),v=parsePasteDate(txt);e.preventDefault();
  if(!v){note('Could not read "'+String(txt).trim().slice(0,30)+'" as a date. Paste it like 15/12/2023.','bad');return}
  el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))},true);
-REG=regLoad();KEY=curCo().key;S=load();initS(curCo());secInit();if(!curCo().name){curCo().name=S.company||'My company';}regSave();render();
+REG=regLoad();KEY=curCo().key;S=load();initS(curCo());dataFixes();secInit();if(!curCo().name){curCo().name=S.company||'My company';}regSave();render();if(FIXMSG){note(FIXMSG);FIXMSG=''}
 </script>
 <script src="online.js"></script>
 
