@@ -4802,11 +4802,12 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
    FIXMSG='JP-6 ticket 33 corrected: now enrolled to '+pname(pid)+' (was '+pname(old)+' by mistake). '+n+' receipts and other records of this ticket moved to her.'}}
  if(!S.fixes.includes('jp6-34to37-deepashri')){const g=S.groups.find(x=>nm(x.name)==='jp-6'),to=S.persons.filter(p=>nm(p.name)==='deepashri.p.s');
   if(g&&to.length===1){const pid=to[0].id,done=[];let n=0;
-   [34,35,36,37].forEach(t=>{const e=enrollOf(g.id,t),fr=e&&P(e.pid);if(!e||e.pid===pid||!fr||nm(fr.name)!=='ramesh.m')return;const old=e.pid;
+   const ok={34:n=>n==='ramesh.m'||n.startsWith('harish'),35:n=>n==='ramesh.m',36:n=>n==='ramesh.m',37:n=>n==='ramesh.m'||n==='satishkumar.p.k'},was=[];
+   [34,35,36,37].forEach(t=>{const e=enrollOf(g.id,t),fr=e&&P(e.pid);if(!e||e.pid===pid||!fr||!ok[t](nm(fr.name)))return;const old=e.pid;was.push(t+' from '+fr.name);
     ['receipts','bidAdv','future','pdcs','calls'].forEach(k=>(S[k]||[]).forEach(x=>{if(x.gid===g.id&&x.ticket==t&&x.pid===old){x.pid=pid;n++}}));e.pid=pid;done.push(t)});
    S.fixes.push('jp6-34to37-deepashri');
-   if(done.length){log('Corrected JP-6 tickets '+done.join(', ')+': enrolled to '+pname(pid)+' instead of RAMESH.M by mistake; '+n+' records moved');save();
-    FIXMSG=(FIXMSG?FIXMSG+' ':'')+'JP-6 ticket'+(done.length>1?'s ':' ')+done.join(', ')+' corrected to '+pname(pid)+' (were RAMESH.M by mistake). '+n+' receipts and other records moved.'}else save()}}}
+   if(done.length){log('Corrected JP-6 tickets to '+pname(pid)+' (enrolled by mistake): '+was.join(', ')+'; '+n+' records moved');save();
+    FIXMSG=(FIXMSG?FIXMSG+' ':'')+'JP-6 ticket'+(done.length>1?'s ':' ')+done.join(', ')+' corrected to '+pname(pid)+' (were '+was.map(x=>x.split(' from ')[1]).join(', ')+' by mistake). '+n+' receipts and other records moved.'}else save()}}}
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
 function parsePasteDate(t){t=String(t||'').trim();let m,d,mo,y;const MN=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
