@@ -4807,7 +4807,22 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
     ['receipts','bidAdv','future','pdcs','calls'].forEach(k=>(S[k]||[]).forEach(x=>{if(x.gid===g.id&&x.ticket==t&&x.pid===old){x.pid=pid;n++}}));e.pid=pid;done.push(t)});
    S.fixes.push('jp6-34to37-deepashri');
    if(done.length){log('Corrected JP-6 tickets to '+pname(pid)+' (enrolled by mistake): '+was.join(', ')+'; '+n+' records moved');save();
-    FIXMSG=(FIXMSG?FIXMSG+' ':'')+'JP-6 ticket'+(done.length>1?'s ':' ')+done.join(', ')+' corrected to '+pname(pid)+' (were '+was.map(x=>x.split(' from ')[1]).join(', ')+' by mistake). '+n+' receipts and other records moved.'}else save()}}}
+    FIXMSG=(FIXMSG?FIXMSG+' ':'')+'JP-6 ticket'+(done.length>1?'s ':' ')+done.join(', ')+' corrected to '+pname(pid)+' (were '+was.map(x=>x.split(' from ')[1]).join(', ')+' by mistake). '+n+' receipts and other records moved.'}else save()}}
+ /* CB-1: every auction is on the 10th of its month (owner's instruction, 11-11-2026) */
+ if(!S.fixes.includes('cb1-auction-10th')){const g=S.groups.find(x=>nm(x.name)==='cb-1');
+  if(g){const as=S.auctions.filter(a=>a.gid===g.id).sort((a,b)=>a.no-b.no),to10=d=>d&&/^\d{4}-\d{2}-\d{2}$/.test(d)?d.slice(0,8)+'10':d,
+    shift=(d,days)=>{if(!d||!/^\d{4}-\d{2}-\d{2}$/.test(d))return d;const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+days);return iso(x)},
+    nd=as.map(a=>to10(a.date)),inOrder=nd.every((d,i)=>!i||d>nd[i-1]);
+   if(as.length&&inOrder){let ch=0;const od=as.map(a=>a.date);
+    as.forEach((a,i)=>{const d=nd[i];
+     const days=Math.round((new Date(d+'T00:00:00')-new Date(a.date+'T00:00:00'))/864e5);
+     if(a.dueDate)a.dueDate=a.dueDate===a.date?d:shift(a.dueDate,days);
+     if(a.nextDate)a.nextDate=as[i+1]&&a.nextDate===od[i+1]?nd[i+1]:to10(a.nextDate);
+     if(a.inv&&a.inv.date)a.inv.date=a.inv.date===a.date?d:shift(a.inv.date,days);
+     if(d!==a.date)ch++;a.date=d});
+    g.aDay=10;S.fixes.push('cb1-auction-10th');log('Corrected CB-1: auction dates set to the 10th of each month ('+ch+' auctions changed)');save();
+    FIXMSG=(FIXMSG?FIXMSG+' ':'')+'CB-1 corrected: every auction is now on the 10th of its month ('+ch+' of '+as.length+' auction dates changed; due dates moved with them).'}
+   else if(as.length)FIXMSG=(FIXMSG?FIXMSG+' ':'')+'CB-1 auction dates were NOT changed: moving them to the 10th would put two auctions in the same month. Please tell Claude.'}}}
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
 function parsePasteDate(t){t=String(t||'').trim();let m,d,mo,y;const MN=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
