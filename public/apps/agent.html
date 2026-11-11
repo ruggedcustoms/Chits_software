@@ -81,9 +81,26 @@ input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);
 /* thermal slip: 58 mm printer, 32 characters per line */
 .thermal{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.78rem;line-height:1.35;white-space:pre;background:#fff;color:#111;border:1px solid var(--line);border-radius:6px;padding:14px 12px;width:max-content;max-width:100%;overflow-x:auto;margin:0 auto;box-shadow:var(--shadow)}
 @media (prefers-reduced-motion:no-preference){main{scroll-behavior:smooth}}
+/* Office look: same page tint, cards, sign-in band and C tile as the office web app */
+:root{--page:#f3f7f6;--card:#ffffff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#0d181b;--card:#142428}}
+:root[data-theme="dark"]{--page:#0d181b;--card:#142428}
+.app{background:var(--page)}
+main{background:var(--page)}
+.card,.mem{background:var(--card)}
+.top{background:var(--card)}
+nav{background:var(--card)}
+.ctile{width:34px;height:34px;flex:none;border-radius:10px;background:var(--teal);color:var(--teal-ink);display:grid;place-items:center;font-weight:800;font-size:1rem}
+.lband{background:linear-gradient(160deg,#12766b,#073a35);color:#fff;padding:28px 22px 26px;flex:none}
+.lband .b{font-weight:800;font-size:1.7rem;line-height:1;letter-spacing:.5px}
+.lband .c{font-weight:600;font-size:1.05rem;margin-top:10px;opacity:.95}
+.login{background:var(--page);justify-content:flex-start}
+.lcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px}
+.lcard .logo{display:none}
 </style>
 <div class="app" id="app"></div>
 <script>
+const lband=()=>`<div class="lband"><div class="b">CHIT MASTER PRO</div><div class="c">${esc(AGENT.company)}</div></div>`;
 /* ---------- sample data (stands in for the office database) ---------- */
 const DAY=864e5,T0=new Date();T0.setHours(0,0,0,0);
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -135,12 +152,12 @@ const gfind=m=>'https://www.google.com/maps/search/?api=1&query='+encodeURICompo
 const wa=(m,txt)=>'https://wa.me/91'+m.mob+'?text='+encodeURIComponent(txt);
 function copy(t,msg){const done=()=>{ST.flash=msg||'Copied';draw();setTimeout(()=>{ST.flash='';draw()},1800)};try{navigator.clipboard.writeText(t).then(done,done)}catch(e){done()}}
 /* ---------- screens ---------- */
-function topbar(title,back){return`<div class="top">${back?`<button class="back" onclick="${back}" aria-label="Back">←</button>`:''}<h1>${esc(title)}</h1><button class="net ${ST.off?'off':''}" onclick="toggleNet()">${ST.off?'Offline':'Online'}</button></div>`}
+function topbar(title,back){return`<div class="top">${back?`<button class="back" onclick="${back}" aria-label="Back">←</button>`:'<span class="ctile">C</span>'}<h1>${esc(title)}</h1><button class="net ${ST.off?'off':''}" onclick="toggleNet()">${ST.off?'Offline':'Online'}</button></div>`}
 function tabs(){const p=pending(),T=[['today','Today','today'],['rcpt','Receipts','rcpt'],['close','Day close','close'],['me','Me','me']];
  return`<nav>${T.map(t=>`<button ${ST.tab===t[0]&&['list','tab'].includes(ST.view)?'aria-current="page"':''} onclick="goTab('${t[0]}')"><svg viewBox="0 0 24 24">${ICON[t[2]]}</svg>${t[1]}${t[0]==='rcpt'&&p?`<span class="dot">${p}</span>`:''}</button>`).join('')}</nav>`}
-function viewLogin(){return`<div class="demo">Demo with sample data. Nothing is sent to the office.</div><div class="login"><div class="logo">C</div><h1 style="margin:0;font-size:1.5rem">Chit Collection</h1><p class="muted" style="margin:0 0 14px">${esc(AGENT.company)}</p>
+function viewLogin(){return`<div class="demo">Demo with sample data. Nothing is sent to the office.</div>${lband()}<div class="login"><div class="lcard"><div class="logo">C</div><h1 style="margin:0;font-size:1.5rem">Chit Collection</h1><p class="muted" style="margin:0 0 14px">${esc(AGENT.company)}</p>
  <label for="lc">Agent code</label><input id="lc" value="${AGENT.code}" autocomplete="off"><label for="lp">PIN</label><input id="lp" type="password" inputmode="numeric" maxlength="4" value="1234" autocomplete="off">
- <p class="err" id="le" ${ST.err?'':'hidden'}>${esc(ST.err)}</p><button class="btn block" style="margin-top:14px" onclick="login()">Sign in</button><p class="muted" style="font-size:.8rem">Demo PIN is 1234. In the real app the office gives each agent a PIN and can block a lost phone.</p></div>`}
+ <p class="err" id="le" ${ST.err?'':'hidden'}>${esc(ST.err)}</p><button class="btn block" style="margin-top:14px" onclick="login()">Sign in</button><p class="muted" style="font-size:.8rem">Demo PIN is 1234. In the real app the office gives each agent a PIN and can block a lost phone.</p></div></div>`}
 function listData(){const q=ST.q.toLowerCase();let L=MEMS.filter(m=>(!q||(m.name+' '+m.area+' '+m.group+' '+m.mob).toLowerCase().includes(q)));
  const paidToday=m=>todayRc().some(r=>r.mid===m.id);
  if(ST.filter==='overdue')L=L.filter(m=>owed(m)>0&&daysLate(m)>=30);else if(ST.filter==='promise')L=L.filter(m=>m.promise&&m.promise.date<=TODAY&&owed(m)>0);else if(ST.filter==='done')L=L.filter(paidToday);else if(ST.filter==='due')L=L.filter(m=>owed(m)>0);

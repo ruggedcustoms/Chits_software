@@ -86,10 +86,27 @@ input,select{width:100%;border:1.5px solid var(--line);border-radius:12px;paddin
 @media (prefers-reduced-motion:no-preference){main>*{animation:in .25s ease both}@keyframes in{from{opacity:.01;transform:translateY(4px)}to{opacity:1;transform:none}}}
 .stt{width:100%;border-collapse:collapse;font-size:.78rem;font-variant-numeric:tabular-nums}.stt th{text-align:left;color:var(--mute);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--line)}.stt td{padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
 @media print{.demo,header.top,nav,.noprint{display:none!important}body,.app{background:#fff!important;color:#000!important}.card{box-shadow:none!important;border:1px solid #ccc!important}main{overflow:visible!important;height:auto!important}.app{height:auto!important;max-width:none!important}}
+/* Office look: same page tint, cards, sign-in band and C tile as the office web app */
+:root{--page:#f3f7f6;--card:#ffffff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#0d181b;--card:#142428}}
+:root[data-theme="dark"]{--page:#0d181b;--card:#142428}
+.app{background:var(--page)}
+main{background:var(--page)}
+.card,.mem{background:var(--card)}
+.top{background:var(--card)}
+nav{background:var(--card)}
+.ctile{width:34px;height:34px;flex:none;border-radius:10px;background:var(--teal);color:var(--teal-ink);display:grid;place-items:center;font-weight:800;font-size:1rem}
+.lband{background:linear-gradient(160deg,#12766b,#073a35);color:#fff;padding:28px 22px 26px;flex:none}
+.lband .b{font-weight:800;font-size:1.7rem;line-height:1;letter-spacing:.5px}
+.lband .c{font-weight:600;font-size:1.05rem;margin-top:10px;opacity:.95}
+.login{background:var(--page);justify-content:flex-start}
+.lcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px}
+.lcard .logo{display:none}
 </style>
 <div class="app" id="app"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script>
+const lband=()=>`<div class="lband"><div class="b">CHIT MASTER PRO</div><div class="c">${esc((typeof BR!=='undefined'&&BR&&BR.name)||t('appName'))}</div></div>`;
 /* ---------- Sample data (shape matches what the real office software will serve later) ---------- */
 const T0=new Date();T0.setHours(0,0,0,0);
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -158,7 +175,7 @@ async function signIn(){const u=((document.getElementById('lg_u')||{}).value||''
 async function signOut(){if(LV.token){try{await mApi('POST','/member/logout')}catch(e){}}
  LV.token='';tset('');LV.on=false;LV.must=false;LV.cur='';LV.err='';DATA=DEMO;st.user=false;st.demo=false;st.tab='home';draw()}
 function pwForm(withCur){return`${LV.err?`<div class="err">${esc(LV.err)}</div>`:''}${withCur?`<label for="pw0">${t('curPw')}</label><input id="pw0" type="password" autocomplete="current-password">`:''}<label for="pw1">${t('newPw')}</label><input id="pw1" type="password" autocomplete="new-password"><label for="pw2">${t('newPw2')}</label><input id="pw2" type="password" autocomplete="new-password"><div class="muted" style="font-size:.82rem;margin-top:6px">${t('pwRule')}</div><button class="btn block" style="margin-top:16px" ${LV.busy?'disabled':''} onclick="setPw(${withCur?1:0})">${t('savePw')}</button>`}
-function pwView(){return`<div class="login">${BR&&BR.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${esc(BR.logo)}" alt="" style="max-width:100%;max-height:80px"></div>`:'<div class="logo">C</div>'}<h1>${t('setPw')}</h1><p class="muted" style="margin:0 0 6px">${t('setPwSub')}</p>${pwForm(false)}<button class="btn ghost block" style="margin-top:8px" onclick="signOut()">${t('logout')}</button></div>`}
+function pwView(){return`${lband()}<div class="login"><div class="lcard">${BR&&BR.logo?`<div style="text-align:center;margin-bottom:6px"><img src="${esc(BR.logo)}" alt="" style="max-width:100%;max-height:80px"></div>`:'<div class="logo">C</div>'}<h1>${t('setPw')}</h1><p class="muted" style="margin:0 0 6px">${t('setPwSub')}</p>${pwForm(false)}<button class="btn ghost block" style="margin-top:8px" onclick="signOut()">${t('logout')}</button></div></div>`}
 function chpwView(){return LV.ok?`<div class="ok">${t('pwDone')}</div>`:`<div class="card">${pwForm(true)}</div>`}
 async function setPw(withCur){const v=id=>(document.getElementById(id)||{}).value||'',cur=withCur?v('pw0'):LV.cur,a=v('pw1'),b=v('pw2');
  if(withCur&&!cur){LV.err=t('curPw');return draw()}if(a.length<6){LV.err=t('pwShort');return draw()}if(a!==b){LV.err=t('pwSame');return draw()}
@@ -209,15 +226,15 @@ function receiptsList(){const out=[];let no=2050;DATA.chits.forEach(c=>c.rows.fi
  out.sort((a,b)=>a.date.localeCompare(b.date)||a.k.localeCompare(b.k));out.forEach(o=>o.no=++no);return out.reverse()}
 
 /* ---------- Views ---------- */
-function loginView(){if(LV.loading)return`<div class="login">${brandHead()}<div class="empty">${t('loading')}</div></div>`;
- return`<div class="login">${brandHead()}<p class="muted" style="margin:0 0 14px">${t('hi')}! ${t('loginNote')}</p>${LV.err?`<div class="err">${esc(LV.err)}</div>`:''}
+function loginView(){if(LV.loading)return`${lband()}<div class="login"><div class="lcard">${brandHead()}<div class="empty">${t('loading')}</div></div></div>`;
+ return`${lband()}<div class="login"><div class="lcard">${brandHead()}<p class="muted" style="margin:0 0 14px">${t('hi')}! ${t('loginNote')}</p>${LV.err?`<div class="err">${esc(LV.err)}</div>`:''}
  <label for="lg_u">${t('memNo')}</label><input id="lg_u" autocomplete="username" autocapitalize="characters" spellcheck="false" placeholder="M00084" value="${esc(LV.u)}" onkeydown="if(event.key==='Enter')document.getElementById('lg_p').focus()">
  <label for="lg_p">${t('pwd')}</label><input id="lg_p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')signIn()">
  ${LV.needCo?`<label for="lg_c">${t('coCode')}</label><input id="lg_c" autocomplete="off" spellcheck="false" value="${esc(coGet())}">`:''}
  <button class="btn block" style="margin-top:18px" ${LV.busy?'disabled':''} onclick="signIn()">${LV.busy?t('signing'):t('signin')}</button>
  ${LV.token&&!LV.busy?`<button class="btn ghost block" style="margin-top:8px" onclick="liveStart()">${t('retry')}</button>`:''}
  <button class="btn ghost block" style="margin-top:8px" onclick="go('signin')">${t('demoBtn')}</button>
- <div class="seg" style="margin-top:14px"><button aria-pressed="${st.lang==='en'}" onclick="setLang('en')">English</button><button aria-pressed="${st.lang==='kn'}" onclick="setLang('kn')">ಕನ್ನಡ</button></div></div>`}
+ <div class="seg" style="margin-top:14px"><button aria-pressed="${st.lang==='en'}" onclick="setLang('en')">English</button><button aria-pressed="${st.lang==='kn'}" onclick="setLang('kn')">ಕನ್ನಡ</button></div></div></div>`}
 function homeView(){const d=allDue(),na=nextAuction(),tot=d.amt+d.pen;
  return`<div class="hero"><small>${t('hi')}, ${esc(DATA.member.name)}</small>${tot>0?`<div><small>${t('due')}</small><div class="big">${inr(tot)}</div><small>${inr(d.amt)} ${t('amount').toLowerCase()} + ${inr(d.pen)} ${t('penalty').toLowerCase()}</small></div><div class="row"><span style="font-size:.85rem">${d.n} ${t('inst').toLowerCase()} ${t('pend')}</span>${canPay()?`<button class="btn light" onclick="openPay()">${t('pay')}</button>`:''}</div>`:`<div class="big" style="font-size:1.2rem">${t('nodue')}</div>`}</div>
  ${na?`<h2>${t('next')}</h2><div class="card"><div class="kv"><span>${esc(na.c.group)}</span><span>${dmy(na.d)}</span></div>${na.c.time?`<div class="kv"><span>${t('time')}</span><span>${esc(na.c.time)}</span></div>`:''}${na.c.venue?`<div class="kv"><span>${t('venue')}</span><span>${esc(na.c.venue)}</span></div>`:''}</div>`:''}
@@ -383,7 +400,7 @@ function draw(){applyCoTheme();const a=document.getElementById('app'),keepScroll
  const sub=['chit','pay','live','prize','stmt','score','chpw'].includes(st.tab),title=st.tab==='chpw'?t('chPw'):st.tab==='chit'?((DATA.chits.find(x=>x.id===st.chit)||{}).group||''):st.tab==='pay'?t('pay'):st.tab==='live'?t('liveT'):st.tab==='prize'?t('prizeT'):st.tab==='stmt'?t('stmt'):st.tab==='score'?t('score'):TITLES[st.tab]();
  const view={chpw:chpwView,home:homeView,chits:chitsView,chit:chitView,receipts:receiptsView,auctions:auctionsView,more:moreView,pay:payView,live:liveView,prize:prizeView,stmt:stmtView,score:scoreView}[st.tab]();
  const cur=sub?(st.tab==='stmt'||st.tab==='score'||st.tab==='chpw'?'more':st.tab==='live'||st.tab==='prize'?'auctions':st.chit&&st.tab==='chit'?'chits':'home'):st.tab;
- a.innerHTML=`${st.demo?`<div class="demo">${t('demoBar')}</div>`:''}<header class="top">${sub?`<button class="back" aria-label="${t('back')}" onclick="goBack()">&#8592;</button>`:LV.on&&DATA.brand&&DATA.brand.logo?`<img class="clogo" src="${esc(DATA.brand.logo)}" alt="">`:''}<h1>${esc(title)}</h1></header><main id="mn">${view}</main><nav aria-label="Main">${['home','chits','receipts','auctions','more'].map(k=>`<button onclick="goTab('${k}')" ${cur===k?'aria-current="page"':''}>${svg(k)}${t(k)}</button>`).join('')}</nav>`;
+ a.innerHTML=`${st.demo?`<div class="demo">${t('demoBar')}</div>`:''}<header class="top">${sub?`<button class="back" aria-label="${t('back')}" onclick="goBack()">&#8592;</button>`:LV.on&&DATA.brand&&DATA.brand.logo?`<img class="clogo" src="${esc(DATA.brand.logo)}" alt="">`:'<span class="ctile">C</span>'}<h1>${esc(title)}</h1></header><main id="mn">${view}</main><nav aria-label="Main">${['home','chits','receipts','auctions','more'].map(k=>`<button onclick="goTab('${k}')" ${cur===k?'aria-current="page"':''}>${svg(k)}${t(k)}</button>`).join('')}</nav>`;
  const m=document.getElementById('mn');if(m&&keepScroll&&!sub)m.scrollTop=keepScroll}
 function goTab(k){stopLive();st.tab=k;st.rc=null;draw();const m=document.getElementById('mn');if(m)m.scrollTop=0}
 function openChit(id,tab){st.chit=id;st.ctab=tab||'inst';st.tab='chit';draw()}
