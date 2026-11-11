@@ -1210,7 +1210,7 @@ function aucEditPage(a){const g=G(a.gid)||{},paid=payOf(a).filter(x=>!x.dis).len
  <label class="f">Due date<input type="date" id="ae_due" value="${esc(a.dueDate||'')}"></label>
  <label class="f">Next auction date<input type="date" id="ae_n" value="${esc(a.nextDate||'')}"></label>
  <label class="f">Winning ticket *<select id="ae_t" ${paid?'disabled':''}>${tks.map(t=>`<option value="${t}" ${t==a.ticket?'selected':''}>${t}: ${esc(pname((enrollOf(g.id,t)||{}).pid))}</option>`).join('')}</select>${paid?`<span class="muted" style="font-size:.8rem">Prize already paid or adjusted, so the ticket cannot change.</span>`:''}</label>
- <label class="f">Bid amount (₹) *<input type="number" id="ae_b" value="${num(a.bid)}"></label>
+ <label class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="ae_co" style="width:auto" ${coWon(a)?'checked':''} ${(enrollOf(g.id,a.ticket)||{}).pid==='CO'||(parseTickets(g.coTickets,9999)||[]).includes(+a.ticket)?'disabled':''}> Won by the company (company's chit)</label><label class="f">Bid amount (₹) *<input type="number" id="ae_b" value="${num(a.bid)}"></label>
  <label class="f">GST / service tax (₹)<input type="number" step="0.01" id="ae_tx" value="${num(a.gst)}"></label>
  <label class="f" style="grid-column:1/-1">Minutes / remarks<input id="ae_min" value="${esc(a.minutes||'')}"></label>
  </div><div class="row" style="margin-top:12px"><button class="btn" onclick="aucEditSave('${a.id}')">Save auction</button><button class="btn g" onclick="go('auctions')">Cancel</button></div></div>`}
@@ -1220,14 +1220,15 @@ function aucEditSave(id){const a=S.auctions.find(x=>x.id===id);if(!a||!isAdmin()
  const prev=auctionsOf(g.id).find(x=>x.no===a.no-1),next=auctionsOf(g.id).find(x=>x.no===a.no+1);
  if(prev&&d<=prev.date)return err('Auction '+prev.no+' is on '+dmy(prev.date)+'. This date must be after it.');if(next&&d>=next.date)return err('Auction '+next.no+' is on '+dmy(next.date)+'. This date must be before it.');
  const pays=payOf(a).filter(x=>!x.dis);
+ if($('ae_co')&&$('ae_co').checked&&!coWon(a)&&pays.length)return err('This auction already has prize payments or B.P.Adj. receipts. Remove them before marking it as the company\'s.');
  if(t!==+a.ticket){if(pays.length)return err('The prize is already paid or adjusted, so the ticket cannot change.');const e=enrollOf(g.id,t);if(!e)return err('Ticket '+t+' is not enrolled.');const w=wonAuction(g.id,t);if(w&&w.id!==a.id)return err('Ticket '+t+' has already won auction '+w.no+'.')}
  const comm=commAmt(g);if(!bid)return err('Enter the bid amount.');if(bid<comm)return err('Bid must be at least '+inr(comm)+' (the commission).');
  const prize=num(g.amount)-bid;if(tx<0||tx>=prize)return err('GST / service tax must be 0 or more and less than the bid payable.');
  const paid=pays.reduce((q,x)=>q+num(x.amount)+num(x.adjBP)+num(x.adjAdv),0);if(paid>prize-tx+0.5)return err('Already paid and adjusted '+inr(paid)+', which is more than the new net prize ('+inr(prize-tx)+').');
- const gp=comm?tx*100/comm:0,c=calcAuction(g,bid,gp),old=a.date,was='date '+dmy(a.date)+', ticket '+a.ticket+', bid '+inr(a.bid)+', tax '+inr(a.gst);
+ const gp=comm?tx*100/comm:0,c=calcAuction(g,bid,gp),old=a.date,was='date '+dmy(a.date)+', ticket '+a.ticket+', bid '+inr(a.bid)+', tax '+inr(a.gst)+(coWon(a)?', company':'');
  if(a.inv&&a.inv.date===old)a.inv.date=d;
- Object.assign(a,{date:d,dueDate:due||d,nextDate:nx,ticket:t,coWin:(enrollOf(g.id,t)||{}).pid==='CO',bid,gstPct:gp,comm:c.comm,gst:r2(tx),prize:c.prize,netPrize:r2(c.prize-tx),pool:c.pool,div:c.div,net:c.net,minutes:$('ae_min').value,taxOld:true});BPL=null;
- log('Edited auction '+a.no+' of '+g.name+': was '+was+'; now date '+dmy(d)+', ticket '+t+', bid '+inr(bid)+', tax '+inr(tx));save();go('auctions');note('Auction '+a.no+' of '+g.name+' saved.')}
+ Object.assign(a,{date:d,dueDate:due||d,nextDate:nx,ticket:t,coWin:(enrollOf(g.id,t)||{}).pid==='CO'||!!($('ae_co')&&$('ae_co').checked),bid,gstPct:gp,comm:c.comm,gst:r2(tx),prize:c.prize,netPrize:r2(c.prize-tx),pool:c.pool,div:c.div,net:c.net,minutes:$('ae_min').value,taxOld:true});BPL=null;
+ log('Edited auction '+a.no+' of '+g.name+': was '+was+'; now date '+dmy(d)+', ticket '+t+', bid '+inr(bid)+', tax '+inr(tx)+(a.coWin?', company':''));save();go('auctions');note('Auction '+a.no+' of '+g.name+' saved.')}
 function undoAuction(){const g=G(F.aucGroup),as=auctionsOf(g.id),a=as[as.length-1];
  askConfirm('Delete auction '+a.no+' of '+g.name+' and its prize payments? Installments for this month will change.',()=>{S.auctions=S.auctions.filter(x=>x.id!==a.id);S.payouts=S.payouts.filter(p=>p.aid!==a.id);log('Undid auction '+a.no+' of '+g.name);save();note('Auction deleted.')})}
 
