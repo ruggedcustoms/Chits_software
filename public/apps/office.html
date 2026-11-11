@@ -1315,7 +1315,7 @@ function taxShortSave(){const V={};document.querySelectorAll('.tx_v').forEach(i=
  askConfirm('Record service tax deducted on '+L.length+' prize'+(L.length>1?'s':'')+' ('+inr(L.reduce((q,x)=>q+x.sh,0))+')? The net prize of each auction is reduced by the tax entered.',()=>{
   L.forEach(({a,sh})=>{const t=r2(num(a.gst)+sh);a.gst=t;a.gstPct=num(a.comm)?t*100/num(a.comm):0;a.netPrize=r2(num(a.prize)-t);a.taxOld=true});
   log('Recorded service tax deducted on '+L.length+' prizes ('+inr(L.reduce((q,x)=>q+x.sh,0))+')');save();note(L.length+' prize'+(L.length>1?'s':'')+' updated.')})}
-function payList(){if(F.plFrom==null){F.plFrom=today().slice(0,8)+'01';F.plTo=today()}const fr=F.plFrom,to=F.plTo,gq=F.plG||'',q=(F.plQ||'').trim().toLowerCase();
+function payList(){if(F.plFrom==null){F.plFrom=today().slice(0,8)+'01';F.plTo=today()}const fr=F.plFrom,to=F.plTo,gq=F.plG||'',q=(F.plQ||'').trim().toLowerCase().replace(/^(.+?)\s*\/\s*(\d+)$/,'$1 $2');
  const rows=S.payouts.filter(x=>(!fr||x.date>=fr)&&(!to||x.date<=to)).slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.vno||0)-(a.vno||0)).map(x=>{const a=S.auctions.find(y=>y.id===x.aid);return a?{x,a,g:G(a.gid)||{}}:null})
   .filter(r=>r&&(!gq||r.a.gid===gq)&&(!q||[(r.x.series||'BPY')+' '+(r.x.vno||''),r.x.ref,r.x.paidTo,r.g.name+' '+r.a.ticket,pnj(enrollOf(r.a.gid,r.a.ticket)||{})].join(' ').toLowerCase().includes(q)));
  const live=rows.filter(r=>!r.x.dis),tp=live.reduce((s,r)=>s+num(r.x.amount),0),ta=live.reduce((s,r)=>s+num(r.x.adjBP)+num(r.x.adjAdv),0),set=(k,v)=>`F.${k}=${v};render()`;
