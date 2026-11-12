@@ -80,14 +80,17 @@
   });
 
   // persons
-  const P_KEYS = ['id', 'mno', 'oldCode', 'title', 'name', 'relType', 'relName', 'gender', 'dob', 'occupation', 'pan', 'aadhaar4', 'gstNo', 'bankName', 'bankAcc', 'ifsc', 'entryDate', 'roles',
+  const P_KEYS = ['id', 'photo', 'photoOn', 'mno', 'oldCode', 'title', 'name', 'relType', 'relName', 'gender', 'dob', 'occupation', 'pan', 'aadhaar4', 'gstNo', 'bankName', 'bankAcc', 'ifsc', 'entryDate', 'roles',
     ...Object.keys(ADDR).flatMap((p) => Object.keys(ADDR_FIELDS).map((f) => p + '_' + f))];
   const fromPerson = (p) => {
     const o = Object.assign({}, p.extra, {
       id: p.id, mno: p.member_no, oldCode: p.old_code || '', title: p.title || '', name: p.name, relType: p.relation_type || '', relName: p.relation_name || '', gender: p.gender || '',
       dob: p.dob || '', occupation: p.occupation || '', pan: p.pan || '', aadhaar4: p.aadhaar_last4 || '', gstNo: p.gst_no || '', bankName: p.bank_name || '', bankAcc: p.bank_account_no || '',
       ifsc: p.ifsc || '', entryDate: p.entry_date || '', roles: [...new Set((p.roles || []).map((r) => ROLE_BACK[r]).filter(Boolean))],
+      // The photo is kept apart on the server and fetched only when shown (cmPhotoNow / cmPhotoGet). An older photo kept in extra is moved there on the next save.
+      photoOn: !!p.has_photo,
     });
+    if (p.has_photo) o.photo = '';
     for (const a of p.addresses || []) {
       const pre = Object.keys(ADDR).find((k) => ADDR[k] === a.kind);
       for (const [f, col] of Object.entries(ADDR_FIELDS)) o[pre + '_' + f] = a[col] || '';
@@ -211,6 +214,24 @@
     return data;
   }
 
+  // ---- member photos: one at a time, only when a screen shows one ----
+  const PH = new Map(), PHW = new Set();
+  window.cmPhotoNow = (id) => {
+    if (PH.get(id)) return PH.get(id);
+    if (!PHW.has(id)) {
+      PHW.add(id);
+      api('GET', '/persons/' + id + '/photo').then((r) => { PH.set(id, r.photo || ''); if (r.photo && window.phArrived) window.phArrived(id, r.photo); }, () => {});
+    }
+    return '';
+  };
+  window.cmPhotoGet = async (id) => {
+    if (PH.get(id)) return PH.get(id);
+    try { const r = await api('GET', '/persons/' + id + '/photo'); PH.set(id, r.photo || ''); return r.photo || ''; } catch (e) { return ''; }
+  };
+  // A photo set in the office (or an older one kept in extra) goes to the photo store.
+  const photoChanged = (p) => !!p.photo && /^data:image\//.test(p.photo) && (!p.photoOn || p.photo !== PH.get(p.id));
+  const sendPhoto = async (p) => { await api('PUT', '/persons/' + p.id + '/photo', { photo: p.photo }); PH.set(p.id, p.photo); };
+
   const snapshot = () => {
     const b = {};
     for (const k of CORE) b[k] = new Map((S[k] || []).map((x) => [x.id, JSON.stringify(x)]));
@@ -267,6 +288,9 @@
     if (S.accts.length) AX.forEach((a) => { if (!S.accts.some((x) => x.id === a.id)) S.accts.push(Object.assign({}, a)); });
     ocApply();
     BASE = snapshot();
+    // a member may have added a photo since it was last looked for
+    for (const [k, v] of PH) if (!v) PH.delete(k);
+    PHW.clear();
   }
 
   // ---- working out and sending what changed ----
@@ -288,8 +312,8 @@
 
   async function push(c) {
     // Order matters: people and groups before tickets, tickets before auctions and receipts.
-    for (const p of c.add.persons) await api('POST', '/persons', toPerson(p));
-    for (const p of c.change.persons) await api('PATCH', '/persons/' + p.id, toPerson(p));
+    for (const p of c.add.persons) { await api('POST', '/persons', toPerson(p)); if (photoChanged(p)) await sendPhoto(p); }
+    for (const p of c.change.persons) { if (photoChanged(p)) await sendPhoto(p); await api('PATCH', '/persons/' + p.id, toPerson(p)); }
     for (const g of c.add.groups) await api('POST', '/groups', toGroup(g));
     for (const g of c.change.groups) await api('PATCH', '/groups/' + g.id, toGroup(g));
     for (const e of c.add.enrolls) await api('POST', '/enrollments', toEnroll(e));

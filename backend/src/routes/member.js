@@ -1,7 +1,7 @@
 // Member app: logins the office issues, and what a signed-in member may see (only their own tickets).
 // Amounts for the member app are in rupees, the shape the app's screens already use.
 
-import { bad, forbidden, json, notFound, nowIso, readBody, str, todayIst } from '../lib/http.js';
+import { bad, conflict, forbidden, json, notFound, nowIso, photoData, readBody, str, todayIst } from '../lib/http.js';
 import { checkMemberPassword, hashPassword, memberLogin, memberLogout, requirePerm, sha256Hex, tempPassword, verifyPassword } from '../lib/auth.js';
 import { auditStatement } from '../lib/books.js';
 import { monthsLate } from '../lib/calc.js';
@@ -181,12 +181,13 @@ async function home({ env, ctx }) {
   const db = env.DB;
   const today = todayIst();
   const pid = ctx.member.id;
-  const [company, person, addresses, enrolls, branches] = await db.batch([
+  const [company, person, addresses, enrolls, branches, photo] = await db.batch([
     db.prepare('SELECT name, phone, member_prefix, settings_json, brand_json FROM companies WHERE id = ?').bind(ctx.companyId),
     db.prepare('SELECT id, name, member_no, entry_date FROM persons WHERE company_id = ? AND id = ?').bind(ctx.companyId, pid),
     db.prepare('SELECT * FROM person_addresses WHERE person_id = ?').bind(pid),
     db.prepare("SELECT id, group_id FROM enrollments WHERE company_id = ? AND person_id = ? AND status = 'Active'").bind(ctx.companyId, pid),
     db.prepare('SELECT id, name FROM branches WHERE company_id = ?').bind(ctx.companyId),
+    db.prepare('SELECT photo FROM person_photos WHERE person_id = ?').bind(pid),
   ]);
   const co = company.results[0];
   const set = parse(co.settings_json);
@@ -255,11 +256,28 @@ async function home({ env, ctx }) {
     company: { name: set.company || co.name, phone: set.coPhone || set.coMobile || co.phone || '', upi: set.upi || '', upiName: set.upiName || '', brand: brandOf(co.brand_json) },
     member: {
       name: p.name, mno: memberCode(prefix, p.member_no), mobile: addr.mobile || '', since: p.entry_date || '',
+      photo: photo.results[0]?.photo || null,
       address: [addr.door, addr.street, addr.area, addr.city, addr.pin].filter(Boolean).join(', '),
     },
     chits,
     receipts,
   });
+}
+
+// The member's own photo, taken in the app. It is saved once; after that only the office can change it.
+async function savePhoto({ request, env, ctx }) {
+  if (ctx.mustChange) throw forbidden('Please set your own password first.');
+  const db = env.DB;
+  const pid = ctx.member.id;
+  const b = await readBody(request);
+  const photo = photoData(b.photo);
+  if (await db.prepare('SELECT 1 FROM person_photos WHERE person_id = ?').bind(pid).first()) throw conflict('Your photo is already saved. To change it, please contact the office.');
+  const p = await db.prepare('SELECT name FROM persons WHERE id = ?').bind(pid).first();
+  await db.batch([
+    db.prepare("INSERT INTO person_photos (person_id, company_id, photo, source) VALUES (?, ?, ?, 'member')").bind(pid, ctx.companyId, photo),
+    auditStatement(db, ctx, 'update', 'persons', pid, `Photo of ${p ? p.name : 'member'} taken in the member app`),
+  ]);
+  return json({ ok: true });
 }
 
 export const memberRoutes = [
@@ -272,4 +290,5 @@ export const memberRoutes = [
   ['POST', '/api/member/logout', signOut, { member: true }],
   ['POST', '/api/member/password', changePassword, { member: true }],
   ['GET', '/api/member/home', home, { member: true }],
+  ['POST', '/api/member/photo', savePhoto, { member: true }],
 ];

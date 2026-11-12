@@ -274,7 +274,7 @@ async function auditLog({ env, query }) {
 // grouped into areas, with each company's share of all company data. Index and page overhead is spread by share.
 // It reads every row, so it runs only when asked.
 const AREAS = [
-  ['Members', ['persons', ['person_addresses', 'person_id', 'persons'], 'member_logins']],
+  ['Members', ['persons', ['person_addresses', 'person_id', 'persons'], 'member_logins', 'person_photos']],
   ['Groups and tickets', ['chit_groups', ['group_deposits', 'group_id', 'chit_groups'], 'enrollments', 'ticket_transfers', 'member_removals', 'agent_commission_rules']],
   ['Auctions and prizes', ['auctions', ['auction_bids', 'auction_id', 'auctions'], 'bid_advances', 'prize_payments']],
   ['Collections', ['receipts', ['receipt_installments', 'receipt_id', 'receipts'], 'future_receipts', ['future_receipt_adjustments', 'future_receipt_id', 'future_receipts'], 'post_dated_cheques', 'cash_denominations', 'follow_up_calls']],

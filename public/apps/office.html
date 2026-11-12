@@ -315,6 +315,10 @@ function copyText(t,msg){
  const fb=()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');note(msg||'Copied.')}catch(e){note('Copy is blocked here. Select the text and copy it manually.','bad')}a.remove()};
  try{navigator.clipboard.writeText(t).then(()=>note(msg||'Copied.'),fb)}catch(e){fb()}}
 
+/* member photos: in online mode they are kept apart on the server and loaded one at a time when shown (online.js) */
+const phOf=p=>!p?'':p.photo||(p.photoOn&&window.cmPhotoNow?cmPhotoNow(p.id)||'':'');
+const phGet=async p=>!p?'':p.photo||(p.photoOn&&window.cmPhotoGet?(await cmPhotoGet(p.id))||'':'');
+function phArrived(pid,ph){if(ui.sub==='form'){if(ui.page==='members'&&ui.id===pid&&!imgs.photo){imgs.photo=ph;const e=$('p_photo');if(e){e.src=ph;e.hidden=false}}return}render()}
 /* ---------- form engine ---------- */
 const T=(k,l,type,o)=>Object.assign({k,l,type:type||'text'},o||{});
 const OPT=(a,v)=>{if(typeof a==='function')a=a();if(typeof a==='string'){const l=M(a.slice(2)).slice();if(v&&!l.includes(v))l.push(v);a=l}return a.map(x=>Array.isArray(x)?x:[x,x])};
@@ -329,7 +333,7 @@ function fld(f,v){
  else if(f.type==='number')inner=`<input id="${id}" type="number" step="${f.step||'any'}" value="${esc(v)}">`;
  else inner=`<input id="${id}" type="${f.type}" value="${esc(v)}" ${f.max?`maxlength="${f.max}"`:''} ${f.ph?`placeholder="${esc(f.ph)}"`:''}>`;
  return`<label class="f${w}">${lab}${inner}${f.hint?`<small>${esc(f.hint)}</small>`:''}</label>`}
-const sections=(secs,o)=>secs.map(([t,fs,extra])=>`<fieldset class="sec"><legend>${esc(t)}</legend><div class="fg">${fs.map(f=>fld(f,(o||{})[f.k])).join('')}${extra||''}</div></fieldset>`).join('');
+const sections=(secs,o)=>secs.map(([t,fs,extra])=>`<fieldset class="sec"><legend>${esc(t)}</legend><div class="fg">${fs.map(f=>fld(f,f.type==='image'&&f.k==='photo'&&o?phOf(o):(o||{})[f.k])).join('')}${extra||''}</div></fieldset>`).join('');
 function readForm(specs){const o={};specs.forEach(f=>{if(f.type==='image'){o[f.k]=imgs[f.k]||'';return}const e=$('f_'+f.k);if(!e)return;
  if(f.type==='check')o[f.k]=e.checked;else if(f.type==='number')o[f.k]=e.value===''?'':+e.value;else o[f.k]=e.value.trim()});return o}
 function reqCheck(specs,o){for(const f of specs){if(!f.req)continue;const v=o[f.k];
@@ -2444,7 +2448,7 @@ function acDoc(g,t){const d=acData(g,t);if(!d)return'<div class="empty">Choose a
  <div class="ac-flex"><div></div><div class="ac-title">Account Copy</div><div class="ac-date"><b>Report Date :</b> ${dmy(today())}</div></div><div class="ac-head">${heads}</div></div>
  <div class="ac-memb"><div class="ac-c1"><div class="ac-name"><span>Name</span><span>: <b>${E(((pa.title||'')+' '+(pa.name||'')).trim())}</b> (${E(p?mno(p):'')})</span></div>
   ${pa.relName?`<div>${E((pa.relType||'')+' '+pa.relName)}</div>`:''}${addr.map(x=>`<div>${E(x)}</div>`).join('')}${pmob(p)?`<div>Cell : ${E(pmob(p))}</div>`:''}<div style="margin-top:8px"><b>Agent Name :</b> ${E(e.cagent?pname(e.cagent):'')}</div></div>
-  <div class="ac-photo">${pa.photo?`<img src="${pa.photo}" alt="Photo">`:'<span>No image<br>available</span>'}</div>
+  <div class="ac-photo">${phOf(pa)?`<img src="${phOf(pa)}" alt="Photo">`:'<span>No image<br>available</span>'}</div>
   <div class="ac-c2">${kv('Chit Reference',E(g.name+' / '+t))}${kv('Group Value',f2(g.amount))}${kv('No Of Installments',g.n)}${kv('Bye Law No',E(g.bylaw||''))}${kv('Bye Law Date',dmy(g.bylawDate))}${kv('Commencement',dmy(g.start))}${kv('Closing Date',dmy(closing))}${kv('Balance',won?dr(d.remaining):'')}</div>
   <div class="ac-c3">${kv('Enrol Date',dmy(e.date))}${kv('L.P.Date',dmy(d.lp))}${kv('Paid Up To',d.pu)}${kv('Position',tstat(g,t)[0])}${kv('Amt To be Paid',f2(L.totalDue))}${kv('Paid Amount',f2(L.totalPaid))}${kv('Balance Amt',f2(Math.max(0,L.balance)))}</div></div>
  ${F.rep.score?scBadge(e.pid,g,t):''}
@@ -2497,7 +2501,7 @@ async function acPdf(g,t){
  box(M,y,CW,mh);const top=y-6;
  c1l.forEach(([k,l],i)=>txt(l,x1,top-FS-i*LH+1,FS,k==='b'?F2:F1));
  page.drawRectangle({x:xp,y:top-76,width:wp,height:76,borderColor:rgb(.55,.55,.55),borderWidth:.6});
- let ph=false;if(pa.photo){try{const im=/^data:image\/png/.test(pa.photo)?await pdf.embedPng(pa.photo):await pdf.embedJpg(pa.photo),k=Math.max(wp/im.width,76/im.height);page.drawImage(im,{x:xp+(wp-im.width*k)/2,y:top-76+(76-im.height*k)/2,width:im.width*k,height:im.height*k});ph=true}catch(x){}}
+ let ph=false;const pph=await phGet(pa);if(pph){try{const im=/^data:image\/png/.test(pph)?await pdf.embedPng(pph):await pdf.embedJpg(pph),k=Math.max(wp/im.width,76/im.height);page.drawImage(im,{x:xp+(wp-im.width*k)/2,y:top-76+(76-im.height*k)/2,width:im.width*k,height:im.height*k});ph=true}catch(x){}}
  if(!ph){txt('No image',xp+(wp-tw('No image',F1,8))/2,top-36,8,F1,rgb(.4,.4,.4));txt('available',xp+(wp-tw('available',F1,8))/2,top-46,8,F1,rgb(.4,.4,.4))}
  const kvDraw=(arr,x,w,yy)=>arr.forEach(([k,v],i)=>{txt(k,x,yy-FS-i*LH+1,FS,F2);txt(': '+v,x+92,yy-FS-i*LH+1,FS,F1)});
  kvDraw(k2,x2,w2,top);kvDraw(k3,x3,w3,top);y-=mh+8;
@@ -2573,7 +2577,7 @@ function acModel(g,t){const d=acData(g,t);if(!d)return null;
  const guar=[e.g1,e.g2].filter(Boolean).map(id=>P(id)).filter(Boolean);
  const closing=g.term||iso(schedDate(g,num(g.n)));
  const dr=v=>num(v)>0.005?f2(v)+' Dr':(num(v)<-0.005?f2(-v)+' Cr':'0');
- const m={d,g,t,logo:S.coLogo||'',photo:pa.photo||''};
+ const m={d,g,t,logo:S.coLogo||'',photo:pa.photo||'',pp:pa};
  m.top=[S.company||'Chit company',S.coAddr?String(S.coAddr).replace(/\s*\n\s*/g,', '):'',...coContact(),'Branch : '+(g.branch||'')].filter((x,i)=>i===0||x);
  m.date=dmy(today());
  m.heads=(S.coHead==null||S.coHead===''?CO_HEAD_DEF:S.coHead).split('\n');
@@ -2634,7 +2638,7 @@ async function acXlsx(g,t){const m=acModel(g,t);if(!m)throw new Error('no data')
   m.left.forEach((x,i)=>put(r+i,0,x[0],{b:x[1]},4));
   m.k2.forEach((x,i)=>{put(r+i,6,x[0],{b:1},2);put(r+i,8,': '+x[1],{},2)});
   m.k3.forEach((x,i)=>{put(r+i,10,x[0],{b:1},2);put(r+i,12,': '+x[1],{})});
-  const ph=await acImg(m.photo,(px(4)+px(5)-12),n*20-8);
+  const ph=await acImg(m.photo||await phGet(m.pp),(px(4)+px(5)-12),n*20-8);
   put(r,4,ph?'':'No image available',{h:'center',c:'666666',z:9,bd:'tblr'},2,n);
   if(ph)imgs.push({img:ph,col:4,off:Math.round((px(4)+px(5)-ph.w)/2),row:top-1,roff:Math.round((n*20-ph.h)/2)});
   for(let i=0;i<n;i++)hts[r+i]=16;
@@ -2714,7 +2718,7 @@ async function acDocx(g,t){const m=acModel(g,t);if(!m)throw new Error('no data')
  m.heads.forEach(x=>{body+=P_(x,{z:16})});
  body+=gap;
  /* member */
- {const ph=await acImg(m.photo,92*1.333*.9,96*1.333*.9),wL=sp(0,4),wP=sp(4,6),w2=sp(6,10),w3=sp(10,13);
+ {const ph=await acImg(m.photo||await phGet(m.pp),92*1.333*.9,96*1.333*.9),wL=sp(0,4),wP=sp(4,6),w2=sp(6,10),w3=sp(10,13);
   const L=m.left.map(x=>P_(x[0],{b:x[1],z:18})).join(''),ph2=ph?par(addImg(ph),{al:'center'}):P_('No image available',{z:16,c:'666666',al:'center'});
   const kv=(a,tab)=>a.map(x=>par(run(x[0],{b:1,z:18})+'<w:r><w:tab/></w:r>'+run(': '+x[1],{z:18}),{tab})).join('');
   body+=tbl([wL,wP,w2,w3],[{c:tc(wL,L)+tc(wP,ph2,{va:'center'})+tc(w2,kv(m.k2,2000))+tc(w3,kv(m.k3,1900))}],{col:'444444'})+gap}
@@ -3178,7 +3182,7 @@ const REP_NEW=['divlist','divform','aturn','asumm','newturn','termturn','cown','
 const REP_RUN=['collection','futrc','advrc',...REP_NEW,'osgrp','oscag','osbag','osmem','osmon','osarea','osnps','osps','osrange','oscarr','osgdef','oscdef','osbstat'];
 const guAddr=x=>x?[x.res_door,x.res_street,x.res_addr,x.res_city].filter(Boolean).join(', '):'';
 function icCards(g,tk){const es=enrollsOf(g.id).filter(e=>e.pid!=='CO'&&(!tk||e.ticket==tk));
- return es.map(e=>{const p=P(e.pid)||{};return`<div class="icard"><div class="ih">${coLogo()}<div><b>${esc(S.company||'Chit company')}</b><div class="ic-s">MEMBER IDENTITY CARD</div></div></div><div class="ib"><div class="ic-ph">${p.photo?`<img src="${p.photo}" alt="">`:'<span>Photo</span>'}</div><div class="ic-d"><div class="ic-n">${esc(((p.title||'')+' '+(p.name||'')).trim())}</div><div>Member no. <b>${esc(mno(p))}</b></div><div>Group <b>${esc(g.name)}</b> &nbsp; Ticket <b>${e.ticket}</b></div><div>Chit value <b>${f0(g.amount)}</b> &nbsp; ${g.n} installments</div>${pmob(p)?`<div>Cell ${esc(pmob(p))}</div>`:''}</div></div><div class="ic-f"><span>Authorised signatory</span></div></div>`}).join('')}
+ return es.map(e=>{const p=P(e.pid)||{};return`<div class="icard"><div class="ih">${coLogo()}<div><b>${esc(S.company||'Chit company')}</b><div class="ic-s">MEMBER IDENTITY CARD</div></div></div><div class="ib"><div class="ic-ph">${phOf(p)?`<img src="${phOf(p)}" alt="">`:'<span>Photo</span>'}</div><div class="ic-d"><div class="ic-n">${esc(((p.title||'')+' '+(p.name||'')).trim())}</div><div>Member no. <b>${esc(mno(p))}</b></div><div>Group <b>${esc(g.name)}</b> &nbsp; Ticket <b>${e.ticket}</b></div><div>Chit value <b>${f0(g.amount)}</b> &nbsp; ${g.n} installments</div>${pmob(p)?`<div>Cell ${esc(pmob(p))}</div>`:''}</div></div><div class="ic-f"><span>Authorised signatory</span></div></div>`}).join('')}
 function icPrintPage(){const g=G(F.rep.gid);
  return`<style>@page{size:portrait;margin:10mm}</style><div class="noprint"><div class="row"><button class="btn" onclick="doPrint()">Print cards</button><button class="btn g" onclick="ui={page:'reports'};render()">Back to reports</button></div></div><div class="ic-grid">${g?icCards(g,F.rep.ticket):''}</div>`}
 function repNew(R){if(!REP_NEW.includes(R.id))return null;

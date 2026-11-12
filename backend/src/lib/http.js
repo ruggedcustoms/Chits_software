@@ -110,3 +110,11 @@ export function extra(body, max = 200000) {
   if (s.length > max) throw bad('The extra details are too large.');
   return s;
 }
+
+// A member photo: a JPEG or PNG data: URL, already shrunk by the app (about 50 KB), never more than 400 KB.
+export function photoData(v) {
+  const s = typeof v === 'string' ? v : '';
+  if (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(s)) throw bad('The photo must be a JPEG or PNG image.');
+  if (s.length > 400000) throw bad('The photo is too large. Take it again.');
+  return s;
+}

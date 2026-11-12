@@ -1,6 +1,6 @@
 // Members (persons), chit groups and enrollment.
 
-import { bad, bool, clientId, conflict, date, extra, forbidden, int, json, notFound, oneOf, paise, readBody, str, todayIst } from '../lib/http.js';
+import { bad, bool, clientId, conflict, date, extra, forbidden, int, json, notFound, oneOf, paise, photoData, readBody, str, todayIst } from '../lib/http.js';
 import { can, ownTicketsOnly, requirePerm } from '../lib/auth.js';
 import { auditStatement } from '../lib/books.js';
 import { commissionOf, installmentOf } from '../lib/calc.js';
@@ -313,6 +313,7 @@ async function deletePerson({ env, ctx, params }) {
   await db.batch([
     db.prepare('DELETE FROM person_addresses WHERE person_id = ?').bind(p.id),
     db.prepare('DELETE FROM member_logins WHERE person_id = ?').bind(p.id),
+    db.prepare('DELETE FROM person_photos WHERE person_id = ?').bind(p.id),
     db.prepare('DELETE FROM persons WHERE id = ?').bind(p.id),
     auditStatement(db, ctx, 'delete', 'persons', p.id, `Person ${p.name} deleted`, p),
   ]);
@@ -348,6 +349,41 @@ async function deleteEnrollment({ env, ctx, params }) {
   return json({ ok: true });
 }
 
+// ---- member photos: read one at a time, set or replaced by the office ----
+
+async function getPhoto({ env, ctx, params }) {
+  if (!can(ctx, 'members') && !can(ctx, 'reports') && !can(ctx, 'receipts')) throw forbidden();
+  const p = await env.DB.prepare('SELECT id FROM persons WHERE company_id = ? AND id = ?').bind(ctx.companyId, params.id).first();
+  if (!p) throw notFound('Person');
+  const row = await env.DB.prepare('SELECT photo, source, taken_at FROM person_photos WHERE person_id = ?').bind(p.id).first();
+  return json(row || { photo: null });
+}
+
+async function setPhoto({ request, env, ctx, params }) {
+  requirePerm(ctx, 'members', 'edit');
+  const db = env.DB;
+  const p = await db.prepare('SELECT id, name FROM persons WHERE company_id = ? AND id = ?').bind(ctx.companyId, params.id).first();
+  if (!p) throw notFound('Person');
+  const b = await readBody(request);
+  const had = await db.prepare('SELECT source, taken_at FROM person_photos WHERE person_id = ?').bind(p.id).first();
+  if (b.photo === null || b.photo === '') {
+    await db.batch([
+      db.prepare('DELETE FROM person_photos WHERE person_id = ?').bind(p.id),
+      auditStatement(db, ctx, 'update', 'persons', p.id, `Photo of ${p.name} removed`, had),
+    ]);
+    return json({ ok: true });
+  }
+  const photo = photoData(b.photo);
+  await db.batch([
+    db.prepare(
+      `INSERT INTO person_photos (person_id, company_id, photo, source, taken_by) VALUES (?, ?, ?, 'office', ?)
+       ON CONFLICT (person_id) DO UPDATE SET photo = excluded.photo, source = 'office', taken_by = excluded.taken_by, taken_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+    ).bind(p.id, ctx.companyId, photo, ctx.user?.id || null),
+    auditStatement(db, ctx, 'update', 'persons', p.id, `Photo of ${p.name} ${had ? 'replaced' : 'added'} by the office`, had),
+  ]);
+  return json({ ok: true });
+}
+
 // One ticket's account copy: dues by installment, receipts and penalty.
 async function accountCopy({ env, ctx, params, query }) {
   const db = env.DB;
@@ -372,6 +408,8 @@ export const masterRoutes = [
   ['GET', '/api/persons/:id', getPerson],
   ['PATCH', '/api/persons/:id', updatePerson],
   ['DELETE', '/api/persons/:id', deletePerson],
+  ['GET', '/api/persons/:id/photo', getPhoto],
+  ['PUT', '/api/persons/:id/photo', setPhoto],
   ['GET', '/api/groups', listGroups],
   ['POST', '/api/groups', createGroup],
   ['GET', '/api/groups/:id', getGroup],

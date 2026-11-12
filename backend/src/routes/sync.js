@@ -14,7 +14,7 @@ async function sync({ env, ctx }) {
   requirePerm(ctx, 'dash');
   const db = env.DB;
   const c = ctx.companyId;
-  const [company, groups, persons, addresses, enrollments, auctions, receipts, insts, payments, users] = await db.batch([
+  const [company, groups, persons, addresses, enrollments, auctions, receipts, insts, payments, users, photos] = await db.batch([
     db.prepare('SELECT id, code, name, member_prefix, settings_json, brand_json FROM companies WHERE id = ?').bind(c),
     db.prepare('SELECT * FROM chit_groups WHERE company_id = ? ORDER BY name').bind(c),
     db.prepare('SELECT * FROM persons WHERE company_id = ? ORDER BY member_no').bind(c),
@@ -25,19 +25,22 @@ async function sync({ env, ctx }) {
     db.prepare('SELECT ri.receipt_id, ri.installment_no FROM receipt_installments ri JOIN receipts r ON r.id = ri.receipt_id WHERE r.company_id = ?').bind(c),
     db.prepare('SELECT * FROM prize_payments WHERE company_id = ? ORDER BY voucher_no').bind(c),
     db.prepare('SELECT id, name FROM users WHERE company_id = ?').bind(c),
+    // which members have a photo (the photos themselves are fetched one at a time when shown)
+    db.prepare('SELECT person_id, source FROM person_photos WHERE company_id = ?').bind(c),
   ]);
   const co = company.results[0];
   const addrBy = new Map();
   for (const a of addresses.results) (addrBy.get(a.person_id) || addrBy.set(a.person_id, []).get(a.person_id)).push(a);
   const instBy = new Map();
   for (const x of insts.results) (instBy.get(x.receipt_id) || instBy.set(x.receipt_id, []).get(x.receipt_id)).push(x.installment_no);
+  const photoBy = new Map(photos.results.map((x) => [x.person_id, x.source]));
   const withExtra = (rows) => rows.map((r) => ({ ...r, extra: parse(r.extra_json), extra_json: undefined }));
   return json({
     me: { user: ctx.user, role: ctx.role, perms: ctx.perms, licence: { ...ctx.licence, message: licenceMessage(ctx.licence) } },
     company: { id: co.id, code: co.code, name: co.name, member_prefix: co.member_prefix, settings: parse(co.settings_json), brand: parse(co.brand_json) },
     users: users.results,
     groups: withExtra(groups.results),
-    persons: withExtra(persons.results).map((p) => ({ ...p, roles: parse(p.roles_json), roles_json: undefined, addresses: addrBy.get(p.id) || [] })),
+    persons: withExtra(persons.results).map((p) => ({ ...p, roles: parse(p.roles_json), roles_json: undefined, addresses: addrBy.get(p.id) || [], has_photo: photoBy.has(p.id) })),
     enrollments: withExtra(enrollments.results),
     auctions: withExtra(auctions.results),
     receipts: withExtra(receipts.results).map((r) => ({ ...r, insts: (instBy.get(r.id) || []).sort((a, b) => a - b) })),
