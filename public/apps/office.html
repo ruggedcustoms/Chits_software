@@ -4863,7 +4863,14 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
      if(d!==a.date)ch++;a.date=d});
     g.aDay=10;S.fixes.push('cb1-auction-10th');log('Corrected CB-1: auction dates set to the 10th of each month ('+ch+' auctions changed)');save();
     FIXMSG=(FIXMSG?FIXMSG+' ':'')+'CB-1 corrected: every auction is now on the 10th of its month ('+ch+' of '+as.length+' auction dates changed; due dates moved with them).'}
-   else if(as.length)FIXMSG=(FIXMSG?FIXMSG+' ':'')+'CB-1 auction dates were NOT changed: moving them to the 10th would put two auctions in the same month. Please tell Claude.'}}}
+   else if(as.length)FIXMSG=(FIXMSG?FIXMSG+' ':'')+'CB-1 auction dates were NOT changed: moving them to the 10th would put two auctions in the same month. Please tell Claude.'}}
+ /* JP-4 ticket 14: enrolled to NARESH.M by mistake, belongs to MANJUNATHGUPTHA.M.B (owner's instruction, 12-11-2026) */
+ if(!S.fixes.includes('jp4-14-manjunathguptha')){const g=S.groups.find(x=>nm(x.name)==='jp-4'),to=S.persons.filter(p=>nm(p.name)==='manjunathguptha.m.b'),e=g&&enrollOf(g.id,14),fr=e&&P(e.pid);
+  if(g&&e&&to.length===1&&e.pid!==to[0].id&&fr&&nm(fr.name)==='naresh.m'){const pid=to[0].id,old=e.pid;let n=0;
+   ['receipts','bidAdv','future','pdcs','calls'].forEach(k=>(S[k]||[]).forEach(x=>{if(x.gid===g.id&&x.ticket==14&&x.pid===old){x.pid=pid;n++}}));
+   e.pid=pid;S.fixes.push('jp4-14-manjunathguptha');log('Corrected JP-4 ticket 14: enrolled to '+pname(pid)+' instead of '+pname(old)+' by mistake; '+n+' records of the ticket moved');save();
+   FIXMSG=(FIXMSG?FIXMSG+' ':'')+'JP-4 ticket 14 corrected: now enrolled to '+pname(pid)+' (was '+pname(old)+' by mistake). '+n+' receipts and other records of this ticket moved.'}
+  else if(g&&e&&!S.fixes.includes('jp4-14-msg')){S.fixes.push('jp4-14-msg');save();FIXMSG=(FIXMSG?FIXMSG+' ':'')+'JP-4 ticket 14 was NOT changed: '+(to.length!==1?(to.length?'there are '+to.length+' members named MANJUNATHGUPTHA.M.B':'no member named MANJUNATHGUPTHA.M.B was found'):fr&&nm(fr.name)!=='naresh.m'?'the ticket is enrolled to '+fr.name+', not NARESH.M':'it is already enrolled correctly')+'. Please tell Claude.'}}}
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
 function parsePasteDate(t){t=String(t||'').trim();let m,d,mo,y;const MN=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
