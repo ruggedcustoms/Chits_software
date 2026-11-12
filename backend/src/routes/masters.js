@@ -384,6 +384,47 @@ async function setPhoto({ request, env, ctx, params }) {
   return json({ ok: true });
 }
 
+// ---- surety documents sent by prized subscribers: list, open, accept or reject ----
+
+async function listDocs({ env, ctx, query }) {
+  if (!can(ctx, 'members') && !can(ctx, 'payable')) throw forbidden();
+  const st = query.get('status');
+  const { results } = await env.DB.prepare(
+    `SELECT d.id, d.doc_type, d.other_name, d.file_name, d.mime, d.size, d.status, d.reason, d.submitted_at, d.reviewed_at, d.person_id,
+            p.name AS person_name, p.member_no, e.id AS enrollment_id, e.ticket_no, g.name AS group_name, u.name AS reviewed_by
+       FROM member_docs d JOIN persons p ON p.id = d.person_id JOIN enrollments e ON e.id = d.enrollment_id JOIN chit_groups g ON g.id = e.group_id
+       LEFT JOIN users u ON u.id = d.reviewed_by
+      WHERE d.company_id = ? ${st ? 'AND d.status = ?' : ''} ORDER BY d.submitted_at DESC LIMIT 500`
+  ).bind(...(st ? [ctx.companyId, st] : [ctx.companyId])).all();
+  return json(results);
+}
+
+async function getDoc({ env, ctx, params }) {
+  if (!can(ctx, 'members') && !can(ctx, 'payable')) throw forbidden();
+  const d = await env.DB.prepare('SELECT id, mime, file_name, data FROM member_docs WHERE company_id = ? AND id = ?').bind(ctx.companyId, params.id).first();
+  if (!d) throw notFound('Document');
+  return json(d);
+}
+
+async function reviewDoc({ request, env, ctx, params }) {
+  requirePerm(ctx, 'members', 'edit');
+  const db = env.DB;
+  const d = await db.prepare(
+    `SELECT d.id, d.doc_type, d.other_name, d.status, e.ticket_no, g.name AS group_name FROM member_docs d JOIN enrollments e ON e.id = d.enrollment_id JOIN chit_groups g ON g.id = e.group_id
+      WHERE d.company_id = ? AND d.id = ?`
+  ).bind(ctx.companyId, params.id).first();
+  if (!d) throw notFound('Document');
+  const b = await readBody(request);
+  const status = oneOf(b, 'status', ['Accepted', 'Rejected'], { required: true, label: 'Accepted or Rejected' });
+  const reason = status === 'Rejected' ? str(b, 'reason', { max: 300, label: 'the reason' }) : null;
+  if (status === 'Rejected' && !reason) throw bad('Write why the document is rejected, so the subscriber can send the right one.');
+  await db.batch([
+    db.prepare("UPDATE member_docs SET status = ?, reason = ?, reviewed_by = ?, reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(status, reason, ctx.user?.id || null, d.id),
+    auditStatement(db, ctx, 'update', 'member_docs', d.id, `Surety document (${d.doc_type === 'Other' ? d.other_name : d.doc_type}) of ${d.group_name} ticket ${d.ticket_no} ${status.toLowerCase()}${reason ? ': ' + reason : ''}`, { status: d.status }, { status, reason }),
+  ]);
+  return json({ ok: true });
+}
+
 // One ticket's account copy: dues by installment, receipts and penalty.
 async function accountCopy({ env, ctx, params, query }) {
   const db = env.DB;
@@ -409,6 +450,9 @@ export const masterRoutes = [
   ['PATCH', '/api/persons/:id', updatePerson],
   ['DELETE', '/api/persons/:id', deletePerson],
   ['GET', '/api/persons/:id/photo', getPhoto],
+  ['GET', '/api/member-docs', listDocs],
+  ['GET', '/api/member-docs/:id', getDoc],
+  ['PATCH', '/api/member-docs/:id', reviewDoc],
   ['PUT', '/api/persons/:id/photo', setPhoto],
   ['GET', '/api/groups', listGroups],
   ['POST', '/api/groups', createGroup],

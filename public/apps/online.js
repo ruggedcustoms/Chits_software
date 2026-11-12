@@ -232,6 +232,9 @@
   const photoChanged = (p) => !!p.photo && /^data:image\//.test(p.photo) && (!p.photoOn || p.photo !== PH.get(p.id));
   const sendPhoto = async (p) => { await api('PUT', '/persons/' + p.id + '/photo', { photo: p.photo }); PH.set(p.id, p.photo); };
 
+  // pages that talk to the server directly (Surety documents)
+  window.cmApi = api;
+
   const snapshot = () => {
     const b = {};
     for (const k of CORE) b[k] = new Map((S[k] || []).map((x) => [x.id, JSON.stringify(x)]));

@@ -118,3 +118,15 @@ export function photoData(v) {
   if (s.length > 400000) throw bad('The photo is too large. Take it again.');
   return s;
 }
+
+// Surety documents sent by a prized subscriber.
+export const DOC_TYPES = ['Guarantor ID proof', 'Guarantor address proof', 'Guarantor salary slip / ITR', 'Property document', 'Signed security cheques', 'Other'];
+// A document file: a JPEG/PNG photo or a PDF as a data: URL; the file itself at most 1 MB.
+export function docData(v) {
+  const s = typeof v === 'string' ? v : '';
+  const m = /^data:(image\/jpeg|image\/png|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(s);
+  if (!m) throw bad('Send a photo (JPEG or PNG) or a PDF file.');
+  const size = Math.floor((m[2].length * 3) / 4) - (m[2].endsWith('==') ? 2 : m[2].endsWith('=') ? 1 : 0);
+  if (size > 1024 * 1024) throw bad('The file is larger than 1 MB. Take a photo of it instead, or send a smaller PDF.');
+  return { data: s, mime: m[1], size };
+}

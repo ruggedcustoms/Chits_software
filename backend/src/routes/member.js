@@ -1,7 +1,7 @@
 // Member app: logins the office issues, and what a signed-in member may see (only their own tickets).
 // Amounts for the member app are in rupees, the shape the app's screens already use.
 
-import { bad, conflict, forbidden, json, notFound, nowIso, photoData, readBody, str, todayIst } from '../lib/http.js';
+import { bad, conflict, DOC_TYPES, docData, forbidden, json, newId, notFound, nowIso, photoData, readBody, str, todayIst } from '../lib/http.js';
 import { checkMemberPassword, hashPassword, memberLogin, memberLogout, requirePerm, sha256Hex, tempPassword, verifyPassword } from '../lib/auth.js';
 import { auditStatement } from '../lib/books.js';
 import { monthsLate } from '../lib/calc.js';
@@ -181,13 +181,14 @@ async function home({ env, ctx }) {
   const db = env.DB;
   const today = todayIst();
   const pid = ctx.member.id;
-  const [company, person, addresses, enrolls, branches, photo] = await db.batch([
+  const [company, person, addresses, enrolls, branches, photo, docRows] = await db.batch([
     db.prepare('SELECT name, phone, member_prefix, settings_json, brand_json FROM companies WHERE id = ?').bind(ctx.companyId),
     db.prepare('SELECT id, name, member_no, entry_date FROM persons WHERE company_id = ? AND id = ?').bind(ctx.companyId, pid),
     db.prepare('SELECT * FROM person_addresses WHERE person_id = ?').bind(pid),
     db.prepare("SELECT id, group_id FROM enrollments WHERE company_id = ? AND person_id = ? AND status = 'Active'").bind(ctx.companyId, pid),
     db.prepare('SELECT id, name FROM branches WHERE company_id = ?').bind(ctx.companyId),
     db.prepare('SELECT photo FROM person_photos WHERE person_id = ?').bind(pid),
+    db.prepare('SELECT id, enrollment_id, doc_type, other_name, file_name, mime, size, status, reason, submitted_at, reviewed_at FROM member_docs WHERE company_id = ? AND person_id = ? ORDER BY submitted_at DESC').bind(ctx.companyId, pid),
   ]);
   const co = company.results[0];
   const set = parse(co.settings_json);
@@ -238,6 +239,10 @@ async function home({ env, ctx }) {
         perYear: g.late_fee_basis === 'year', advance: rup(L.advance), penaltyDue: rup(L.penalty_due), rows,
         auc: auctions.map((a) => ({ no: a.auction_no, date: a.auction_date, bid: rup(a.bid), div: rup(a.dividend_per_ticket), ticket: a.winner_ticket_no })),
         prize,
+        // surety documents: only for a ticket the subscriber won (not the company)
+        docs: won && !won.company_won ? docRows.results.filter((d) => d.enrollment_id === e.id).map((d) => ({
+          id: d.id, type: d.doc_type, other: d.other_name || '', file: d.file_name || '', mime: d.mime, size: d.size, status: d.status, reason: d.reason || '', at: d.submitted_at,
+        })) : null,
       });
       for (const r of recs) {
         receipts.push({
@@ -280,6 +285,34 @@ async function savePhoto({ request, env, ctx }) {
   return json({ ok: true });
 }
 
+// A prized subscriber sends a surety document for one of their won tickets.
+async function sendDoc({ request, env, ctx }) {
+  if (ctx.mustChange) throw forbidden('Please set your own password first.');
+  const db = env.DB;
+  const pid = ctx.member.id;
+  const b = await readBody(request);
+  const e = await db.prepare("SELECT e.id, e.ticket_no, g.name AS group_name FROM enrollments e JOIN chit_groups g ON g.id = e.group_id WHERE e.company_id = ? AND e.id = ? AND e.person_id = ? AND e.status = 'Active'")
+    .bind(ctx.companyId, str(b, 'enrollment_id') || '', pid).first();
+  if (!e) throw notFound('Ticket');
+  const won = await db.prepare("SELECT company_won FROM auctions WHERE winner_enrollment_id = ? AND status = 'Active'").bind(e.id).first();
+  if (!won || won.company_won) throw bad('Surety documents are sent after you win the chit.');
+  const type = str(b, 'type');
+  if (!DOC_TYPES.includes(type)) throw bad('Choose what the document is.');
+  const other = type === 'Other' ? str(b, 'other', { max: 80, label: 'what the document is' }) : null;
+  if (type === 'Other' && !other) throw bad('Write what the document is.');
+  const f = docData(b.data);
+  const n = await db.prepare('SELECT count(*) AS n FROM member_docs WHERE enrollment_id = ?').bind(e.id).first();
+  if (n.n >= 40) throw bad('Too many documents for this ticket. Please contact the office.');
+  const id = newId();
+  const fileName = (String(b.file_name || '').trim()).slice(0, 120) || null;
+  await db.batch([
+    db.prepare('INSERT INTO member_docs (id, company_id, person_id, enrollment_id, doc_type, other_name, file_name, mime, data, size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, ctx.companyId, pid, e.id, type, other, fileName, f.mime, f.data, f.size),
+    auditStatement(db, ctx, 'create', 'member_docs', id, `Surety document (${type === 'Other' ? other : type}) sent from the member app for ${e.group_name} ticket ${e.ticket_no}`),
+  ]);
+  return json({ id }, 201);
+}
+
 export const memberRoutes = [
   ['GET', '/api/member-logins', listLogins],
   ['POST', '/api/member-logins', issueLogin],
@@ -291,4 +324,5 @@ export const memberRoutes = [
   ['POST', '/api/member/password', changePassword, { member: true }],
   ['GET', '/api/member/home', home, { member: true }],
   ['POST', '/api/member/photo', savePhoto, { member: true }],
+  ['POST', '/api/member/docs', sendDoc, { member: true }],
 ];
