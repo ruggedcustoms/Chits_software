@@ -4893,6 +4893,15 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
    S.fixes.push('j1-18-rameshp');log('Corrected J-1 ticket 18: records moved from '+pname(fr.id)+' (enrolled by mistake) to '+pname(to.id)+'; '+n+' records');save();
    FIXMSG=(FIXMSG?FIXMSG+' ':'')+'J-1 ticket 18 corrected: '+n+' receipts and other records moved from '+pname(fr.id)+' to '+pname(to.id)+'.'}
   else if(g&&e&&!S.fixes.includes('j1-18-msg')){S.fixes.push('j1-18-msg');save();FIXMSG=(FIXMSG?FIXMSG+' ':'')+'J-1 ticket 18 was NOT changed: '+(!to||nm(to.name)!=='ramesh.p'?'the ticket is not enrolled to RAMESH.P':!ids.length?'its records are already with '+to.name:'its records are with '+ids.map(pname).join(', ')+', not only KOUSALYA.S')+'. Please tell Claude.'}}
+
+ /* one-time: tickets whose enrolment was corrected (wrong subscriber chosen by mistake); move the ticket's records to the subscriber it is now enrolled to.
+    Acts only when all other records of the ticket belong to one other person; otherwise shows a message and changes nothing. */
+ [['jp-15',19,'jp15-19']].forEach(([gn,tk,key])=>{if(S.fixes.includes(key)||S.fixes.includes(key+'-msg'))return;const g=S.groups.find(x=>nm(x.name)===gn),e=g&&enrollOf(g.id,tk),to=e&&e.pid!=='CO'&&P(e.pid);if(!g||!e)return;
+  const K=['receipts','bidAdv','future','pdcs','calls'],ids=[...new Set(K.flatMap(k=>(S[k]||[]).filter(x=>x.gid===g.id&&x.ticket==tk&&x.pid&&x.pid!==e.pid).map(x=>x.pid)))],lbl=g.name+' ticket '+tk;
+  if(to&&ids.length===1){const fr=ids[0];let n=0;K.forEach(k=>(S[k]||[]).forEach(x=>{if(x.gid===g.id&&x.ticket==tk&&x.pid===fr){x.pid=to.id;n++}}));
+   S.fixes.push(key);log('Corrected '+lbl+': records moved from '+pname(fr)+' (enrolled by mistake) to '+pname(to.id)+'; '+n+' records');save();
+   FIXMSG=(FIXMSG?FIXMSG+' ':'')+lbl+' corrected: '+n+' receipts and other records moved from '+pname(fr)+' to '+pname(to.id)+'.'}
+  else{S.fixes.push(key+'-msg');save();FIXMSG=(FIXMSG?FIXMSG+' ':'')+lbl+' was NOT changed: '+(!to?'the ticket is not enrolled to a subscriber':!ids.length?'its records are already with '+to.name:'its records are with '+ids.map(pname).join(', ')+' (more than one person)')+'. Please tell Claude.'}});
 }
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
