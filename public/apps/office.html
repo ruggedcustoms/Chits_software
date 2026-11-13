@@ -1036,9 +1036,13 @@ function saveEnroll(){
  const jt=[$('e_j0').value,$('e_j1').value].filter(Boolean);if(jt.includes(pid))return err('A joint holder cannot be the first holder as well.');if(new Set(jt).size<jt.length)return err('Choose two different joint holders.');
  o.joint=jt;o.jmode=jt.length?$('e_jmode').value:'';
  if(old&&old.pid===pid&&String(jointOf(old))!==String(jt))log('Ticket '+t+' of '+g.name+': joint holders '+(jt.length?jt.map(pname).join(', ')+' ('+o.jmode+')':'removed'));
+ /* TEMPORARY for the import (asked 2026-11-13): changing the subscriber treats the old one as a wrong enrolment and moves the ticket's
+    receipts and other records to the new subscriber. Removed-member (settled) records stay. Remove this when the import is done. */
+ let moved=0;if(old&&old.pid!==pid&&old.pid!=='CO'){const fr=old.pid;['receipts','bidAdv','future','pdcs','calls'].forEach(k=>(S[k]||[]).forEach(x=>{if(x.gid===gid&&x.ticket==t&&x.pid===fr&&!x.settled){x.pid=pid;moved++}}));
+  if(moved)log('Ticket '+t+' of '+g.name+': '+moved+' receipts and other records moved from '+pname(fr)+' to '+pname(pid)+' (enrolment corrected)')}
  if(old){if(old.pid!==pid)log('Ticket '+t+' of '+g.name+' transferred from '+pnj(old)+' to '+pname(pid));Object.assign(old,o,{pid})}
  else{S.enrolls.push(Object.assign({id:uid(),gid,ticket:t,pid},o));log('Enrolled '+[pid].concat(jt).map(pname).join(' & ')+' in '+g.name+' ticket '+t)}
- save();F.enrFilter=gid;go('enroll');note('Enrolment saved.')}
+ save();F.enrFilter=gid;go('enroll');note('Enrolment saved.'+(moved?' '+moved+' receipt'+(moved>1?'s':'')+' and other records moved to '+pname(pid)+'.':''))}
 function delEnroll(id){const e=S.enrolls.find(x=>x.id===id),g=G(e.gid);
  if(wonAuction(e.gid,e.ticket)||S.receipts.some(r=>r.gid===e.gid&&r.ticket==e.ticket))return note('This ticket has an auction win or receipts. Edit it to transfer it to another subscriber instead.','bad');
  askConfirm('Remove ticket '+e.ticket+' of '+g.name+' from '+pnj(e)+'?',()=>{S.enrolls=S.enrolls.filter(x=>x.id!==id);log('Removed enrolment '+g.name+' ticket '+e.ticket);save();go('enroll');note('Enrolment removed.')})}
