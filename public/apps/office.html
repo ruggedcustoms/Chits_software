@@ -719,7 +719,7 @@ const acOptsG=(ds,sel)=>'<option value=""></option>'+ds.map(g=>`<optgroup label=
 const balTxt=id=>{const b=acLedger(id,'',today()).close;return inr(Math.abs(b))+(b<-0.005?' Cr':'')};
 /* bank payments: "Debited by bank" is for what the bank takes from the account itself (charges, SMS fees, interest on
    overdraft, TDS on interest), with no cheque and no payee */
-const BPMODES=['Cheque','NEFT','RTGS','Debited by bank','Others'];
+const BPMODES=['Cheque','NEFT','RTGS','UPI','Debited by bank','Others'];
 function vcBpMode(){const d=($('vc_mode')||{}).value==='Debited by bank';if($('vc_cdw'))$('vc_cdw').hidden=d;if($('vc_w'))$('vc_w').closest('label').hidden=d;
  if(d&&$('vc_o')&&!$('vc_o').value){const bc=[...$('vc_o').options].find(o=>/bank charges/i.test(o.textContent));if(bc)$('vc_o').value=bc.value}}
 function vcFields(k){const c=VK[k],bk=bankOpts(''),noBank='<option value="">Add a bank account in Masters, Dropdown lists</option>',mode=BPMODES.map(x=>`<option>${x}</option>`).join('');
