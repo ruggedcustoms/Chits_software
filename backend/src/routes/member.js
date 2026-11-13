@@ -17,6 +17,20 @@ const brandOf = (s) => { const b = parse(s); return { color: b.color || null, ac
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const monthOf = (d) => (d ? MON[+d.slice(5, 7) - 1] + ' ' + d.slice(0, 4) : '');
 
+
+// The receipt number as printed: financial year / number, like 27/195 (same rule as rcNo in office.html).
+const fyYY = (d) => { const y = +d.slice(0, 4), m = +d.slice(5, 7); return String((m >= 4 ? y + 1 : y) % 100).padStart(2, '0'); };
+function rcLabel(r) {
+  let x = {};
+  try { x = JSON.parse(r.extra_json || '{}') || {}; } catch { x = {}; }
+  if (x.fyNo) return `${x.fyY || fyYY(r.receipt_date)}/${x.fyNo}`;
+  const o = String(x.oldNo || '').trim();
+  const m = /^(\d{2})\s*\/\s*(\d+)$/.exec(o);
+  if (m) return `${m[1]}/${+m[2]}`;
+  if (/^\d+$/.test(o)) return `${fyYY(r.receipt_date)}/${+o}`;
+  return String(o || r.receipt_no);
+}
+
 async function prefixOf(db, companyId) {
   const co = await db.prepare('SELECT member_prefix, settings_json FROM companies WHERE id = ?').bind(companyId).first();
   const set = parse(co && co.settings_json);
@@ -246,7 +260,7 @@ async function home({ env, ctx }) {
       });
       for (const r of recs) {
         receipts.push({
-          id: r.id, no: r.receipt_no, date: r.receipt_date, chit: e.id, group: g.name, ticket: e.ticket_no, mode: r.mode, insts: r.insts,
+          id: r.id, no: rcLabel(r), seq: r.receipt_no, date: r.receipt_date, chit: e.id, group: g.name, ticket: e.ticket_no, mode: r.mode, insts: r.insts,
           amount: rup(r.amount), penalty: rup(r.penalty), other: rup(r.enrolment_fee + r.bank_charge + r.other_charge + r.handling_charge),
           total: rup(r.amount + r.penalty + r.enrolment_fee + r.bank_charge + r.other_charge + r.handling_charge),
         });
@@ -254,7 +268,7 @@ async function home({ env, ctx }) {
     }
   }
   chits.sort((a, b) => a.group.localeCompare(b.group) || a.ticket - b.ticket);
-  receipts.sort((a, b) => b.date.localeCompare(a.date) || b.no - a.no);
+  receipts.sort((a, b) => b.date.localeCompare(a.date) || b.seq - a.seq);
   const prefix = set.mPrefix != null ? set.mPrefix : co.member_prefix;
   return json({
     as_of: today,
