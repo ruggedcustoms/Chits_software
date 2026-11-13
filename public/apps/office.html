@@ -3510,8 +3510,8 @@ function mDel(k,i){const v=M(k)[i],u=mUsed(k,v);if(u)return note('"'+v+'" is use
  askConfirm('Delete "'+v+'" from the list?',()=>{S.masters[k]=M(k).filter((_,j)=>j!==i);log('Master '+k+': deleted '+v);save();note('Deleted.')})}
 
 /* ---------- bulk import ---------- */
-const IMT=['groups','members','enrolls','auctions','receipts','payouts','banks','ledgers','vouchers','fds'];
-const IML={groups:'Groups',members:'Members',enrolls:'Enrollments',auctions:'Auctions',receipts:'Receipts',payouts:'Prize payments',banks:'Bank accounts',ledgers:'Account balances',vouchers:'Vouchers',fds:'Fixed deposits'};
+const IMT=['groups','members','enrolls','auctions','receipts','payouts','banks','ledgers','vouchers','bankpays','fds'];
+const IML={groups:'Groups',members:'Members',enrolls:'Enrollments',auctions:'Auctions',receipts:'Receipts',payouts:'Prize payments',banks:'Bank accounts',ledgers:'Account balances',vouchers:'Vouchers',bankpays:'Bank payments',fds:'Fixed deposits'};
 const imn=s=>String(s==null?'':s).toLowerCase().replace(/%/g,'pct').replace(/[^a-z0-9]/g,'');
 /* [key, heading, required, other accepted headings] */
 const IMS={
@@ -3530,7 +3530,8 @@ const IMS={
   ['rate','Interest %',0,['rate','interestrate','roi','rateofinterest']],['from','Start date',1,['fddate','fdrdate','depositdate','opendate','fromdate','date']],['maturity','Maturity date',0,['maturity','matdate','maturitydt','todate']],['type','Interest type',0,['interesttype','fdtype','fdrtype']],
   ['closed','Closed on',0,['closeddate','withdrawndate','releasedate','closedon','withdrawnon']],['recd','Amount received',0,['received','proceeds','maturityamount','amountwithdrawn','closingamount']],['acct','Our bank account',0,['ourbank','companybank','paidfrom','receivedin']],
   ['vno','Old voucher no',0,['voucherno','vchno','paymentvoucher']],['cvno','Closing voucher no',0,['closingvoucher','withdrawvoucher','receiptvoucher']],['purpose','Narration',0,['purpose','narration','remarks']]],
- vouchers:[['vno','Voucher no',1,['voucherno','vchno','entryno','journalno']],['date','Date',1,['voucherdate','vchdate','entrydate']],['type','Voucher type',0,['type','vouchertype','vchtype','kind']],['account','Account',1,['ledger','ledgername','accountname','particulars','head','accounthead']],['debit','Debit',0,['dr','debitamount','debitamt']],['credit','Credit',0,['cr','creditamount','creditamt']],['narr','Narration',0,['narration','remarks','note']],['party','Party',0,['paidto','receivedfrom','payee']],['ref','Cheque / UTR no',0,['chequeno','utr','utrno','refno','reference','chqno']]]
+ vouchers:[['vno','Voucher no',1,['voucherno','vchno','entryno','journalno']],['date','Date',1,['voucherdate','vchdate','entrydate']],['type','Voucher type',0,['type','vouchertype','vchtype','kind']],['account','Account',1,['ledger','ledgername','accountname','particulars','head','accounthead']],['debit','Debit',0,['dr','debitamount','debitamt']],['credit','Credit',0,['cr','creditamount','creditamt']],['narr','Narration',0,['narration','remarks','note']],['party','Party',0,['paidto','receivedfrom','payee']],['ref','Cheque / UTR no',0,['chequeno','utr','utrno','refno','reference','chqno']]],
+ bankpays:[['date','Date',1,['paymentdate','vchdate','voucherdate','paiddate']],['bank','Bank account',1,['bank','bankname','bankacno','bankaccountno','ourbankaccount','frombank','paidfrom']],['mode','Mode',0,['paymode','paymentmode','modeofpayment']],['account','Debit account',1,['debit','account','ledger','ledgername','accountname','head','accounthead','expense','particulars']],['amount','Amount',1,['amt','amountpaid','paidamount']],['narr','Narration',0,['narration','remarks','note','description']],['party','Paid to',0,['paidto','payee','party','name']],['ref','Cheque / UTR no',0,['chequeno','utr','utrno','refno','reference','chqno']]]
 };
 let IM={sheets:[],res:null,err:'',done:null,undo:null,onlyErr:true,pick:{}};
 const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
@@ -3603,7 +3604,7 @@ function imMap(hdr,spec){const h=hdr.map(imn),idx={},used=new Set();
  return{idx,missing:spec.filter(s=>s[2]&&idx[s[0]]==null).map(s=>s[1]),found:Object.keys(idx).length}}
 function imGuess(name,hdr){const n=imn(name);
  if(/instruction|readme|help|note/.test(n))return'';
- if(/^fds?$|^fdrs?$|fixeddep|fdregister|fdrregister|fddetail/.test(n))return'fds';if(/voucher|journal|daybook/.test(n))return'vouchers';if(/payout|prize|bidpay|bidpayment/.test(n))return'payouts';if(/ledger|chartof|openingbal|accountbal|trial/.test(n))return'ledgers';if(/bank/.test(n))return'banks';
+ if(/^fds?$|^fdrs?$|fixeddep|fdregister|fdrregister|fddetail/.test(n))return'fds';if(/voucher|journal|daybook/.test(n))return'vouchers';if(/bankpay/.test(n))return'bankpays';if(/payout|prize|bidpay|bidpayment/.test(n))return'payouts';if(/ledger|chartof|openingbal|accountbal|trial/.test(n))return'ledgers';if(/bank/.test(n))return'banks';
  if(/enrol/.test(n))return'enrolls';if(/auction/.test(n))return'auctions';if(/receipt|collection/.test(n))return'receipts';
  if(/member|customer|subscriber|client/.test(n))return'members';if(/group|chit/.test(n))return'groups';
  let best='',bs=0;['receipts','payouts','vouchers','auctions','enrolls','groups','members','ledgers','banks','fds'].forEach(t=>{const m=imMap(hdr,IMS[t]);if(!m.missing.length&&m.found>bs){bs=m.found;best=t}});return best}
@@ -3935,6 +3936,23 @@ function imEngine(){
    const kind=vcKind({type,lines}),c=VK[kind];S.seq.vch=S.seq.vch||{};const n=S.seq.vch[kind]=(S.seq.vch[kind]||0)+1;S.vouchers=S.vouchers||[];
    S.vouchers.push({id:uid(),n,no:c.pre+' '+n,kind,type:c.type,date,lines,narr:rs.map(r=>r.o.narr).find(Boolean)||'',party:rs.map(r=>r.o.party).find(Boolean)||'',ref:rs.map(r=>r.o.ref).find(Boolean)||'',mode:'',chqDate:'',oldNo:f.o.vno});vold.add(k);return['ok','',w]})()}catch(e){x=['err','Unexpected problem with this voucher: '+e.message]}
    add('vouchers',f,x[0],x[1]);(x[2]||[]).forEach(m=>add('vouchers',f,'warn',m))})};
+ /* bank payments: one row = one Bank payment voucher (Dr the debit account, Cr the bank), as on the Bank payments page */
+ const bpRun=()=>{const rows=rowsBy.bankpays.slice().sort((a,b)=>dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0);
+  const keyOf=v=>[v.date,(v.lines.find(l=>l.cr)||{}).a,(v.lines.find(l=>l.dr)||{}).a,Math.round(num((v.lines.find(l=>l.dr)||{}).dr)*100),low(v.ref),low(v.narr)].join('|');
+  const had=new Set((S.vouchers||[]).filter(v=>v.kind==='bankpay').map(keyOf));
+  rows.forEach(r=>{const o=r.o,w=[];let x;try{x=(()=>{
+   const date=pdate(o.date);if(!date)return['err','Date is missing or not valid ("'+o.date+'")'];{const lm=lockMsg(date);if(lm)return['err',lm]}
+   const b=acFind(o.bank);if(!b||b.indexOf('bk:')!==0)return['err','Bank account "'+o.bank+'" not found. Give the account number of a company bank account (add it in the Bank accounts sheet or Masters first)'];
+   const a=acFind(o.account);if(!a)return['err','Debit account "'+o.account+'" not found. Use the code or name from the Chart of accounts, or add it in the Account balances sheet'];
+   if(a.indexOf('bk:')===0)return['err','The debit account is a bank account. A payment from one bank to another is a Bank transfer, not a bank payment'];
+   const amt=imNum(o.amount);if(amt==null||isNaN(amt))return['err','Amount is missing or has text in it ("'+o.amount+'")'];if(!(amt>0))return['err','Amount must be more than 0'];
+   const ml=low(o.mode),mode=!ml?'':BPMODES.find(m=>low(m)===ml)||(/che|chq/.test(ml)?'Cheque':/neft/.test(ml)?'NEFT':/rtgs/.test(ml)?'RTGS':/upi|gpay|phonepe|paytm/.test(ml)?'UPI':/debited|auto ?debit|bank charge/.test(ml)?'Debited by bank':'');
+   if(o.mode&&!mode){w.push('Mode "'+o.mode+'" not understood, saved as Others')}
+   const v={date,lines:[{a,dr:amt,cr:0},{a:b,dr:0,cr:amt}],narr:o.narr||'',ref:o.ref||''};const k=keyOf(v);if(had.has(k))return['skip','Already in the app (same date, bank, account, amount, cheque no. and narration)'];
+   const md=mode||(o.mode?'Others':'');S.seq.vch=S.seq.vch||{};const n=S.seq.vch.bankpay=(S.seq.vch.bankpay||0)+1;S.vouchers=S.vouchers||[];
+   S.vouchers.push(Object.assign(v,{id:uid(),n,no:VK.bankpay.pre+' '+n,kind:'bankpay',type:VK.bankpay.type,party:md==='Debited by bank'?'':(o.party||''),mode:md,chqDate:''}));
+   return['ok','',w]})()}catch(e){x=['err','Unexpected problem with this row: '+e.message]}
+   add('bankpays',r,x[0],x[1]);(x[2]||[]).forEach(m=>add('bankpays',r,'warn',m))})};
  const run=(t,h,sorter)=>{const rows=rowsBy[t];if(sorter)rows.sort(sorter);rows.forEach(r=>{let x;try{x=h(r)}catch(e){x=['err','Unexpected problem with this row: '+e.message]}add(t,r,x[0],x[1],x[0]==='err'?x[3]:null);(x[2]||[]).forEach((m,j)=>add(t,r,'warn',m,j===0&&x[0]!=='err'?x[3]:null))})};
  const gs=(a,b)=>gkey(a.o.group)<gkey(b.o.group)?-1:gkey(a.o.group)>gkey(b.o.group)?1:0,dk=s=>pdate(s)||'9999';
  run('banks',bankH);run('ledgers',ledH);
@@ -3942,7 +3960,7 @@ function imEngine(){
  run('groups',groupH);run('members',memberH);run('enrolls',enrollH);
  run('auctions',aucH,(a,b)=>gs(a,b)||((imNum(a.o.no)||9999)-(imNum(b.o.no)||9999))||(dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0));
  run('payouts',payH,(a,b)=>dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0);
- run('receipts',rcH,(a,b)=>dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0);vcRun();
+ run('receipts',rcH,(a,b)=>dk(a.o.date)<dk(b.o.date)?-1:dk(a.o.date)>dk(b.o.date)?1:0);vcRun();bpRun();
  run('fds',fdH,(a,b)=>dk(a.o.from)<dk(b.o.from)?-1:dk(a.o.from)>dk(b.o.from)?1:0);
  fdEv.sort((a,b)=>a.d.localeCompare(b.d)).forEach(e=>e.f.vs.push(mkV(e.k,e.d,e.lines,e.narr,e.x).id));
  S.seq.m=mx;return R}
@@ -3998,6 +4016,7 @@ function imSampleData(){
   ledgers:[['1001','Cash in hand','Assets','Cash',15000,'Dr',''],['2007','Capital and reserves','Liabilities','Capital',265000,'Cr',''],['4010','Telephone expenses','Expenses','Office costs',0,'Dr','']],
   payouts:[[g,2,'','2026-02-12',10000,'NEFT/RTGS','UTR777001','123456789012','Lakshmi Devi','V-9001','Part prize payment']],
   fds:[['FDR-1001',g,'State Bank of India',100000,6.5,'2025-12-20','2028-12-20','Cumulative','','','123456789012','','','Security deposit for '+g]],
+  bankpays:[['2026-01-12','123456789012','Cheque','Telephone expenses',1850,'Telephone bill for December','BSNL','000452'],['2026-01-20','123456789012','UPI','Rent',12000,'Office rent for January','Landlord','UPI40512345']],
   vouchers:[['V-101','2026-01-10','Payment','Rent',12000,'','Office rent for January','Landlord',''],['V-101','2026-01-10','Payment','123456789012','',12000,'','','CHQ 000451'],['V-102','2026-01-15','Receipt','123456789012',500,'','Bank interest','',''],['V-102','2026-01-15','Receipt','FDR interest','',500,'','','']],
   receipts:[[g,1,'2026-01-07','R-1001','Cash','','',8500,0,0,0,'1','C006',''],[g,1,'2026-02-08','R-1002','UPI','UPI123456','',8700,0,0,0,'2','C006',''],[g,3,'2026-01-09','R-1003','Cheque','001245','State Bank of India',8500,0,0,0,'1','',''],[g,4,'2026-02-10','R-1004','NEFT/RTGS','UTR20260210','',17200,0,0,0,'1,2','',''],[g,6,'2026-01-12','R-1005','Cash','','',8600,0,100,0,'1','C006','Enrolment fee included']]};
  const ins=[['How to use this file'],[''],
@@ -4013,6 +4032,7 @@ function imSampleData(){
   ['10. Bank accounts: one row for each company bank account with its opening balance (negative if overdrawn). Import these before vouchers and payments.'],
   ['11. Account balances: your trial balance as on the day you start. Use the account code or name of an existing account (such as Cash in hand) to set its opening balance, or give a new name, group and code to add an account. Group is Assets, Liabilities (or Capital), Income or Expenses. Total debits must equal total credits; put any difference against Capital and reserves.'],
   ['12. Vouchers: one row for each line. Rows with the same Voucher no. make one voucher, and its debits must equal its credits. In Account write the account code or name, "Cash", or the bank account number. Type is Receipt, Payment, Contra or Journal.'],
+  ['12a. Bank payments: one row for each payment from a company bank account. Bank account is the account number of your bank account (as in Bank accounts). Debit account is the account the money was spent on, by code or name as in the Chart of accounts (for example Telephone Charges). Mode is Cheque, NEFT, RTGS, UPI, Debited by bank or Others. Paid to and Cheque / UTR no are optional. Each row becomes one Bank payment voucher, the same as entering it in Transactions, Bank payments.'],
   ['13. Re-uploading the same file is safe. Everything already in the app (matched by old numbers, or by group, ticket, date and amount) is skipped.'],
   ['14. Fixed deposits: one row for each FD, from the oldest. Give the Group name for a chit group security deposit. For an FD that was withdrawn or matured, fill Closed on and the Amount received. Every FD goes into the FD register; FDs made or closed from the books start date (Accounts) are also posted as bank payments and bank deposits from "Our bank account" (the account number, or the default bank), with your old voucher numbers. Earlier ones are in your opening balances, so they are not posted again.'],[''],['Required columns']];
  IMT.forEach(t=>ins.push([IML[t]+': '+IMS[t].filter(s=>s[2]).map(s=>s[1]).join(', ')]));
