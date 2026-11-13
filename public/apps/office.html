@@ -4952,7 +4952,7 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
 
  /* one-time: tickets whose enrolment was corrected (wrong subscriber chosen by mistake); move the ticket's records to the subscriber it is now enrolled to.
     Acts only when all other records of the ticket belong to one other person; otherwise shows a message and changes nothing. */
- [['jp-15',19,'jp15-19'],['hp-24',40,'hp24-40']].forEach(([gn,tk,key])=>{if(S.fixes.includes(key)||S.fixes.includes(key+'-msg'))return;const g=S.groups.find(x=>nm(x.name)===gn),e=g&&enrollOf(g.id,tk),to=e&&e.pid!=='CO'&&P(e.pid);if(!g||!e)return;
+ [['jp-15',19,'jp15-19'],['hp-24',40,'hp24-40'],['hp-24',38,'hp24-38']].forEach(([gn,tk,key])=>{if(S.fixes.includes(key)||S.fixes.includes(key+'-msg'))return;const g=S.groups.find(x=>nm(x.name)===gn),e=g&&enrollOf(g.id,tk),to=e&&e.pid!=='CO'&&P(e.pid);if(!g||!e)return;
   const K=['receipts','bidAdv','future','pdcs','calls'],ids=[...new Set(K.flatMap(k=>(S[k]||[]).filter(x=>x.gid===g.id&&x.ticket==tk&&x.pid&&x.pid!==e.pid&&!x.settled).map(x=>x.pid)))],lbl=g.name+' ticket '+tk;
   if(to&&ids.length===1){const fr=ids[0];let n=0;K.forEach(k=>(S[k]||[]).forEach(x=>{if(x.gid===g.id&&x.ticket==tk&&x.pid===fr&&!x.settled){x.pid=to.id;n++}}));
    S.fixes.push(key);log('Corrected '+lbl+': records moved from '+pname(fr)+' (enrolled by mistake) to '+pname(to.id)+'; '+n+' records');save();
