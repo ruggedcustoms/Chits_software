@@ -4950,6 +4950,15 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
    S.fixes.push(key);log('Corrected '+lbl+': records moved from '+pname(fr)+' (enrolled by mistake) to '+pname(to.id)+'; '+n+' records');save();
    FIXMSG=(FIXMSG?FIXMSG+' ':'')+lbl+' corrected: '+n+' receipts and other records moved from '+pname(fr)+' to '+pname(to.id)+'.'}
   else{S.fixes.push(key+'-msg');save();FIXMSG=(FIXMSG?FIXMSG+' ':'')+lbl+' was NOT changed: '+(!to?'the ticket is not enrolled to a subscriber':!ids.length?'its records are already with '+to.name:'its records are with '+ids.map(pname).join(', ')+' (more than one person)')+'. Please tell Claude.'}});
+
+ /* one-time (asked 2026-11-13): delete the office expense payments imported by mistake, dated 01-04-2026 to 13-11-2026: Bank and Cash payment
+    vouchers whose debit account is an Expenses account and which nothing else is tied to. The deleted vouchers are kept in S.fixKept to bring back if needed. */
+ if(!S.fixes.includes('del-office-exp-2026-11-13')){const tied=new Set([...(S.agPays||[]).map(x=>x.vid),...(S.fds||[]).flatMap(x=>x.vs||[]),...(S.loans||[]).flatMap(x=>x.vs||[])].filter(Boolean));
+  const pick=(S.vouchers||[]).filter(v=>(v.kind==='bankpay'||v.kind==='cashpay')&&v.date>='2026-04-01'&&v.date<='2026-11-13'&&!v.fd&&!v.loan&&!v.ye&&!v.oldNo&&!tied.has(v.id)&&v.lines.length===2&&v.lines.every(l=>l.dr?acOf(l.a).group==='Expenses':true));
+  const locked=pick.filter(v=>lockMsg(v.date)),del=pick.filter(v=>!lockMsg(v.date)),ids=new Set(del.map(v=>v.id)),tot=del.reduce((z,v)=>z+v.lines.reduce((q,l)=>q+num(l.dr),0),0);
+  S.fixKept=S.fixKept||{};S.fixKept['del-office-exp-2026-11-13']=del;S.vouchers=(S.vouchers||[]).filter(v=>!ids.has(v.id));S.fixes.push('del-office-exp-2026-11-13');
+  log('Deleted '+del.length+' office expense payment vouchers dated 01-04-2026 to 13-11-2026 (imported by mistake), total '+inr(tot)+(del.length?': '+del.map(v=>v.no).join(', '):''));save();
+  FIXMSG=(FIXMSG?FIXMSG+' ':'')+'Deleted '+del.length+' office expense payments (bank '+del.filter(v=>v.kind==='bankpay').length+', cash '+del.filter(v=>v.kind==='cashpay').length+') dated 01-04-2026 to 13-11-2026, total '+inr(tot)+'.'+(locked.length?' '+locked.length+' in a closed period were NOT deleted.':'')+(del.length?'':' Nothing matched. Please tell Claude.')}
 }
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
