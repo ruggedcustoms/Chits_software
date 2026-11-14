@@ -4981,6 +4981,23 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
   S.fixKept=S.fixKept||{};S.fixKept['del-office-exp-2026-11-13']=del;S.vouchers=(S.vouchers||[]).filter(v=>!ids.has(v.id));S.fixes.push('del-office-exp-2026-11-13');
   log('Deleted '+del.length+' office expense payment vouchers dated 01-04-2026 to 13-11-2026 (imported by mistake), total '+inr(tot)+(del.length?': '+del.map(v=>v.no).join(', '):''));save();
   FIXMSG=(FIXMSG?FIXMSG+' ':'')+'Deleted '+del.length+' office expense payments (bank '+del.filter(v=>v.kind==='bankpay').length+', cash '+del.filter(v=>v.kind==='cashpay').length+') dated 01-04-2026 to 13-11-2026, total '+inr(tot)+'.'+(locked.length?' '+locked.length+' in a closed period were NOT deleted.':'')+(del.length?'':' Nothing matched. Please tell Claude.')}
+ /* one-time (asked 2026-11-15): auction dates were imported in the wrong date format (day and month swapped, e.g. 10-05 read as 05-10),
+    which put commissions in the wrong months. Each auction of a monthly group must fall in its scheduled month (commencement month
+    + auction no. - 1). A date already in that month is kept. Otherwise the swapped date is used when it falls in that month, else the
+    scheduled date (commencement day or the group's auction day). A group whose dates would then be out of order is left as it is.
+    The old dates are kept in S.fixKept['auc-dates-sched']. */
+ if(!S.fixes.includes('auc-dates-sched')){const kept=[],bad=[],lk=[],gs=new Set,ym=d=>String(d||'').slice(0,7);
+  const fixD=(d,e)=>{if(!d||!e||ym(d)===ym(e))return d;if(+d.slice(8,10)<=12){const sw=d.slice(0,4)+'-'+d.slice(8,10)+'-'+d.slice(5,7);if(ym(sw)===ym(e))return sw}return e};
+  const sd=(g,k)=>{try{return k<=num(g.n)?iso(schedDate(g,k)):''}catch(x){return''}};
+  S.groups.forEach(g=>{if(!g.start||(g.atype&&g.atype!=='Monthly'))return;const as=auctionsOf(g.id).slice().sort((a,b)=>a.no-b.no);
+   const nd=as.map(a=>fixD(a.date,sd(g,a.no)));if(nd.every((d,i)=>d===as[i].date))return;
+   if(nd.some((d,i)=>i&&!(d>nd[i-1]))){bad.push(g.name);return}
+   if(as.some((a,i)=>nd[i]!==a.date&&(lockMsg(a.date)||lockMsg(nd[i])))){lk.push(g.name);return}
+   as.forEach((a,i)=>{const d=nd[i];if(d===a.date)return;kept.push({id:a.id,date:a.date,dueDate:a.dueDate,nextDate:a.nextDate,inv:a.inv?a.inv.date:''});
+    const old=a.date;if(a.inv&&a.inv.date===old)a.inv.date=d;a.dueDate=!a.dueDate||a.dueDate===old?d:fixD(a.dueDate,sd(g,a.no));if(a.nextDate)a.nextDate=fixD(a.nextDate,sd(g,a.no+1))||a.nextDate;a.date=d;gs.add(g.name);
+    log('Auction '+a.no+' of '+g.name+': date '+dmy(old)+' corrected to '+dmy(d)+' (as per the commencement date)')})});
+  S.fixKept=S.fixKept||{};S.fixKept['auc-dates-sched']=kept;S.fixes.push('auc-dates-sched');save();
+  FIXMSG=(FIXMSG?FIXMSG+' ':'')+'Auction dates corrected as per each group\'s commencement date: '+kept.length+' auction'+(kept.length===1?'':'s')+' in '+gs.size+' group'+(gs.size===1?'':'s')+(gs.size?' ('+[...gs].join(', ')+')':'')+'. Each change is in the Activity log.'+(bad.length?' NOT changed, dates would be out of order: '+bad.join(', ')+'.':'')+(lk.length?' NOT changed, closed period: '+lk.join(', ')+'.':'')+(bad.length||lk.length?' Please tell Claude.':'')}
 }
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
