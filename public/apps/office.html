@@ -597,6 +597,8 @@ function acLedger(id,from,to){const a=acOf(id);let bal=acSign(a),open;const rows
  if(open===undefined)open=bal;return{a,open,rows,dr,cr,close:bal}}
 function acBalances(asOn,from){const m={};acAll().forEach(a=>m[a.id]=from?0:acSign(a));
  acEntries().forEach(e=>{if(asOn&&e.date>asOn)return;if(from&&(e.date<from||e.ye))return;e.lines.forEach(l=>{m[l.a]=(m[l.a]||0)+l.dr-l.cr})});return m}
+/* the opening balance sits in the Debit or Credit column and is counted in the totals, as in the old software */
+const oDr=L=>L.open>=0.005?r2(L.open):'',oCr=L=>L.open<=-0.005?r2(-L.open):'';
 const drcrTxt=b=>b>=0.005?'Dr':b<=-0.005?'Cr':''
 const rowA0=r=>r;const RID=new WeakMap(),rowA=(a,r)=>(RID.set(r,a.id),r);
 function repDrill(id){const R=F.rep,from=(R.id==='trdet')?R.from:fyOf(R.to),to=R.to,back={id:R.id,from:R.from,to:R.to};goK('reports:ledger');F.rep.acct=id;F.rep.from=from;F.rep.to=to;F.rep.back=back;render();scrollTo(0,0)}
@@ -606,11 +608,11 @@ function acReport(R){const n=r2,from=R.from,to=R.to;
  if(R.id==='daybook'){const rows=[];let dr=0,cr=0;acEntries().filter(e=>e.date>=from&&e.date<=to).forEach(e=>e.lines.forEach(l=>{rows.push([dmy(e.date),e.src,e.ref,acOf(l.a).name,e.narr,n(l.dr)||'',n(l.cr)||'']);dr+=l.dr;cr+=l.cr}));
   return{title:'Day book, '+dmy(from)+' to '+dmy(to),cols:['Date','Type','No.','Account','Narration','Debit','Credit'],rows,r:[5,6],foot:rows.length?['','','','','Total',n(dr),n(cr)]:null}}
  if(R.id==='cashbook'||R.id==='bankbook'){const id=R.id==='cashbook'?A.cash:(R.bank&&S.bankAccts.some(b=>'bk:'+b.id===R.bank)?R.bank:(S.bankAccts[0]?'bk:'+S.bankAccts[0].id:A.bank)),L=acLedger(id,from,to);
-  const rows=[[dmy(from),'Opening balance','','',n(Math.abs(L.open)),drcrTxt(L.open)]].concat(L.rows.map(x=>[dmy(x.e.date),x.e.src+' '+x.e.ref+(x.e.narr?': '+x.e.narr:''),n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));
-  return{title:(R.id==='cashbook'?'Cash book':'Bank book: '+L.a.name.replace(/^Bank: /,''))+', '+dmy(from)+' to '+dmy(to),cols:['Date','Particulars','Receipts','Payments','Balance',''],rows,r:[2,3,4],foot:['','Closing balance / total',n(L.dr),n(L.cr),n(Math.abs(L.close)),drcrTxt(L.close)]}}
+  const rows=[[dmy(from),'Opening balance',oDr(L),oCr(L),n(Math.abs(L.open)),drcrTxt(L.open)]].concat(L.rows.map(x=>[dmy(x.e.date),x.e.src+' '+x.e.ref+(x.e.narr?': '+x.e.narr:''),n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));
+  return{title:(R.id==='cashbook'?'Cash book':'Bank book: '+L.a.name.replace(/^Bank: /,''))+', '+dmy(from)+' to '+dmy(to),cols:['Date','Particulars','Receipts','Payments','Balance',''],rows,r:[2,3,4],foot:['','Closing balance / total',n(L.dr+Math.max(0,L.open)),n(L.cr+Math.max(0,-L.open)),n(Math.abs(L.close)),drcrTxt(L.close)]}}
  if(R.id==='ledger'){const id=R.acct||(acAll()[0]||{}).id,L=acLedger(id,from,to);
-  const rows=[[dmy(from),'Opening balance','','','','',n(Math.abs(L.open)),drcrTxt(L.open)]].concat(L.rows.map(x=>[dmy(x.e.date),x.e.src,x.e.ref,x.e.narr,n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));
-  return{title:'Ledger: '+L.a.name+', '+dmy(from)+' to '+dmy(to),cols:['Date','Type','No.','Narration','Debit','Credit','Balance',''],rows,r:[4,5,6],foot:['','','','Closing balance / total',n(L.dr),n(L.cr),n(Math.abs(L.close)),drcrTxt(L.close)]}}
+  const rows=[[dmy(from),'Opening balance','','',oDr(L),oCr(L),n(Math.abs(L.open)),drcrTxt(L.open)]].concat(L.rows.map(x=>[dmy(x.e.date),x.e.src,x.e.ref,x.e.narr,n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));
+  return{title:'Ledger: '+L.a.name+', '+dmy(from)+' to '+dmy(to),cols:['Date','Type','No.','Narration','Debit','Credit','Balance',''],rows,r:[4,5,6],foot:['','','','Closing balance / total',n(L.dr+Math.max(0,L.open)),n(L.cr+Math.max(0,-L.open)),n(Math.abs(L.close)),drcrTxt(L.close)]}}
  if(R.id==='trial'){const tb=acTBal(to),b=tb.m,rows=[];let dr=0,cr=0;acAll().forEach(a=>{const x=r2(b[a.id]);if(Math.abs(x)<0.005)return;rows.push(rowA(a,[a.code,a.name,a.group,x>0?x:'',x<0?-x:'']));if(x>0)dr+=x;else cr+=-x});if(Math.abs(tb.prior)>=0.005){const x=tb.prior;rows.push(['','Surplus or deficit of earlier years (year not closed yet)','Liabilities',x>0?x:'',x<0?-x:'']);if(x>0)dr+=x;else cr+=-x}
   return{title:'Trial balance as on '+dmy(to),cols:['Code','Account','Group','Debit','Credit'],rows,r:[3,4],foot:rows.length?['','Total','',n(dr),n(cr)]:null,top:Math.abs(dr-cr)>0.5?'<p class="bad"><b>The trial balance is out by '+inr(Math.abs(dr-cr))+'.</b> Opening balances should balance: after the bank and cash opening balances, set the opening of Capital and reserves (and any other account) in Accounts.</p>':''}}
  if(R.id==='pl'){const b=acBalances(to,from),inc=[],exp=[];let ti=0,te=0;acAll().forEach(a=>{const x=r2(b[a.id]);if(Math.abs(x)<0.005)return;if(a.group==='Income'){inc.push([a.name,n(-x)]);ti+=-x}else if(a.group==='Expenses'){exp.push([a.name,n(x)]);te+=x}});
@@ -633,9 +635,9 @@ function acReport2(R){const n=r2,from=R.from,to=R.to,isCB=id=>id===A.cash||id===
  const cbNet=e=>e.lines.reduce((t,l)=>t+(isCB(l.a)?l.dr-l.cr:0),0);
  const others=e=>[...new Set(e.lines.filter(l=>!isCB(l.a)).map(l=>acOf(l.a).name))].join(', ');
  const inRange=e=>e.date>=from&&e.date<=to;
- const book=(id,nm)=>{const L=acLedger(id,from,to),rows=[[dmy(from),'Opening balance','','',n(Math.abs(L.open)),drcrTxt(L.open)]].concat(L.rows.map(x=>[dmy(x.e.date),x.e.src+' '+x.e.ref+(x.e.narr?': '+x.e.narr:''),n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));
-  return{title:nm+per,cols:['Date','Particulars','Receipts','Payments','Balance',''],rows,r:[2,3,4],foot:['','Closing balance / total',n(L.dr),n(L.cr),n(Math.abs(L.close)),drcrTxt(L.close)]}};
- const ledRows=(L,rows)=>{rows.push([dmy(from),'Opening balance','','','','',n(Math.abs(L.open)),drcrTxt(L.open)]);L.rows.forEach(x=>rows.push([dmy(x.e.date),x.e.src,x.e.ref,x.e.narr,n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));rows.push(['','','','Closing balance / total',n(L.dr),n(L.cr),n(Math.abs(L.close)),drcrTxt(L.close)])};
+ const book=(id,nm)=>{const L=acLedger(id,from,to),rows=[[dmy(from),'Opening balance',oDr(L),oCr(L),n(Math.abs(L.open)),drcrTxt(L.open)]].concat(L.rows.map(x=>[dmy(x.e.date),x.e.src+' '+x.e.ref+(x.e.narr?': '+x.e.narr:''),n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));
+  return{title:nm+per,cols:['Date','Particulars','Receipts','Payments','Balance',''],rows,r:[2,3,4],foot:['','Closing balance / total',n(L.dr+Math.max(0,L.open)),n(L.cr+Math.max(0,-L.open)),n(Math.abs(L.close)),drcrTxt(L.close)]}};
+ const ledRows=(L,rows)=>{rows.push([dmy(from),'Opening balance','','',oDr(L),oCr(L),n(Math.abs(L.open)),drcrTxt(L.open)]);L.rows.forEach(x=>rows.push([dmy(x.e.date),x.e.src,x.e.ref,x.e.narr,n(x.dr)||'',n(x.cr)||'',n(Math.abs(x.bal)),drcrTxt(x.bal)]));rows.push(['','','','Closing balance / total',n(L.dr+Math.max(0,L.open)),n(L.cr+Math.max(0,-L.open)),n(Math.abs(L.close)),drcrTxt(L.close)])};
  const LC=['Date','Type','No.','Narration','Debit','Credit','Balance',''];
  if(R.id==='pcbook')return book(A.petty,'Petty cash book');
  if(R.id==='pcledger'){const L=acLedger(A.petty,from,to),rows=[];ledRows(L,rows);return{title:'Petty cash ledger'+per,cols:LC,rows,r:[4,5,6],foot:null}}
