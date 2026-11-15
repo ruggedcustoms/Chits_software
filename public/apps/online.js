@@ -179,7 +179,7 @@
   // Company settings and day-to-day lists, kept as shared settings on the server.
   const SHARED = ['company', 'coLogo', 'coAddr', 'coHead', 'coGstin', 'coPhone', 'coMobile', 'coWeb', 'coState', 'coEmail', 'coSac', 'masters', 'mPrefix', 'defCo', 'penPS', 'penNPS',
     'lockDate', 'upi', 'upiName', 'smsTpl', 'bpSeries', 'bvSeries', 'invPrefix', 'tdsPct', 'useLot', 'useBid', 'secSet', 'ntTpl', 'ntTplK', 'callMonths', 'acNet', 'targets',
-    'bankAccts', 'cgNotes', 'ocV', 'accts', 'calls', 'enq', 'notices', 'smsLog', 'hist', 'coColor', 'coColor2'];
+    'bankAccts', 'modeBank', 'cgNotes', 'ocV', 'accts', 'calls', 'enq', 'notices', 'smsLog', 'hist', 'coColor', 'coColor2'];
   // Money records the online version cannot keep yet. Changing them is refused, so nothing is half-saved.
   const NOT_YET = { future: 'Future receipts', cancels: 'Member removal', bidAdv: 'Bid advances', pdcs: 'Post-dated cheques', transfers: 'Ticket transfers', reauctions: 'Reauction',
     denoms: 'Denomination entry', vouchers: 'Vouchers', loans: 'Loans on chits', fds: 'FD register', agentComm: 'Agent commission', agPays: 'Agent payments',

@@ -196,6 +196,9 @@ const norm=d=>{const o=Object.assign({company:'',groups:[],persons:[],enrolls:[]
 const bLabel=b=>[b.bank,b.branch,b.acctNo?'A/c '+b.acctNo:''].filter(Boolean).join(', ');
 /* the company bank that receipts by UPI, cheque, NEFT and other bank modes go into unless staff choose another */
 const defBank=()=>((S.bankAccts||[]).find(b=>b.def)||{}).id||'';
+/* bank chosen for each receipt mode (Bank accounts page, "Bank for each mode"); falls back to the default bank */
+const BMODES=['Cheque','D.D.','RTGS/NEFT','UPI','Card'];
+const modeBank=m=>{const id=(S.modeBank||{})[m];return id&&(S.bankAccts||[]).some(b=>b.id===id)?id:defBank()};
 const M=k=>(S.masters&&S.masters[k])||MDEF[k];
 const RADJ=['B.P.Adj.','Bid Adv.','Transfer','Agent Commission','Cancelled Adj.','Gen. Adjust','Daily Adj.','Future Amt Adj.','Adv.Rct.Adj'];
 const RMODES=['Cash','Cheque','D.D.','RTGS/NEFT','UPI','Card'].concat(RADJ);
@@ -2247,7 +2250,7 @@ function rMode(){const m=($('r_mode')||{}).value;const w=$('rself');
    const am=$('r_amt');if(am&&!num(am.value)&&b.bal>0.5){am.value=r2(due>0?Math.min(due,b.bal):b.bal);if(typeof rSub==='function')rSub();if(typeof rAuto==='function')rAuto()}}}
  else if(w&&(m==='Adv.Rct.Adj'||m==='Bid Adv.'))w.innerHTML='<p class="warn" style="margin:0">Advance receipts are applied to installments automatically as each auction makes them due. Do not enter an adjusting receipt for the same money, or it will be counted twice. Use this mode only for a real new payment.</p>';else if(w&&w.querySelector('.warn,.note'))w.innerHTML='';const c=$('r_chq');if(c){const off=!m||m==='Cash'||isAdjMode(m);c.classList.toggle('off',off);c.querySelectorAll('input').forEach(i=>{i.disabled=off})}
  /* Debit To follows the mode when the mode changes: CASH for cash, the company's default bank for bank modes */
- const d=$('r_debit');if(d&&m!==rMode.last){rMode.last=m;if(isAdjMode(m))d.value='__adj';else if(!m||m==='Cash')d.value='';else if(defBank())d.value=defBank()}}
+ const d=$('r_debit');if(d&&m!==rMode.last){rMode.last=m;if(isAdjMode(m))d.value='__adj';else if(!m||m==='Cash')d.value='';else if(modeBank(m))d.value=modeBank(m)}}
 function rSub(){if($('r_cbal'))setTimeout(rBal,0);const ch=num($('r_pen').value)+num($('r_enr').value)+num($('r_bnk').value)+num($('r_oth').value)+num($('r_inc').value);if($('r_chg'))$('r_chg').value=Math.round(ch*100)/100;$('r_sub').value=Math.round((num($('r_amt').value)-ch)*100)/100}
 function saveReceipt(mode){const g=G(F.rcpGroup);if(!g)return err('Select the chit group.');const t=+$('r_ticket').value,e=enrollOf(g.id,t),amt=num($('r_amt').value);
  if(!e)return err('Choose a ticket.');if(!$('r_date').value)return err('Enter the receipt date.');{const lm=lockMsg($('r_date').value);if(lm)return err(lm)}if(amt<=0)return err('Enter the receipt amount.');
@@ -2399,7 +2402,7 @@ function rcMbCell(r){const bp=r.mode==='B.P.Adj.',adj=isAdjMode(r.mode)||bp,dim=
  if(bp)return td(esc(r.mode)+'<br><span class="muted" style="font-size:.75rem">change with Edit</span>');
  return`<td><select class="rc_md" data-id="${r.id}" data-was="${esc(r.mode)}" aria-label="Mode of receipt ${rcNo(r)}" style="max-width:120px;padding:2px" onchange="rcMdChg(this);${dim}">${rModeOpts(r.mode).replace('<option>B.P.Adj.</option>','')}</select><br><select class="rc_db" data-id="${r.id}" data-was="${esc(adj?'':r.debit||'')}" aria-label="Bank of receipt ${rcNo(r)}" style="max-width:160px;padding:2px;margin-top:2px" ${adj?'disabled':''} onchange="${dim}"><option value="">CASH</option>${S.bankAccts.map(b=>`<option value="${b.id}" ${!adj&&b.id===r.debit?'selected':''}>${esc(bLabel(b))}</option>`).join('')}</select></td>`}
 /* the bank follows the mode, as in the receipt form: CASH for cash, the default bank for bank modes, none for adjustments */
-function rcMdChg(el){const d=el.closest('td').querySelector('.rc_db'),m=el.value;if(!d)return;d.disabled=isAdjMode(m);if(isAdjMode(m)||m==='Cash')d.value='';else if(!d.value&&defBank())d.value=defBank()}
+function rcMdChg(el){const d=el.closest('td').querySelector('.rc_db'),m=el.value;if(!d)return;d.disabled=isAdjMode(m);if(isAdjMode(m)||m==='Cash')d.value='';else if(modeBank(m))d.value=modeBank(m)}
 function rcAmtUpdate(){const val=(c,id)=>{const e=document.querySelector(c+'[data-id="'+id+'"]');return e?e.value:null};
  const ids=new Set([...document.querySelectorAll('.rc_amt,.rc_md,.rc_db')].map(i=>i.dataset.id));
  const ch=[...ids].map(id=>{const r=S.receipts.find(x=>x.id===id);if(!r||r.cancel)return null;const a=val('.rc_amt',id),md=val('.rc_md',id),db=val('.rc_db',id);
@@ -3519,7 +3522,11 @@ function bankPage(cur){if(F.nbView)return noBankPage();const eb=F.baEdit?S.bankA
  <p class="muted" style="margin:6px 0 0">The default bank is filled in as "Debit To" on receipts when the mode is UPI, cheque, NEFT, RTGS or any other bank mode.</p>
  <p class="muted" style="margin:6px 0 0">Opening balance: the balance in this account on the day your books in this software start (the same date as the other opening balances in Accounts).</p>
  <div class="row" style="margin-top:10px">${eb?`<button class="btn" onclick="baAdd()">Save changes</button><button class="btn g" onclick="F.baEdit=null;render()">Cancel</button>`:`<button class="btn" onclick="baAdd()">Add bank account</button>`}</div>
- ${S.bankAccts.length?tbl(['Bank','Branch','Account number','IFSC','Opening balance','Default','Used in',''],S.bankAccts.map(b=>{const u=S.payouts.filter(x=>x.acctId===b.id).length+S.receipts.filter(x=>x.debit===b.id).length;return`<tr>${td(esc(b.bank))}${td(esc(b.branch))}${td(esc(b.acctNo))}${td(esc(b.ifsc||''))}${td(num(b.opening)?inr(Math.abs(num(b.opening)))+(num(b.opening)<0?' (overdrawn)':''):'-',1)}${td(b.def?pill('Default','good'):`<button class="btn g sm" onclick="baDefault('${b.id}')">Make default</button>`)}${td(u?u+' entr'+(u>1?'ies':'y'):'Not used')}<td><button class="btn g sm" onclick="F.baEdit='${b.id}';render();scrollTo(0,0)">Edit</button> <button class="btn d sm" onclick="baDel('${b.id}')">Delete</button></td></tr>`}),[4]):'<div class="empty">No bank account added yet.</div>'}</div>${noBankCard()}`}
+ ${S.bankAccts.length?tbl(['Bank','Branch','Account number','IFSC','Opening balance','Default','Used in',''],S.bankAccts.map(b=>{const u=S.payouts.filter(x=>x.acctId===b.id).length+S.receipts.filter(x=>x.debit===b.id).length;return`<tr>${td(esc(b.bank))}${td(esc(b.branch))}${td(esc(b.acctNo))}${td(esc(b.ifsc||''))}${td(num(b.opening)?inr(Math.abs(num(b.opening)))+(num(b.opening)<0?' (overdrawn)':''):'-',1)}${td(b.def?pill('Default','good'):`<button class="btn g sm" onclick="baDefault('${b.id}')">Make default</button>`)}${td(u?u+' entr'+(u>1?'ies':'y'):'Not used')}<td><button class="btn g sm" onclick="F.baEdit='${b.id}';render();scrollTo(0,0)">Edit</button> <button class="btn d sm" onclick="baDel('${b.id}')">Delete</button></td></tr>`}),[4]):'<div class="empty">No bank account added yet.</div>'}</div>${modeBankCard()}${noBankCard()}`}
+function modeBankCard(){if(!S.bankAccts.length)return'';const mb=S.modeBank||{};
+ return`<div class="card"><h2>Bank for each mode</h2><p class="muted">When a receipt's mode is chosen, this bank is filled in as "Debit To". Staff can still choose another bank on the receipt. Each choice is saved at once.</p>
+ <div class="fg">${BMODES.map(m=>`<label class="f">${esc(m)}<select onchange="mbSet('${m}',this.value)"><option value="">Default bank</option>${S.bankAccts.map(b=>`<option value="${b.id}" ${mb[m]===b.id?'selected':''}>${esc(bLabel(b))}</option>`).join('')}</select></label>`).join('')}</div></div>`}
+function mbSet(m,id){S.modeBank=Object.assign({},S.modeBank);if(id)S.modeBank[m]=id;else delete S.modeBank[m];log('Bank for receipt mode '+m+' set to '+(id?bLabel(S.bankAccts.find(b=>b.id===id)||{}):'the default bank'));save();note('Bank for '+m+' saved.')}
 /* entries from the books start with no company bank (for example imported prize payments whose "Our bank account" was
    empty) are posted to the general Bank balances line; this puts them under one bank account */
 function noBank(){const bf=booksFrom(),ok=id=>id&&S.bankAccts.some(b=>b.id===id),inB=d=>!bf||(d&&d>=bf),L=[];
