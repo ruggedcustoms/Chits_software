@@ -249,7 +249,7 @@ let RIX=null;const rcsOf=(gid,t)=>{if(!RIX||RIX.s!==S.receipts||RIX.n!==S.receip
 /* Receipt numbers run by financial year, as in the old software: 27/195 is receipt 195 of 2026-27 (28/1 is the first of 2027-28).
    r.no stays the app's internal running number. Imported receipts use their old receipt no.; new ones take the next number of their date's year. */
 const fyYY=d=>{const s=String(d||today()),y=+s.slice(0,4),m=+s.slice(5,7);return String((m>=4?y+1:y)%100).padStart(2,'0')};
-const rcFyOf=r=>{if(!r)return null;if(r.fyNo)return{fy:r.fyY||fyYY(r.date),n:+r.fyNo};const o=String(r.oldNo||'').trim(),m=/^(\d{2})\s*\/\s*(\d+)$/.exec(o);if(m)return{fy:m[1],n:+m[2]};if(/^\d+$/.test(o))return{fy:fyYY(r.date),n:+o};return null};
+const rcFyOf=r=>{if(!r)return null;if(r.fyNo)return{fy:r.fyY||fyYY(r.date),n:+r.fyNo};const o=String(r.oldNo||'').trim(),m=/^(\d{2})\s*\/\s*(\d+)$/.exec(o);if(m)return{fy:m[1],n:+m[2]};if(/^\d+$/.test(o)){const fy=fyYY(r.date);/* the old software's number came in as year + number joined, 27694 = 27/694 */return{fy,n:o.length>=3&&o.startsWith(fy)?+o.slice(2):+o}}return null};
 const rcNo=r=>{if(!r)return'';const x=rcFyOf(r);return x?x.fy+'/'+x.n:String(r.oldNo||r.no)};
 let RFY=null;const rcFyMax=fy=>{if(!RFY||RFY.s!==S.receipts){const m={};S.receipts.forEach(r=>{const x=rcFyOf(r);if(x&&x.n>(m[x.fy]||0))m[x.fy]=x.n});RFY={s:S.receipts,m}}return RFY.m[fy]||0};
 const rcNextNo=d=>{const fy=fyYY(d);return fy+'/'+(rcFyMax(fy)+1)};
@@ -5052,6 +5052,13 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
     log('Auction '+a.no+' of '+g.name+': date '+dmy(old)+' corrected to '+dmy(d)+' (as per the commencement date)')})});
   S.fixKept=S.fixKept||{};S.fixKept['auc-dates-sched']=kept;S.fixes.push('auc-dates-sched');save();
   FIXMSG=(FIXMSG?FIXMSG+' ':'')+'Auction dates corrected as per each group\'s commencement date: '+kept.length+' auction'+(kept.length===1?'':'s')+' in '+gs.size+' group'+(gs.size===1?'':'s')+(gs.size?' ('+[...gs].join(', ')+')':'')+'. Each change is in the Activity log.'+(bad.length?' NOT changed, dates would be out of order: '+bad.join(', ')+'.':'')+(lk.length?' NOT changed, closed period: '+lk.join(', ')+'.':'')+(bad.length||lk.length?' Please tell Claude.':'')}
+ /* receipts entered in this app took the next number after the joined old numbers (27/27999 + 1); now that those read as 27/694,
+    renumber them after the highest old number of the same year. Old numbers are kept in S.fixKept['rc-fyno-joined']. */
+ if(!S.fixes.includes('rc-fyno-joined')){RFY=null;const L=S.receipts.filter(r=>r.fyNo&&!String(r.oldNo||'').trim()&&+r.fyNo>=10000&&String(r.fyNo).startsWith(String(r.fyY||fyYY(r.date)))).sort((a,b)=>+a.fyNo-+b.fyNo),kept=[];
+  if(L.length){const mx={};S.receipts.forEach(r=>{if(L.includes(r))return;const x=rcFyOf(r);if(x&&x.n>(mx[x.fy]||0))mx[x.fy]=x.n});
+   L.forEach(r=>{const fy=String(r.fyY||fyYY(r.date)),was=fy+'/'+r.fyNo;kept.push({id:r.id,fyNo:r.fyNo});r.fyY=fy;r.fyNo=mx[fy]=(mx[fy]||0)+1;log('Receipt number '+was+' changed to '+rcNo(r)+' (after the old software\'s numbers)')})}
+  S.fixKept=S.fixKept||{};S.fixKept['rc-fyno-joined']=kept;S.fixes.push('rc-fyno-joined');RFY=null;save();
+  if(kept.length)FIXMSG=(FIXMSG?FIXMSG+' ':'')+kept.length+' receipt'+(kept.length>1?'s':'')+' entered in this software renumbered to follow the old software\'s numbers (for example '+rcNo(S.receipts.find(r=>r.id===kept[0].id))+'). Each change is in the Activity log.'}
 }
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
