@@ -203,11 +203,11 @@ const M=k=>(S.masters&&S.masters[k])||MDEF[k];
 const RADJ=['B.P.Adj.','Bid Adv.','Transfer','Agent Commission','Cancelled Adj.','Gen. Adjust','Daily Adj.','Future Amt Adj.','Adv.Rct.Adj'];
 const RMODES=['Cash','Cheque','D.D.','RTGS/NEFT','UPI','Card'].concat(RADJ);
 const rModeOpts=cur=>(cur&&!RMODES.includes(cur)?RMODES.concat([cur]):RMODES).map(x=>`<option${x===cur?' selected':''}>${esc(x)}</option>`).join('');
-const isAdjMode=m=>RADJ.includes(m)||m==='Future receipt adjustment';
+const isAdjMode=m=>RADJ.includes(m)||m==='Advance receipt adjustment'||m==='Future receipt adjustment';
 /* as in the old software: money taken before enrolment (Advance receipts, page 'future', S.future) is held in ADVANCE SUBSCRIPTION COLLECTION and adjusted out of it;
    installments paid ahead by enrolled tickets (Future receipts, page 'advance', r.advance) are held in Future Subscription amount */
 const advAc=()=>acNeed('ADVANCE SUBSCRIPTION COLLECTION')||'ac2006';
-const adjAcct=m=>m==='B.P.Adj.'?'ac2002':m==='Bid Adv.'?'ac1005':m==='Agent Commission'?'ac3006':m==='Future receipt adjustment'||m==='Adv.Rct.Adj'?advAc():'ac2006';
+const adjAcct=m=>m==='B.P.Adj.'?'ac2002':m==='Bid Adv.'?'ac1005':m==='Agent Commission'?'ac3006':m==='Advance receipt adjustment'||m==='Future receipt adjustment'||m==='Adv.Rct.Adj'?advAc():'ac2006';
 /* compact storage: LZW over UTF-16 code units, packed 15 bits per character (code units 32..32799, never surrogates) */
 const lzPack=s=>{const root=new Map,out=[];let next=3,acc=0,nb=0,prev=null;
  const put=(v,n)=>{for(let i=0;i<n;i++){acc=(acc<<1)|((v>>i)&1);if(++nb===15){out.push(acc+32);acc=0;nb=0}}},W=()=>Math.max(2,(next-1).toString(2).length);
@@ -1572,7 +1572,7 @@ function fAdjCard(f){const p=P(f.pid),tk=fTickets(f),def=fReadyTk(f);
  <p class="muted">A group that has not started cannot be adjusted yet. To split the money between two tickets, adjust part now and the rest again.</p>
  <div class="row"><button class="btn" onclick="fAdjGo()">Adjust to regular receipt</button><button class="btn g" onclick="F.fAdj='';render()">Close</button></div>`
  :`<p class="muted">${esc(p?p.name:'')} is not enrolled in any chit group yet. Enroll the subscriber first, then come back.</p><div class="row"><button class="btn" onclick="go('enroll','form')">Enroll the subscriber</button><button class="btn g" onclick="F.fAdj='';render()">Close</button></div>`}</div>`}
-function fApply(f,gid,t,amt,date){const e=enrollOf(gid,t),g=G(gid),r={id:uid(),no:++S.seq.r,date,mode:'Future receipt adjustment',gid,ticket:t,pid:e.pid,tr:'F'+f.no,trDate:'',agent:f.agent||'',amount:amt,penalty:0,enrolFee:0,bankCharge:0,otherCharge:0,reason:'Adjusted from advance receipt F'+f.no+' dated '+dmy(f.date),chq:{no:'',bank:'',date:'',place:''},cancel:false,insts:[],fut:f.id};
+function fApply(f,gid,t,amt,date){const e=enrollOf(gid,t),g=G(gid),r={id:uid(),no:++S.seq.r,date,mode:'Advance receipt adjustment',gid,ticket:t,pid:e.pid,tr:'F'+f.no,trDate:'',agent:f.agent||'',amount:amt,penalty:0,enrolFee:0,bankCharge:0,otherCharge:0,reason:'Adjusted from advance receipt F'+f.no+' dated '+dmy(f.date),chq:{no:'',bank:'',date:'',place:''},cancel:false,insts:[],fut:f.id};
  S.receipts.push(rcFy(r));(f.adj=f.adj||[]).push({rid:r.id,amt,date,gid,t});log('Advance receipt F'+f.no+' adjusted: receipt '+rcNo(r)+', '+inr(amt)+' to '+g.name+' ticket '+t);return r}
 function fAdjGo(){const f=S.future.find(x=>x.id===F.fAdj),[gid,ts]=$('fa_t').value.split('|'),t=+ts,g=G(gid),date=$('fa_d').value,amt=num($('fa_a').value),e=g&&enrollOf(gid,t);
  const bad=m=>{const x=$('err2');x.textContent=m;x.hidden=false;x.scrollIntoView({block:'center'})};
@@ -4412,7 +4412,7 @@ function hcRun(){const C=[],add=(id,t,sev,list,pg,hint)=>C.push({id,t,sev:list.l
  const eb={};S.enrolls.forEach(e=>{const k=e.gid+'|'+e.ticket;(eb[k]=eb[k]||[]).push(e)});
  add('dupt','Tickets enrolled twice','bad',Object.values(eb).filter(l=>l.length>1).map(l=>((G(l[0].gid)||{}).name||'?')+' ticket '+l[0].ticket+': '+l.map(e=>pnj(e)).join(', ')),'enroll','A ticket can have only one holder.');
  add('over','Groups with more tickets than members allowed','bad',S.groups.filter(g=>enrollsOf(g.id).length>num(g.n)||S.enrolls.some(e=>e.gid===g.id&&e.ticket>num(g.n))).map(g=>g.name),'groups','Check the number of installments of the group.');
- const rc=S.receipts.filter(r=>!r.cancel&&!r.dis&&r.gid&&r.mode!=='Future receipt adjustment');
+ const rc=S.receipts.filter(r=>!r.cancel&&!r.dis&&r.gid&&r.mode!=='Advance receipt adjustment'&&r.mode!=='Future receipt adjustment');
  add('rcmiss','Receipts for a ticket that is not enrolled, or is a company ticket','bad',rc.filter(r=>{const e=enrollOf(r.gid,r.ticket);return!G(r.gid)||!e||e.pid==='CO'}).map(r=>'Receipt '+rcNo(r)+' ('+dmy(r.date)+', '+inr(r.amount)+'): '+((G(r.gid)||{}).name||'deleted group')+' ticket '+r.ticket),'receipts','The money is in the books but no member account shows it.');
  add('rcfut','Receipts dated in the future','warn',S.receipts.filter(r=>!r.cancel&&r.date>td_).map(r=>'Receipt '+rcNo(r)+' dated '+dmy(r.date)),'receipts','Probably a wrong date.');
  const rn={};S.receipts.forEach(r=>(rn[r.no]=rn[r.no]||[]).push(r));
@@ -5077,6 +5077,9 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
  if(!S.fixes.includes('advsub-to-fut')){const aid=acNeed('ADVANCE SUBSCRIPTION COLLECTION');let n=0;
   if(aid&&aid!==A.fut)(S.vouchers||[]).forEach(v=>{if(!v.advsub)return;v.lines.forEach(l=>{if(l.a===aid){l.a=A.fut;n++}})});
   if(n)log(n+' line(s) of posted future subscription moved from ADVANCE SUBSCRIPTION COLLECTION to Future Subscription amount');S.fixes.push('advsub-to-fut');save()}
+ /* one-time (2026-11-17): receipts adjusted from an advance receipt are named 'Advance receipt adjustment' (were 'Future receipt adjustment') */
+ if(!S.fixes.includes('adv-adj-name')){let n=0;S.receipts.forEach(r=>{if(r.mode==='Future receipt adjustment'){r.mode='Advance receipt adjustment';n++}});
+  if(n)log(n+' receipt(s) renamed from Future receipt adjustment to Advance receipt adjustment');S.fixes.push('adv-adj-name');save()}
 }
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
