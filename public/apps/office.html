@@ -1429,7 +1429,7 @@ function pageCancel(){if(ui.sub==='voucher'){const c=S.cancels.find(x=>x.id===ui
   <label class="f">Cancellation charges (₹)<input type="number" id="cn_ch" value="0" oninput="cnCalc()"></label>
   <label class="f">Other deductions (₹)<input type="number" id="cn_ot" value="0" oninput="cnCalc()"></label>
   <label class="f w2">Remarks on deductions<input id="cn_rm"></label>
-  <label class="f w2">After cancelling, the ticket<select id="cn_after"><option value="CO">Goes to the company</option><option value="vac">Becomes vacant for a new subscriber</option></select></label></div>
+  <label class="f w2">After cancelling, the ticket<select id="cn_after"><option value="vac" selected>Becomes vacant for a new subscriber</option><option value="CO">Goes to the company</option></select></label></div>
   <div class="calc" id="cn_sum" style="margin-top:10px"></div>
   <div class="row" style="margin-top:12px"><button class="btn d" onclick="cnSave()">Cancel ticket and calculate refund</button><button class="btn g" onclick="F.cG='';F.cT='';render()">Clear</button></div>`:''}</div>`;
  const info=!e?`<div class="card empty"><p>Choose a chit group and ticket to see what the subscriber has paid.</p></div>`:`
