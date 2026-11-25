@@ -388,6 +388,10 @@ const gList=sel=>S.groups.filter(g=>g.id===sel||gShown(g));
 function gfSet(v){F.gFilt=v;try{localStorage.setItem('cm-gfilt',v)}catch(e){}const y=scrollY;render();scrollTo(0,y)}
 const gfBox=()=>`<select class="gf" title="Which groups to list" style="width:auto;margin:0 0 4px;font-size:12px;padding:2px 4px" onchange="gfSet(this.value)">${[['run','Running groups'],['closed','Closed groups'],['all','All groups']].map(([k,l])=>`<option value="${k}" ${gFilt()===k?'selected':''}>${l}</option>`).join('')}</select>`;
 function gfDecorate(){document.querySelectorAll('select').forEach(s=>{if(s.classList.contains('gf')||!(s.querySelector('option[data-g]')||(s.options[0]&&s.options[0].value===''&&/^(Select group|All groups)$/.test(s.options[0].textContent))))return;const p=s.previousElementSibling;if(p&&p.classList.contains('gf'))return;s.insertAdjacentHTML('beforebegin',gfBox())})}
+/* "All groups" in a box that otherwise needs one group: value '__all'. gIn: does a record of group gid belong in a list for the box value sel */
+const gAllOpt=v=>`<option value="__all" ${v==='__all'?'selected':''}>All groups</option>`;
+const gSelOpts=sel=>`<option value="">Select group</option>`+gAllOpt(sel)+gopts(sel==='__all'?'':sel,0,0);
+const gIn=(sel,gid)=>{if(sel&&sel!=='__all')return gid===sel;const g=G(gid);return!g||gShown(g)};
 const gopts=(sel,all,ph)=>(all?`<option value="">All groups</option>`:ph?`<option value="">Select group</option>`:'')+gList(sel).map(g=>`<option data-g value="${g.id}" ${g.id===sel?'selected':''}>${esc(g.name)}</option>`).join('');
 const pickopts=(list,sel,blank)=>(blank?'<option value=""></option>':'')+list.map(p=>`<option value="${p.id}" data-k="${esc(pmob(p))}" ${p.id===sel?'selected':''}>${esc(mno(p)+'  '+p.name)}</option>`).join('');
 const tbl=(head,rows,r)=>`<div class="tw"><table><thead><tr>${head.map((h,i)=>`<th class="${(r||[]).includes(i)?'r':''}">${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
@@ -1055,7 +1059,7 @@ function pageEnroll(){
   <label class="f">Ticket operated<select id="e_jmode">${JMODES.map(m=>`<option ${m===(e.jmode||'Jointly')?'selected':''}>${m}</option>`).join('')}</select></label></div>
   <p class="muted" style="margin:6px 0 0">Jointly: all holders sign for the bid and the prize. Either or survivor: any one holder may.</p></fieldset>
   ${sections(secs,e)}<div class="row"><button class="btn" onclick="saveEnroll()">Save enrolment</button><button class="btn g" onclick="go('enroll')">Cancel</button></div>`}
- const gid=F.enrFilter||'',list=S.enrolls.filter(e=>!gid||e.gid===gid).sort((a,b)=>(G(a.gid)||{name:''}).name.localeCompare((G(b.gid)||{name:''}).name)||a.ticket-b.ticket);
+ const gid=F.enrFilter||'',list=S.enrolls.filter(e=>gIn(gid,e.gid)).sort((a,b)=>(G(a.gid)||{name:''}).name.localeCompare((G(b.gid)||{name:''}).name)||a.ticket-b.ticket);
  return`<div class="row" style="justify-content:space-between;align-items:center"><div><h1>Enrollment</h1><p class="sub" style="margin:0">Tickets held by each subscriber, group by group.</p></div><button class="btn" onclick="go('enroll','form')">Enroll a subscriber</button></div>
  <div class="card"><div class="row"><label class="f">Group<select onchange="F.enrFilter=this.value;render()">${gopts(gid,1)}</select></label></div>
  ${list.length?tbl(['Group','Ticket','Subscriber','Mobile','Status','Business agent','Collection agent','Pass book','Agreement','Enrolled',''],list.map(e=>{const g=G(e.gid),s=tstat(g,e.ticket);
@@ -1334,7 +1338,7 @@ function pagePayable(){if(ui.sub==='voucher'){const a=S.auctions.find(x=>x.id===
  if(ui.sub==='list')return payList();
  if(ui.sub==='tax')return taxShortPage();
  if(ui.sub==='edit'){const x=S.payouts.find(z=>z.id===ui.id);if(x)return payEdit(x)}
- if(F.payG&&!G(F.payG))F.payG='';
+ if(F.payG&&F.payG!=='__all'&&!G(F.payG))F.payG='';
  const g=G(F.payG),won=g?auctionsOf(g.id).filter(x=>!coWon(x)):[];if(F.payT&&!won.some(a=>String(a.ticket)===String(F.payT)))F.payT='';
  const a=won.find(x=>String(x.ticket)===String(F.payT)),e=a?(enrollOf(g.id,a.ticket)||{}):{},pr=a?P(e.pid):null;
  let np=0,bpAdj=0,advAdj=0,paid=0,bal=0,L=null,pu=0;
@@ -1346,7 +1350,7 @@ function pagePayable(){if(ui.sub==='voucher'){const a=S.auctions.find(x=>x.id===
  <div class="fg">
  <label class="f">Payment branch<select id="bp_pb">${OPT('m:branch',(g&&g.branch)||'').map(([v])=>`<option ${v===((g&&g.branch)||'')?'selected':''}>${esc(v)}</option>`).join('')}</select></label>
  <label class="f">Branch<input value="${esc((g&&g.branch)||'')}" readonly></label>
- <label class="f">Chit group *<select onchange="F.payG=this.value;F.payT='';F.pay=null;render()"><option value="">Select group</option>${gList(F.payG).map(x=>`<option data-g value="${x.id}" ${x.id===F.payG?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+ <label class="f">Chit group *<select onchange="F.payG=this.value;F.payT='';F.pay=null;render()">${gSelOpts(F.payG)}</select></label>
  <label class="f">Ticket no. *<select onchange="F.payT=this.value;render()" ${g&&won.length?'':'disabled'}><option value="">Select ticket</option>${won.map(x=>`<option value="${x.ticket}" ${String(x.ticket)===String(F.payT)?'selected':''}>${x.ticket}</option>`).join('')}</select></label>
  ${a&&jointOf(e).length?`<label class="f w2">Paid to<select id="bp_to">${[pnj(e)].concat([e.pid].concat(jointOf(e)).map(pname)).map(x=>`<option>${esc(x)}</option>`).join('')}</select></label>`:`<label class="f w2">Paid to<input id="bp_to" value="${esc(a?pnj(e):'')}"></label>`}
  <label class="f">Series<input id="bp_ser" value="${esc(ser)}"></label><label class="f">Voucher no.<input value="${vno}" readonly></label>
@@ -1366,7 +1370,11 @@ function pagePayable(){if(ui.sub==='voucher'){const a=S.auctions.find(x=>x.id===
  <div class="card"><h2>Payment position</h2>${R('Auction on',dmy(a.date))}${R('Installment month and year',mo)}${R('Chit amount',inr(g.amount))}${R('Company commission',inr(a.comm))}${R('Less: GST / service tax (deducted from prize)',F.taxEd===a.id?`<span style="display:inline-flex;gap:4px;align-items:center"><input type="number" id="at_v" min="0" value="${num(a.gst)}" style="width:100px"><button class="btn sm" onclick="aucTaxSet('${a.id}')">Save</button><button class="btn g sm" onclick="F.taxEd='';render()">Cancel</button></span>`:inr(a.gst)+` <button class="btn g sm" onclick="F.taxEd='${a.id}';render()">Change</button>`)}${R('Bid amount',inr(a.bid))}${R('Bid payable',inr(a.prize))}${R('Less: adjustment against bid payable',inr(bpAdj))}${R('Less: advance adjustment',inr(advAdj))}${R('Bid advance held',inr(held))}${R('Less: paid amount',inr(paid))}${R('Net payable',inr(Math.max(0,bal)),1)}${bal<=0.5?'<p style="margin-top:8px">'+pill('Fully paid','good')+'</p>':''}
  ${payOf(a).length?`<div class="row" style="margin-top:10px"><button class="btn g sm" onclick="go('payable','voucher','${a.id}')">Print voucher</button></div>`:''}</div>`;
  return`<h1>Bid payment entry</h1><p class="sub">Pay the prize money to an auction winner. Choose the group and ticket number, or find the subscriber.</p>${findPanel('pay')}
- <div class="pgrid"><div>${form}</div><div>${info}</div></div>`}
+ <div class="pgrid"><div>${form}</div><div>${info}</div></div>${F.payG==='__all'?payDueAll():''}`}
+/* Bid payable, All groups: every prize still to pay in the groups listed (running / closed / all) */
+function payDueAll(){const L=S.auctions.filter(a=>a.ticket&&!coWon(a)&&G(a.gid)&&gShown(G(a.gid))).map(a=>({a,g:G(a.gid),bal:r2(netOf(a)-sumP(a,'adjBP')-sumP(a,'adjAdv')-sumP(a,'amount'))})).filter(x=>x.bal>0.5).sort((x,y)=>String(x.a.date||'').localeCompare(String(y.a.date||''))||String(x.g.name).localeCompare(String(y.g.name),undefined,{numeric:true}));
+ const tot=L.reduce((t,x)=>t+x.bal,0);
+ return`<div class="card"><h2 style="margin-top:0">Prizes still to pay, all ${({run:'running ',closed:'closed '}[gFilt()]||'')}groups (${L.length})</h2>${L.length?tbl(['Auction date','Group','Auction','Ticket','Winner','Net prize','Paid and adjusted','Balance to pay'],L.map(x=>{const e=enrollOf(x.a.gid,x.a.ticket);return`<tr class="click" title="Pay this prize" onclick="F.payG='${x.a.gid}';F.payT='${x.a.ticket}';render();scrollTo(0,0)">${td(dmy(x.a.date))}${td(esc(x.g.name))}${td(x.a.no)}${td(x.a.ticket)}${td(esc(e?pnj(e):''))}${td(inr(netOf(x.a)),1)}${td(inr(r2(netOf(x.a)-x.bal)),1)}${td('<b>'+inr(x.bal)+'</b>',1)}</tr>`}).concat([`<tr style="font-weight:700"><td colspan="7">Total</td>${td(inr(r2(tot)),1)}</tr>`]),[5,6,7]):'<p class="muted">Every prize in these groups is paid.</p>'}</div>`}
 const PAYMODES=['Cheque','NEFT','RTGS'];
 function bpMode(){const m=$('bp_m').value;$('bp_cnl').textContent=m==='Cheque'?'Cheque number *':'UTR / reference number *';$('bp_cdw').hidden=m!=='Cheque'}
 function aucTaxSet(aid){const a=S.auctions.find(x=>x.id===aid);if(!a)return;const tx=num(($('at_v')||{}).value),g=G(a.gid)||{};
@@ -1404,7 +1412,7 @@ function taxShortSave(){const V={};document.querySelectorAll('.tx_v').forEach(i=
   log('Recorded service tax deducted on '+L.length+' prizes ('+inr(L.reduce((q,x)=>q+x.sh,0))+')');save();note(L.length+' prize'+(L.length>1?'s':'')+' updated.')})}
 function payList(){if(F.plFrom==null){F.plFrom=today().slice(0,8)+'01';F.plTo=today()}const fr=F.plFrom,to=F.plTo,gq=F.plG||'',q=(F.plQ||'').trim().toLowerCase().replace(/^(.+?)\s*\/\s*(\d+)$/,'$1 $2');
  const rows=S.payouts.filter(x=>(!fr||x.date>=fr)&&(!to||x.date<=to)).slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.vno||0)-(a.vno||0)).map(x=>{const a=S.auctions.find(y=>y.id===x.aid);return a?{x,a,g:G(a.gid)||{}}:null})
-  .filter(r=>r&&(!gq||r.a.gid===gq)&&(!q||[(r.x.series||'BPY')+' '+(r.x.vno||''),r.x.ref,r.x.paidTo,r.g.name+' '+r.a.ticket,pnj(enrollOf(r.a.gid,r.a.ticket)||{})].join(' ').toLowerCase().includes(q)));
+  .filter(r=>r&&gIn(gq,r.a.gid)&&(!q||[(r.x.series||'BPY')+' '+(r.x.vno||''),r.x.ref,r.x.paidTo,r.g.name+' '+r.a.ticket,pnj(enrollOf(r.a.gid,r.a.ticket)||{})].join(' ').toLowerCase().includes(q)));
  const live=rows.filter(r=>!r.x.dis),tp=live.reduce((s,r)=>s+num(r.x.amount),0),ta=live.reduce((s,r)=>s+num(r.x.adjBP)+num(r.x.adjAdv),0),set=(k,v)=>`F.${k}=${v};render()`;
  const TS=taxShort();
  return`<h1>Bid payments</h1><p class="sub">Prize payments made, for the dates you choose.</p>${TS.length?`<div class="card" style="border-left:4px solid var(--warn,#b45309);padding:10px 14px"><b>${TS.length} prize${TS.length>1?'s':''} paid short by about the service tax (${inr(TS.reduce((q,x)=>q+x.sh,0))}).</b> <button class="btn sm" onclick="go('payable','tax')">Check and record as tax</button></div>`:''}<div class="card"><div class="row" style="align-items:end;flex-wrap:wrap">
@@ -1421,14 +1429,14 @@ const cnFig=(g,t,v)=>{const L=ledger(g,t),paid=L?L.totalPaid:0;let comm=0;if(v.c
 const cnOf=(gid,t)=>S.cancels.find(c=>c.gid===gid&&c.ticket==t);
 const cnPaid=c=>(c.pays||[]).reduce((s,x)=>s+(x.dis?0:num(x.amount)),0);
 function pageCancel(){if(ui.sub==='voucher'){const c=S.cancels.find(x=>x.id===ui.id);if(c)return cnVoucher(c)}
- if(F.cG&&!G(F.cG))F.cG='';const g=G(F.cG);
+ if(F.cG&&F.cG!=='__all'&&!G(F.cG))F.cG='';const g=G(F.cG);
  const el=g?enrollsOf(g.id).filter(e=>e.pid!=='CO'&&!wonAuction(g.id,e.ticket)).sort((a,b)=>a.ticket-b.ticket):[];
  if(F.cT&&!el.some(e=>String(e.ticket)===String(F.cT)))F.cT='';
  const e=g&&F.cT?el.find(x=>String(x.ticket)===String(F.cT)):null,pr=e?P(e.pid):null,L=e?ledger(g,e.ticket):null;
  const R=(l,v,b)=>`<div class="pr${b?' b':''}"><span>${l}</span><span>${v}</span></div>`;
  const v0={ctype:'pctPaid',cval:0,chg:0,oth:0},fg=e?cnFig(g,e.ticket,v0):null;
  const form=`<div class="card"><h2>Cancel a chit ticket</h2><div id="err" class="err" hidden></div><div class="fg">
-  <label class="f">Chit group *<select onchange="F.cG=this.value;F.cT='';render()"><option value="">Select group</option>${gList(F.cG).map(x=>`<option data-g value="${x.id}" ${x.id===F.cG?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+  <label class="f">Chit group *<select onchange="F.cG=this.value;F.cT='';render()">${gSelOpts(F.cG)}</select></label>
   <label class="f">Ticket no. *<select onchange="F.cT=this.value;render()" ${g?'':'disabled'}><option value="">Select ticket</option>${el.map(x=>`<option value="${x.ticket}" ${String(x.ticket)===String(F.cT)?'selected':''}>${x.ticket}</option>`).join('')}</select></label></div>
   ${g?'<p class="muted">Only tickets that have not won an auction are listed. A prized subscriber has to settle the remaining installments and cannot cancel.</p>':''}
   ${e?`<div class="fg" style="margin-top:8px"><label class="f">Cancellation date *<input type="date" id="cn_d" value="${today()}"></label>
@@ -1444,7 +1452,7 @@ function pageCancel(){if(ui.sub==='voucher'){const c=S.cancels.find(x=>x.id===ui
  const info=!e?`<div class="card empty"><p>Choose a chit group and ticket to see what the subscriber has paid.</p></div>`:`
   <div class="card"><h2>Member information</h2>${R('Name',esc(pnt(e)))}${R('Mobile',esc(pmob(pr))||'-')}${R('Address',esc(paddr(pr))||'-')}</div>
   <div class="card"><h2>Account position</h2>${R('Installments fallen due',L?L.rows.length:0)}${R('Subscription due so far',inr(L?L.totalDue:0))}${R('Subscription paid',inr(L?L.totalPaid:0),1)}${R('Arrears',inr(L?Math.max(0,L.balance):0))}${R('Penalty paid (not refunded)',inr(L?L.penPaid:0))}${R('Enrolment fee paid (not refunded)',inr(L?g.enrolFee&&L.enrolDue<=0?num(g.enrolFee):0:0))}<p class="muted" style="margin-top:8px">The refund is based on the subscription actually paid. Arrears are not collected from the refund.</p></div>`;
- const rows=S.cancels.slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.vno||0)-(a.vno||0));
+ const rows=S.cancels.filter(c=>gIn(F.cG,c.gid)).sort((a,b)=>b.date.localeCompare(a.date)||(b.vno||0)-(a.vno||0));
  const sel=S.cancels.find(c=>c.id===F.cId);
  const list=`<div class="card"><h2>Cancelled tickets and refunds</h2>${rows.length?tbl(['Voucher','Date','Group','Ticket','Subscriber','Paid','Deductions','Refund','Refunded','Balance','Status',''],rows.map(c=>{const rf=cnPaid(c),bal=c.refund-rf;return`<tr>${td(esc((c.series||'CRF')+' '+c.vno))}${td(dmy(c.date))}${td(esc((G(c.gid)||{}).name||''))}${td(c.ticket)}${td(esc(pnt(c)))}${td(inr(c.paid),1)}${td(inr(c.ded),1)}${td(inr(c.refund),1)}${td(inr(rf),1)}${td(inr(Math.max(0,bal)),1)}${td(bal<=0.5?pill('Refunded','good'):(rf?pill('Part refunded','warn'):pill('Refund due','bad')))}<td>${bal>0.5?`<button class="btn g sm" onclick="F.cId='${c.id}';render();scrollTo(0,document.body.scrollHeight)">Pay refund</button> `:''}<button class="btn g sm" onclick="go('cancel','voucher','${c.id}')">Voucher</button></td></tr>`}),[5,6,7,8,9]):'<div class="empty">No ticket has been cancelled.</div>'}</div>`;
  let pay='';if(sel){const bal=sel.refund-cnPaid(sel);if(bal>0.5)pay=`<div class="card"><h2>Pay refund: ${esc((G(sel.gid)||{}).name)}, ticket ${sel.ticket}</h2><p class="muted">Refund balance ${inr(bal)}. Refunds are paid through the bank.</p><div id="err2" class="err" hidden></div><div class="fg">
@@ -1624,7 +1632,7 @@ function pageAdvance(){
  if(!S.groups.length||!S.enrolls.some(e=>e.pid!=='CO'))return`<h1>Future receipts</h1><div class="card empty"><p>Create a group and enroll subscribers before recording receipts.</p><button class="btn" onclick="go('enroll','form')">Enroll a subscriber</button></div>`;
  if(!G(F.avGroup))F.avGroup='';const g=G(F.avGroup),tix=g?enrollsOf(g.id).filter(e=>e.pid!=='CO'):[],date=F.avDate||today(),sel=tix.some(e=>e.ticket==F.avTicket)?F.avTicket:'';F.avTicket=sel;
  const ag=agents(),en=(g&&enrollOf(g.id,sel))||{},held=avHeld(),hv=Object.values(held),gf=F.avF||'';
- const list=S.receipts.filter(r=>r.advance&&(!gf||r.gid===gf)).slice().sort((a,b)=>b.no-a.no).slice(0,200),last=F.avLast?S.receipts.find(r=>r.id===F.avLast):null;
+ const list=S.receipts.filter(r=>r.advance&&gIn(gf,r.gid)).slice().sort((a,b)=>b.no-a.no).slice(0,200),last=F.avLast?S.receipts.find(r=>r.id===F.avLast):null;
  return`<style>@media(max-width:860px){.dgrid{grid-template-columns:minmax(0,1fr)!important}}</style><h1>Future receipts</h1><p class="sub">For subscribers who pay installments ahead of their due dates. The money is held on the ticket as advance and is used automatically against each installment when its auction is held.</p>
  <div class="tiles"><div class="tile"><b>${hv.length}</b><span>Tickets with future receipts</span></div><div class="tile"><b>${inr(hv.reduce((s,x)=>s+x.held,0))}</b><span>Advance still held</span></div><div class="tile"><b>${inr(hv.reduce((s,x)=>s+x.used,0))}</b><span>Already used against installments</span></div></div>
  <div class="dgrid" style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start">
@@ -1779,7 +1787,7 @@ const raCnt=a=>S.reauctions.filter(x=>x.aid===a.id).length;
 function raTickets(g,a){return enrollsOf(g.id).filter(e=>(a.no<=noAuc(g)||e.pid!=='CO')&&(!wonAuction(g.id,e.ticket)||e.ticket==a.ticket))}
 function pageReauction(){const gs=S.groups;if(!gs.length)return`<h1>Reauction entry</h1><div class="card empty"><p>Create a chit group first.</p></div>`;
  const g=G(F.raG),as=g?auctionsOf(g.id):[],a=as.find(x=>String(x.no)===String(F.raNo));
- const hist=S.reauctions.slice().sort((x,y)=>y.at.localeCompare(x.at)).slice(0,100);
+ const hist=S.reauctions.filter(x=>gIn(F.raG,x.gid)).sort((x,y)=>y.at.localeCompare(x.at)).slice(0,100);
  let body='<div class="card empty"><p>Select a chit group and the auction to be redone.</p></div>';
  if(g&&!as.length)body='<div class="card empty"><p>This group has no auctions yet.</p></div>';
  else if(g&&a){const np=payOf(a).length,el=raTickets(g,a),kinds=KINDS[methK(g,a.no)];
@@ -1794,7 +1802,7 @@ function pageReauction(){const gs=S.groups;if(!gs.length)return`<h1>Reauction en
   <div class="calc" id="racalc"></div><p class="muted">The old result is kept in the reauction history below. Installments, dividends and balances are recalculated with the new result.</p>
   <div class="row" style="margin-top:12px"><button class="btn" onclick="reaucSave()">Save reauction</button></div></div>`}`}
  return`<h1>Reauction entry</h1><p class="sub">Redo an auction that has to be held again. The new result replaces the old one for the same auction number.</p>
- <div class="row"><label class="f">Chit group<select onchange="F.raG=this.value;F.raNo='';render()">${gopts(F.raG||'',0,1)}</select></label>${g&&as.length?`<label class="f">Auction to redo<select onchange="F.raNo=this.value;render()"><option value="">Select auction</option>${as.map(x=>`<option value="${x.no}" ${String(x.no)===String(F.raNo)?'selected':''}>Auction ${x.no}: ${dmy(x.date)}, ticket ${x.ticket}</option>`).join('')}</select></label>`:''}</div>${body}
+ <div class="row"><label class="f">Chit group<select onchange="F.raG=this.value;F.raNo='';render()">${gSelOpts(F.raG||'')}</select></label>${g&&as.length?`<label class="f">Auction to redo<select onchange="F.raNo=this.value;render()"><option value="">Select auction</option>${as.map(x=>`<option value="${x.no}" ${String(x.no)===String(F.raNo)?'selected':''}>Auction ${x.no}: ${dmy(x.date)}, ticket ${x.ticket}</option>`).join('')}</select></label>`:''}</div>${body}
  <div class="card"><h2>Reauction history</h2>${hist.length?tbl(['Reauction date','Group','Auction','Old winner','Old bid','New winner','New bid','Reason','By'],hist.map(x=>`<tr>${td(dmy(x.date))}${td(esc((G(x.gid)||{}).name||''))}${td(x.no)}${td('Ticket '+x.old.ticket)}${td(inr(x.old.bid),1)}${td('Ticket '+x.nw.ticket)}${td(inr(x.nw.bid),1)}${td(esc(x.reason))}${td(esc(x.by||''))}</tr>`),[4,6]):'<div class="empty">No reauctions yet.</div>'}</div>`}
 function raCalc(){const g=G(F.raG),k=$('ra_kind');if(!g||!k)return;const auto=isAuto(k.value);if(k.value==='Lottery'&&!$('ra_bid').value)$('ra_bid').value=lotBid(g);if(auto)$('ra_bid').value=autoBid(g,num(F.raNo));$('ra_bid').readOnly=auto;
  const bid=num($('ra_bid').value),c=calcAuction(g,bid,num($('ra_gst').value)),mx=g.amount*g.maxPct/100;let w='';if(bid&&bid<c.comm)w='Bid must be at least '+inr(c.comm)+' (the commission).';else if(!auto&&bid>mx)w='Bid is above the '+g.maxPct+'% ceiling of '+inr(mx)+'.';
@@ -1816,7 +1824,7 @@ function trTickets(g){return enrollsOf(g.id).filter(e=>e.pid!=='CO'&&!wonAuction
 function pageTransfer(){if(ui.sub==='print'){const x=S.transfers.find(y=>y.id===ui.id);if(x)return trPrint(x)}
  if(!S.groups.length)return`<h1>Member transfer entry</h1><div class="card empty"><p>Create a chit group first.</p></div>`;
  const g=G(F.trG),el=g?trTickets(g):[],t=F.trT,e=g&&t?el.find(x=>String(x.ticket)===String(t)):null,L=e?ledger(g,e.ticket):null;
- const list=S.transfers.slice().sort((a,b)=>b.no-a.no).slice(0,100);
+ const list=S.transfers.filter(x=>gIn(F.trG,x.gid)).sort((a,b)=>b.no-a.no).slice(0,100);
  let form='<div class="card empty"><p>Select a chit group and the ticket to be transferred.</p></div>';
  if(g&&!el.length)form='<div class="card empty"><p>This group has no ticket that can be transferred.</p></div>';
  else if(e){const others=S.persons.filter(p=>p.id!==e.pid);
@@ -1831,7 +1839,7 @@ function pageTransfer(){if(ui.sub==='print'){const x=S.transfers.find(y=>y.id===
   <label class="f w2">Reason<input id="tr_reason" list="tr_rs" placeholder="Why is the ticket being transferred?"><datalist id="tr_rs">${['Subscriber does not want a refund','Family member takes over','Shifting out of town','Financial difficulty','Other'].map(x=>`<option value="${x}">`).join('')}</datalist></label></div>
   <div class="row" style="margin-top:12px"><button class="btn" onclick="trSave()">Save transfer</button><button class="btn" onclick="trSave(1)">Save and print</button></div></div>`}
  return`<h1>Member transfer entry</h1><p class="sub">When a subscriber leaves but does not want a refund, transfer the ticket to another member. All the money already paid stays with the ticket.</p>
- <div class="row"><label class="f">Chit group<select onchange="F.trG=this.value;F.trT='';render()">${gopts(F.trG||'',0,1)}</select></label>${g&&el.length?`<label class="f">Ticket to transfer<select onchange="F.trT=this.value;render()"><option value="">Select ticket</option>${el.map(x=>`<option value="${x.ticket}" ${String(x.ticket)===String(t)?'selected':''}>Ticket ${x.ticket}: ${esc(pnt(x))}</option>`).join('')}</select></label>`:''}</div>${form}
+ <div class="row"><label class="f">Chit group<select onchange="F.trG=this.value;F.trT='';render()">${gSelOpts(F.trG||'')}</select></label>${g&&el.length?`<label class="f">Ticket to transfer<select onchange="F.trT=this.value;render()"><option value="">Select ticket</option>${el.map(x=>`<option value="${x.ticket}" ${String(x.ticket)===String(t)?'selected':''}>Ticket ${x.ticket}: ${esc(pnt(x))}</option>`).join('')}</select></label>`:''}</div>${form}
  <div class="card"><h2>Transfers made</h2>${list.length?tbl(['No.','Date','Group','Ticket','From','To','Paid carried over','Fee','Reason',''],list.map(x=>`<tr>${td('MT '+x.no)}${td(dmy(x.date))}${td(esc((G(x.gid)||{}).name||''))}${td(x.ticket)}${td(esc(pnn(x.from)))}${td(esc(pnn(x.to)))}${td(inr(x.paid),1)}${td(inr(x.fee),1)}${td(esc(x.reason||''))}
  <td style="min-width:150px"><button class="btn g sm" onclick="goTr('print','${x.id}')">Print</button> <button class="btn d sm" onclick="trUndo('${x.id}')">Undo</button></td></tr>`),[6,7]):'<div class="empty">No transfers yet.</div>'}</div>`}
 function trSave(print){const g=G(F.trG),e=g&&enrollOf(g.id,F.trT);if(!e)return err('Choose the ticket.');const to=$('tr_to').value,date=$('tr_date').value,fee=num($('tr_fee').value);
@@ -1860,7 +1868,7 @@ const rpBal=c=>Math.max(0,Math.round((c.refund-cnPaid(c))*100)/100);
 function rpAll(){const o=[];S.cancels.forEach(c=>(c.pays||[]).forEach(x=>o.push({c,x})));return o}
 function pageRmPay(){if(ui.sub==='print'){const o=rpAll().find(z=>z.x.id===ui.id);if(o)return rpPrint(o.c,o.x)}
  if(!S.groups.length)return`<h1>Payments to removal members</h1><div class="card empty"><p>Create a chit group first.</p></div>`;
- const g=G(F.rpG),cs=S.cancels.filter(c=>(!g||c.gid===g.id)).sort((a,b)=>b.vno-a.vno),c=S.cancels.find(x=>x.id===F.rpC),bal=c?rpBal(c):0,p=c?P(c.pid):null,cg=c?G(c.gid)||{}:{},acc=S.bankAccts;
+ const g=G(F.rpG),cs=S.cancels.filter(c=>g?c.gid===g.id:gIn('',c.gid)).sort((a,b)=>b.vno-a.vno),c=S.cancels.find(x=>x.id===F.rpC),bal=c?rpBal(c):0,p=c?P(c.pid):null,cg=c?G(c.gid)||{}:{},acc=S.bankAccts;
  const R=(l,v,b)=>`<div class="pr${b?' b':''}"><span>${l}</span><span>${v}</span></div>`,D=v=>c?v:'';
  const list=rpAll().sort((a,b)=>(b.x.vno||0)-(a.x.vno||0)||b.x.date.localeCompare(a.x.date)).slice(0,150);
  const nxt=(S.seq.cmp||0)+1,can=c&&acc.length&&bal>0;
@@ -1949,9 +1957,9 @@ function pageBidAdv(){if(ui.sub==='print'){const x=S.bidAdv.find(y=>y.id===ui.id
  let pu=0;if(L){for(const r of L.rows){if(r.due-r.paid<=0.005)pu=r.no;else break}}
  const held=e?bvHeld(g.id,e.ticket):0,tot=e?bvOpen(g.id,e.ticket).reduce((s,x)=>s+num(x.amount),0):0;
  const R=(l,v,b)=>`<div class="pr${b?' b':''}"><span>${l}</span><span>${v}</span></div>`;
- const list=S.bidAdv.slice().sort((a,b)=>b.vno-a.vno).slice(0,150);
+ const list=S.bidAdv.filter(x=>gIn(F.bvG,x.gid)).sort((a,b)=>b.vno-a.vno).slice(0,150);
  const form=`<div class="card"><h2 style="margin-top:0">Bid advance entry</h2><div id="err" class="err" hidden></div>${!acc.length?'<p class="warn">Add a bank account in Accounts first. Advances are paid through the bank.</p>':''}
- <div class="fg"><label class="f">Chit group *<select onchange="F.bvG=this.value;F.bvT='';render()">${gopts(F.bvG||'',0,1)}</select></label>
+ <div class="fg"><label class="f">Chit group *<select onchange="F.bvG=this.value;F.bvT='';render()">${gSelOpts(F.bvG||'')}</select></label>
  <label class="f">Ticket no. *<select onchange="F.bvT=this.value;render()" ${g&&el.length?'':'disabled'}><option value="">Select ticket</option>${el.map(x=>{const w=wa(x);return`<option value="${x.ticket}" ${String(x.ticket)===String(F.bvT)?'selected':''}>${x.ticket}: ${esc(pnj(x))}${w?' (won auction '+w.no+' on '+dmy(w.date)+')':''}</option>`}).join('')}</select></label>
  ${e&&wa(e)?`<p class="warn w3" style="margin:0">Ticket ${e.ticket} won auction ${wa(e).no} on ${dmy(wa(e).date)}. Only an advance paid <b>before</b> that date can be entered here (an old advance). Then adjust it in that prize's bid payment.</p>`:''}
  <label class="f w2">Paid to<input id="bv_to" value="${esc(e?pnj(e):'')}"></label>
@@ -1992,10 +2000,10 @@ const pdRow=i=>`<tr id="pdr_${i}"><td><input id="pd_n${i}" placeholder="Cheque n
 function pdAddRow(){const tb=$('pd_rows');tb.insertAdjacentHTML('beforeend',pdRow(tb.children.length))}
 function pageCheqPd(){const g=G(F.pdG),el=g?enrollsOf(g.id).filter(e=>e.pid!=='CO'):[],st=F.pdSt||'pending',q=(F.pdQ||'').toLowerCase();
  const tx=x=>(x.chqNo+' '+pnj(x)+' '+((G(x.gid)||{}).name||'')).toLowerCase();
- const list=S.pdcs.filter(x=>(st==='all'||(st==='pending'?x.status==='Pending':st==='due'?(x.status==='Pending'&&x.date<=today()):x.status.toLowerCase()===st))&&(!q||tx(x).includes(q))).sort((a,b)=>a.date.localeCompare(b.date)||a.no-b.no).slice(0,300);
+ const list=S.pdcs.filter(x=>gIn(F.pdG,x.gid)&&(st==='all'||(st==='pending'?x.status==='Pending':st==='due'?(x.status==='Pending'&&x.date<=today()):x.status.toLowerCase()===st))&&(!q||tx(x).includes(q))).sort((a,b)=>a.date.localeCompare(b.date)||a.no-b.no).slice(0,300);
  const due=pdDue();
  return`<h1>Post dated cheque entry</h1><p class="sub">Record the cheques a subscriber gives in advance. On each cheque date the dashboard reminds you, and staff pass the receipt from here.</p>
- <div class="card"><h2 style="margin-top:0">New cheques</h2><div id="err" class="err" hidden></div><div class="fg"><label class="f">Chit group *<select onchange="F.pdG=this.value;render()">${gopts(F.pdG||'',0,1)}</select></label>
+ <div class="card"><h2 style="margin-top:0">New cheques</h2><div id="err" class="err" hidden></div><div class="fg"><label class="f">Chit group *<select onchange="F.pdG=this.value;render()">${gSelOpts(F.pdG||'')}</select></label>
  ${msBox('pd_t')}<label class="f w2">Ticket and subscriber *<select id="pd_t" ${g&&el.length?'':'disabled'}><option value="">${g?(el.length?'Select ticket':'No enrolled tickets'):'Select a group first'}</option>${el.map(e=>`<option value="${e.ticket}" data-k="${esc(pmob(P(e.pid)))}">Ticket ${e.ticket}: ${esc(pnt(e))}</option>`).join('')}</select></label>
  <label class="f">Bank *<input id="pd_b" placeholder="Bank name"></label><label class="f">Place<input id="pd_p"></label><label class="f">Agent<select id="pd_ag">${pickopts(agents(),'',1)}</select></label><label class="f w2">Narration<input id="pd_nt" placeholder="Optional"></label></div>
  <table style="margin-top:10px;max-width:640px"><thead><tr><th>Cheque number *</th><th>Cheque date *</th><th>Amount (₹) *</th></tr></thead><tbody id="pd_rows">${[0,1,2].map(pdRow).join('')}</tbody></table>
@@ -2135,7 +2143,7 @@ function pageReceipts(){
  const slip=F.rview?S.receipts.find(r=>r.id===F.rview):null;
  if(F.rcpFilter&&!G(F.rcpFilter))F.rcpFilter='';if(!F.rcpFilter)F.rcpTk='';
  {const m=String(F.rcpQ||'').trim().match(/^(.+?)\s*[\/\-\s]\s*(\d+)$/);if(m){const gg=S.groups.find(x=>low(x.name)===low(m[1].trim()));if(gg){F.rcpFilter=gg.id;F.rcpTk=m[2];F.rcpQ=''}}}
- const rq=String(F.rcpQ||'').trim().toLowerCase(),list0=S.receipts.filter(r=>(!F.rcpFilter||r.gid===F.rcpFilter)&&(!F.rcpTk||String(r.ticket)===String(F.rcpTk))&&(!F.rcpFrom||r.date>=F.rcpFrom)&&(!F.rcpTo||r.date<=F.rcpTo)&&(!rq||rcHay(r).includes(rq))).slice().reverse(),shw=!!(rq||F.rcpFrom||F.rcpTo||F.rcpFilter),list=shw?list0.slice(0,300):[];
+ const rq=String(F.rcpQ||'').trim().toLowerCase(),list0=S.receipts.filter(r=>gIn(F.rcpFilter,r.gid)&&(!F.rcpTk||String(r.ticket)===String(F.rcpTk))&&(!F.rcpFrom||r.date>=F.rcpFrom)&&(!F.rcpTo||r.date<=F.rcpTo)&&(!rq||rcHay(r).includes(rq))).slice().reverse(),shw=!!(rq||F.rcpFrom||F.rcpTo||F.rcpFilter),list=shw?list0.slice(0,300):[];
  return`<h1>Receipts</h1><p class="sub">Record installment payments, penalties and fees.</p>${findPanel('receipt')}
  ${slip?`<div class="card"><h2>Receipt ${slip.no}${slip.cancel?' (cancelled)':''}</h2><pre style="margin:0 0 10px;white-space:pre-wrap;font:inherit">${esc(slipText(slip))}</pre>${rcApplied(slip)}<div class="row" style="margin:0"><button class="btn sm" onclick="copyText(slipText(S.receipts.find(r=>r.id==='${slip.id}')),'Receipt copied.')">Copy receipt text</button><button class="btn sm" onclick="goReceipt('print','${slip.id}')">Print</button><button class="btn sm" onclick="goReceipt('sms','${slip.id}')">SMS</button><button class="btn sm" onclick="goReceipt('print','${slip.id}')">WhatsApp / Email</button><button class="btn g sm" onclick="F.rview=null;render()">Close</button></div></div>`:''}
  <style>.rcx{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px;margin-bottom:14px}
@@ -4675,7 +4683,7 @@ function pageNotices(){if(ui.sub==='print')return ntPrintPage();const t=ui.ntTyp
  <div class="row"><button class="btn" onclick="ntPrint()">Print and record ${sel} notice${sel===1?'':'s'}</button><button class="btn g" onclick="ntRecord()">Record as issued without printing</button>${!String(n.tk||'').trim()&&D.a!=='chq'?'<button class="btn g" onclick="F.nt.showAll=false;render()">Hide list</button>':''}</div>
  ${l.length?tbl([`<input type="checkbox" style="width:auto" title="Select all / none" aria-label="Select all or none" ${sel===l.length?'checked':''} onchange="{F.nt.unsel={};if(!this.checked)ntRecips().forEach(r=>F.nt.unsel[r.key]=1);render()}">`,'Group','Ticket','Subscriber','Mobile','Owes (₹)','Last issued','',''],l.slice(0,400).map(r=>{const s=ntSnap(n.type,r,pa);return`<tr><td><input type="checkbox" style="width:auto" ${n.unsel[r.key]?'':'checked'} onchange="F.nt.unsel['${r.key}']=!this.checked;render()"></td>${td(esc(r.g?r.g.name:''))}${td(r.t)}${td(esc(r.p?r.p.name:'')+(r.sp?' <span class="muted">for '+esc(r.sp.name)+'</span>':''))}${td(esc(r.p?pmob(r.p):''))}${td(s.bal>0.5?Math.round(s.bal):'',1)}${td(esc(last(r)))}<td><button class="btn g sm" onclick="F.ntPv='${r.key}';render()">Preview</button></td><td>${r.p&&waNum(pmob(r.p)).length>=12?`<a class="btn g sm" target="_blank" rel="noopener" style="text-decoration:none" onclick="ntWa('${r.key}')" href="https://wa.me/${waNum(pmob(r.p))}?text=${encodeURIComponent(ntText(r))}">WhatsApp</a>`:''}</td></tr>`}),[5]):'<div class="empty">No subscriber matches.</div>'}`}</div>
  ${F.ntPv?(()=>{const r=l.find(x=>x.key===F.ntPv);if(!r)return'';const sn=ntSnap(n.type,r,pa);return`<div class="card"><h2 style="margin-top:0">Preview</h2><div class="slip" style="max-width:none">${ntLetter({no:'(new)',date:today(),type:n.type,snap:sn,lang:NTLANG,text:ntBody(n.type,sn,NTLANG)})}</div><button class="btn g sm" onclick="F.ntPv='';render()">Close preview</button></div>`})():''}`}
-function ntRegister(){const n=ntState(),q=(n.q||'').toLowerCase();let l=NS().filter(x=>(!n.from||x.date>=n.from)&&(!n.to||x.date<=n.to)&&(!n.rtype||x.type===n.rtype)&&(!n.gid||x.gid===n.gid)&&(!q||[x.no,(P(x.pid)||{}).name,x.ticket,(G(x.gid)||{}).name,x.mode].join(' ').toLowerCase().includes(q))).slice().reverse();
+function ntRegister(){const n=ntState(),q=(n.q||'').toLowerCase();let l=NS().filter(x=>(!n.from||x.date>=n.from)&&(!n.to||x.date<=n.to)&&(!n.rtype||x.type===n.rtype)&&gIn(n.gid,x.gid)&&(!q||[x.no,(P(x.pid)||{}).name,x.ticket,(G(x.gid)||{}).name,x.mode].join(' ').toLowerCase().includes(q))).slice().reverse();
  return`<h1>Notices issued register</h1><p class="sub">Every letter printed or recorded, with who got it and how.</p><div class="card"><div class="row" style="align-items:flex-end"><label class="f">From<input type="date" value="${n.from}" onchange="dtSet(this,v=>F.nt.from=v)"></label><label class="f">To<input type="date" value="${n.to}" onchange="dtSet(this,v=>F.nt.to=v)"></label><label class="f">Notice<select onchange="F.nt.rtype=this.value;render()"><option value="">All notices</option>${NTMENU.map(k=>`<option value="${k}" ${n.rtype===k?'selected':''}>${NTD[k].t}</option>`).join('')}</select></label><label class="f">Group<select onchange="F.nt.gid=this.value;render()">${gopts(n.gid,1)}</select></label><label class="f">Search<input value="${esc(n.q||'')}" placeholder="Name, ticket, notice no." onchange="F.nt.q=this.value;render()"></label></div></div>
  <div class="card"><h2 style="margin-top:0">${l.length} notice${l.length===1?'':'s'}</h2>${l.length?tbl(['No.','Date','Notice','Group','Ticket','Name','Amount (₹)','Sent by','By',''],l.slice(0,300).map(x=>`<tr>${td(x.no)}${td(dmy(x.date))}${td(esc((NTD[x.type]||{}).t||x.type))}${td(esc((G(x.gid)||{}).name||''))}${td(x.ticket)}${td(esc(((x.snap||{}).name)||pnt(x)))}${td(x.amount?Math.round(x.amount):'',1)}${td(esc(x.mode))}${td(esc(x.by||''))}<td style="white-space:nowrap"><button class="btn g sm" onclick="F.ntPrint=['${x.id}'];ui={page:'notices',sub:'print',ntType:'register'};render()">Reprint</button> <button class="btn d sm" onclick="ntDel('${x.id}')">Delete</button></td></tr>`),[6]):'<div class="empty">No notices recorded yet.</div>'}</div>`}
 function ntDel(id){const x=NS().find(y=>y.id===id);askConfirm('Delete notice '+x.no+' ('+((NTD[x.type]||{}).t||x.type)+') from the register?',()=>{S.notices=NS().filter(y=>y.id!==id);log('Deleted notice '+x.no);save();note('Notice deleted.')})}
@@ -4848,7 +4856,8 @@ function gcCheck(g){const as=auctionsOf(g.id),items=[],tk=enrollsOf(g.id).filter
  items.push({ok:!rf.length,x:rf.length?rf.length+' removed member refund(s) still due':'No refund due to removed members'});
  return{items,ar,cr}}
 function pageGClose(){const g=G(ui.gcg||'');
- const head=`<h1>Group closing and settlement</h1><p class="sub">Close a finished chit group after every auction, prize payment and balance is settled. A closed group shows as Closed and stays in all reports.</p><div class="card"><div class="row" style="align-items:flex-end"><label class="f">Chit group<select onchange="ui.gcg=this.value;render()">${gopts(ui.gcg||'',0,1)}</select></label></div></div>`;
+ const head=`<h1>Group closing and settlement</h1><p class="sub">Close a finished chit group after every auction, prize payment and balance is settled. A closed group shows as Closed and stays in all reports.</p><div class="card"><div class="row" style="align-items:flex-end"><label class="f">Chit group<select onchange="ui.gcg=this.value;render()">${gSelOpts(ui.gcg||'')}</select></label></div></div>`;
+ if(ui.gcg==='__all'){const L=S.groups.filter(gShown);return head+`<div class="card"><h2 style="margin-top:0">All ${({run:'running ',closed:'closed '}[gFilt()]||'')}groups (${L.length})</h2>${L.length?tbl(['Group','Status','Termination','Items still open','Closed on',''],L.map(x=>{const c=gcCheck(x),op=c.items.filter(i=>!i.ok),st=gstatus(x),tm=gTerm(x);return`<tr class="click" onclick="ui.gcg='${x.id}';render()">${td(esc(x.name))}${td(pill(st[0],st[1]))}${td(tm?dmy(tm):'-')}${td(op.length?op.map(i=>esc(i.x)).join('<br>'):pill('None','good'))}${td(x.closed?dmy(x.closed.date):'')}<td><button class="btn g sm">Open</button></td></tr>`})):'<p class="muted">No groups in this list.</p>'}</div>`}
  if(!g){const cl=S.groups.filter(x=>x.closed);return head+`<div class="card"><h2 style="margin-top:0">Closed groups (${cl.length})</h2>${cl.length?tbl(['Group','Closed on','By','Note'],cl.map(x=>`<tr>${td(esc(x.name))}${td(dmy(x.closed.date))}${td(esc(x.closed.by||''))}${td(esc(x.closed.note||''))}</tr>`)):'<p class="muted">None yet.</p>'}</div>`}
  const c=gcCheck(g),hardOk=c.items.filter(i=>i.hard).every(i=>i.ok),all=c.items.every(i=>i.ok);
  return head+`<div class="card"><h2 style="margin-top:0">${esc(g.name)} ${g.closed?pill('Closed on '+dmy(g.closed.date),'mute'):''}</h2>${c.items.map(i=>`<div style="padding:6px 0;border-top:1px solid var(--line)">${pill(i.ok?'OK':'Open',i.ok?'good':'bad')} ${esc(i.x)}</div>`).join('')}
