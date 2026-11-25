@@ -5192,6 +5192,15 @@ function dataFixes(){S.fixes=S.fixes||[];const nm=x=>low(x).replace(/\s+/g,'');
  /* one-time (2026-11-17): receipts adjusted from an advance receipt are named 'Advance receipt adjustment' (were 'Future receipt adjustment') */
  if(!S.fixes.includes('adv-adj-name')){let n=0;S.receipts.forEach(r=>{if(r.mode==='Future receipt adjustment'){r.mode='Advance receipt adjustment';n++}});
   if(n)log(n+' receipt(s) renamed from Future receipt adjustment to Advance receipt adjustment');S.fixes.push('adv-adj-name');save()}
+ /* one-time (2026-11-25): tickets that went to the company on a member removal become vacant for a new subscriber,
+    unless something was entered on them after the removal (a receipt, an auction, a post dated cheque or a bid advance). Kept in S.fixKept['rm-co-vacant'] */
+ if(!S.fixes.includes('rm-co-vacant')){const done=[],kept=[],skip=[];
+  S.enrolls.filter(e=>e.pid==='CO'&&e.cancelledFrom).forEach(e=>{const g=G(e.gid),c=S.cancels.find(x=>x.id===e.cancelledFrom),nm=(g?g.name:'?')+'/'+e.ticket;
+   const used=S.receipts.some(r=>r.gid===e.gid&&r.ticket==e.ticket&&!r.settled&&!r.cancel)||wonAuction(e.gid,e.ticket)||(S.pdcs||[]).some(x=>x.gid===e.gid&&x.ticket==e.ticket&&x.status!=='Cancelled')||(S.bidAdv||[]).some(x=>x.gid===e.gid&&x.ticket==e.ticket);
+   if(used){skip.push(nm);return}
+   kept.push(JSON.parse(JSON.stringify(e)));S.enrolls=S.enrolls.filter(x=>x!==e);if(c)c.after='vac';done.push(nm);log('Ticket '+nm+' made vacant (it had gone to the company on member removal)')});
+  S.fixKept=S.fixKept||{};S.fixKept['rm-co-vacant']=kept;S.fixes.push('rm-co-vacant');save();
+  if(done.length||skip.length)FIXMSG=(FIXMSG?FIXMSG+' ':'')+(done.length?done.length+' ticket'+(done.length>1?'s':'')+' taken by the company on member removal now vacant for a new subscriber: '+done.join(', ')+'.':'')+(skip.length?' Left with the company because something is entered on them after the removal: '+skip.join(', ')+'.':'')}
 }
 function initS(c){S.seq.m=Math.max(S.seq.m||0,...S.persons.map(x=>x.mno||0));S.persons.forEach(p=>{if(!p.mno)p.mno=++S.seq.m});S.auctions.forEach(a=>{const g=G(a.gid);if(!g)return;const c=calcAuction(g,a.bid,a.gstPct);Object.assign(a,{comm:c.comm,gst:c.gst,prize:c.prize,netPrize:c.netPrize,pool:c.pool,div:c.div,net:c.net})});if(!S.company&&c&&c.name)S.company=c.name;if(S.accts.length)AX.forEach(a=>{if(!S.accts.some(x=>x.id===a.id))S.accts.push(Object.assign({},a))});ocApply();save()}
 /* paste a date into any date box (15/12/2023, 15-12-2023, 15.12.23, 2023-12-15, 15 Dec 2023) */
